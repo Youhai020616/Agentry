@@ -1,0 +1,140 @@
+{
+  "hub": {
+    "title": "我的员工",
+    "subtitle": "管理你的 AI 团队",
+    "empty": "还没有员工，去市场雇佣你的第一个 AI 员工吧。",
+    "search": "搜索员工...",
+    "filterAll": "全部",
+    "filterActive": "活跃",
+    "filterIdle": "空闲"
+  },
+  "card": {
+    "activate": "激活",
+    "deactivate": "停用",
+    "chat": "对话",
+    "settings": "设置",
+    "delete": "移除",
+    "viewTasks": "查看任务"
+  },
+  "status": {
+    "idle": "空闲",
+    "working": "工作中",
+    "blocked": "受阻",
+    "error": "异常",
+    "offline": "离线"
+  },
+  "create": {
+    "title": "雇佣员工",
+    "nameLabel": "员工名称",
+    "namePlaceholder": "例如：SEO 专家",
+    "skillLabel": "基于技能",
+    "confirm": "雇佣",
+    "cancel": "取消"
+  },
+  "detail": {
+    "role": "角色",
+    "team": "团队",
+    "currentTask": "当前任务",
+    "completedTasks": "已完成任务",
+    "totalCredits": "已用积分",
+    "since": "入职时间",
+    "notFound": "未找到该员工",
+    "backToHub": "返回员工列表",
+    "activating": "正在激活员工..."
+  },
+  "secrets": {
+    "title": "工具配置",
+    "description": "配置 {{name}} 的工具 API 密钥和秘钥",
+    "configured": "已配置",
+    "notConfigured": "未配置",
+    "save": "保存",
+    "saved": "密钥已保存",
+    "getKey": "获取 API 密钥",
+    "showSecret": "显示",
+    "hideSecret": "隐藏"
+  },
+  "memory": {
+    "title": "记忆",
+    "episodic": "过往经验",
+    "noMemories": "暂无记忆",
+    "count": "{{count}} 条记忆",
+    "importance": "重要程度",
+    "tags": "标签",
+    "stored": "记忆已保存",
+    "deleted": "记忆已删除",
+    "search": "搜索记忆..."
+  },
+  "onboarding": {
+    "title": "配置 {{name}}",
+    "back": "上一步",
+    "next": "继续",
+    "startLogin": "开始配置",
+    "finish": "完成配置",
+    "cancel": "取消",
+    "steps": {
+      "welcome": {
+        "subtitle": "让我们准备好你的员工",
+        "heading": "这个员工能做什么",
+        "whatNeeded": "我们需要你做什么",
+        "needLogin": "在浏览器窗口中登录你的账号",
+        "needCamofox": "本地运行 Camofox 浏览器（用于自动化）",
+        "privacy": "你的密码不会被存储，仅保存会话 Cookie 在本地。"
+      },
+      "camofox": {
+        "subtitle": "浏览器引擎",
+        "heading": "配置 Camofox",
+        "description": "Camofox 是一个反检测浏览器，代替你执行自动化操作。它需要在本地运行。",
+        "checking": "正在检测 Camofox...",
+        "online": "Camofox 运行中",
+        "offline": "Camofox 未运行",
+        "ready": "Camofox 已连接就绪，可以继续下一步。",
+        "installTitle": "安装和启动方法",
+        "step1": "从 GitHub 下载",
+        "step2": "安装并启动",
+        "skipNote": "你可以跳过此步骤，稍后再配置 Camofox。在 Camofox 运行之前，员工无法执行任务。"
+      },
+      "login": {
+        "subtitle": "账号登录",
+        "heading": "登录你的账号",
+        "description": "将打开一个浏览器窗口，正常登录即可 — 我们会自动捕获会话 Cookie。",
+        "openBrowser": "打开登录页面",
+        "waiting": "等待你登录...",
+        "waitingDesc": "请在弹出的浏览器窗口中完成登录，我们会自动检测。",
+        "success": "登录成功！",
+        "successDesc": "会话 Cookie 已捕获。你的密码是安全的 — 仅存储 Cookie。",
+        "error": "登录失败",
+        "retry": "重试",
+        "cancelLogin": "取消",
+        "noOAuth": "此窗口不支持 Google/Apple 第三方登录。请直接使用用户名和密码登录。"
+      },
+      "configure": {
+        "subtitle": "配置设置",
+        "heading": "调整行为参数",
+        "username": "用户名",
+        "usernamePlaceholder": "你的用户名",
+        "camofoxPort": "Camofox 端口",
+        "camofoxApiKey": "Camofox API 密钥",
+        "advanced": "高级设置",
+        "upvotes": "每日点赞数",
+        "comments": "每日评论数"
+      },
+      "complete": {
+        "subtitle": "准备就绪",
+        "heading": "配置完成！",
+        "description": "你的员工已配置好，随时可以开始工作。",
+        "summary": "配置摘要",
+        "account": "账号",
+        "dailyTarget": "每日活动",
+        "upvotesComments": "每天 {{upvotes}} 个点赞，{{comments}} 条评论",
+        "captured": "已捕获"
+      }
+    }
+  },
+  "teams": {
+    "marketing": "市场营销",
+    "development": "开发",
+    "design": "设计",
+    "writing": "写作",
+    "research": "研究"
+  }
+}

@@ -25,6 +25,10 @@ export interface RawMessage {
   toolName?: string;
   details?: unknown;
   isError?: boolean;
+  /** Stop reason from LLM provider (e.g., 'end_turn', 'toolUse', 'error') */
+  stopReason?: string;
+  /** Error message from the LLM provider (e.g., credits exhausted) */
+  errorMessage?: string;
   /** Local-only: file metadata for user-uploaded attachments (not sent to/from Gateway) */
   _attachedFiles?: AttachedFileMeta[];
 }
@@ -482,6 +486,59 @@ function hasNonToolAssistantContent(message: RawMessage | undefined): boolean {
   return false;
 }
 
+/**
+ * Normalize a timestamp to milliseconds.
+ * Gateway may return timestamps in seconds (10 digits) or milliseconds (13 digits).
+ * Our local timestamps use Date.now() (milliseconds).
+ */
+function toMs(ts: number): number {
+  // Timestamps < 1e12 are in seconds (up to year 33658 in ms, year 2001 in s).
+  // In practice: seconds ≈ 1.74e9, milliseconds ≈ 1.74e12 for 2025.
+  return ts < 1e12 ? ts * 1000 : ts;
+}
+
+// ── pendingFinal safety net ──────────────────────────────────────
+// If pendingFinal stays true (loadHistory didn't find a resolving message),
+// retry loadHistory after a delay, then hard-reset sending state as a last resort.
+
+let _pendingFinalRetryTimer: ReturnType<typeof setTimeout> | null = null;
+let _pendingFinalTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearPendingFinalTimers() {
+  if (_pendingFinalRetryTimer) { clearTimeout(_pendingFinalRetryTimer); _pendingFinalRetryTimer = null; }
+  if (_pendingFinalTimeoutTimer) { clearTimeout(_pendingFinalTimeoutTimer); _pendingFinalTimeoutTimer = null; }
+}
+
+function schedulePendingFinalSafetyNet(
+  getState: () => ChatState,
+  setState: (partial: Partial<ChatState>) => void,
+) {
+  clearPendingFinalTimers();
+
+  // Retry loadHistory after 2 seconds
+  _pendingFinalRetryTimer = setTimeout(() => {
+    const s = getState();
+    if (s.pendingFinal && s.sending) {
+      console.warn('[pendingFinal] Retrying loadHistory after 2s');
+      s.loadHistory();
+    }
+  }, 2000);
+
+  // Hard reset after 8 seconds as last resort
+  _pendingFinalTimeoutTimer = setTimeout(() => {
+    const s = getState();
+    if (s.pendingFinal && s.sending) {
+      console.warn('[pendingFinal] Hard reset after 8s timeout');
+      setState({
+        sending: false,
+        activeRunId: null,
+        pendingFinal: false,
+        lastUserMessageAt: null,
+      });
+    }
+  }, 8000);
+}
+
 // ── Store ────────────────────────────────────────────────────────
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -655,12 +712,45 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (pendingFinal) {
           const recentAssistant = [...filteredMessages].reverse().find((msg) => {
             if (msg.role !== 'assistant') return false;
-            if (!hasNonToolAssistantContent(msg)) return false;
-            if (lastUserMessageAt && msg.timestamp && msg.timestamp < lastUserMessageAt) return false;
-            return true;
+            if (lastUserMessageAt && msg.timestamp && toMs(msg.timestamp) < toMs(lastUserMessageAt)) return false;
+            // Accept messages with actual content OR error responses
+            if (hasNonToolAssistantContent(msg)) return true;
+            const sr = msg.stopReason || (msg as unknown as Record<string, unknown>).stop_reason;
+            if (sr === 'error' || msg.errorMessage) return true;
+            return false;
           });
           if (recentAssistant) {
-            set({ sending: false, activeRunId: null, pendingFinal: false });
+            // Surface error messages from the LLM provider (e.g., 402 credits exhausted)
+            const errMsg = recentAssistant.errorMessage
+              ? String(recentAssistant.errorMessage)
+              : undefined;
+            clearPendingFinalTimers();
+            set({
+              sending: false,
+              activeRunId: null,
+              pendingFinal: false,
+              ...(errMsg ? { error: errMsg } : {}),
+            });
+          } else {
+            // No resolving assistant message found — check if the last message
+            // in history is an assistant with empty content (run may have errored
+            // without producing output). Resolve pendingFinal to avoid infinite
+            // sending state.
+            const lastMsg = filteredMessages.length > 0
+              ? filteredMessages[filteredMessages.length - 1]
+              : null;
+            if (lastMsg && lastMsg.role === 'assistant' && !hasNonToolAssistantContent(lastMsg)) {
+              const errMsg = lastMsg.errorMessage
+                ? String(lastMsg.errorMessage)
+                : undefined;
+              clearPendingFinalTimers();
+              set({
+                sending: false,
+                activeRunId: null,
+                pendingFinal: false,
+                ...(errMsg ? { error: errMsg } : {}),
+              });
+            }
           }
         }
       } else {
@@ -684,7 +774,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const userMsg: RawMessage = {
       role: 'user',
       content: trimmed || (attachments?.length ? '(file attached)' : ''),
-      timestamp: Date.now() / 1000,
+      timestamp: Date.now(),
       id: crypto.randomUUID(),
       _attachedFiles: attachments?.map(a => ({
         fileName: a.fileName,
@@ -799,6 +889,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const eventState = String(event.state || '');
     const { activeRunId } = get();
 
+    // Debug: trace incoming chat events
+    if (process.env.NODE_ENV === 'development') {
+      const msgInfo = event.message && typeof event.message === 'object'
+        ? ` msg.role=${(event.message as Record<string, unknown>).role}`
+        : '';
+      console.debug(`[handleChatEvent] state="${eventState}" runId="${runId.slice(0, 8)}" active="${String(activeRunId).slice(0, 8)}"${msgInfo}`);
+    }
+
     // Only process events for the active run (or if no active run set)
     if (activeRunId && runId && runId !== activeRunId) return;
 
@@ -849,10 +947,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
           }
           const toolOnly = isToolOnlyMessage(finalMsg);
           const hasOutput = hasNonToolAssistantContent(finalMsg);
+          // Detect error responses (e.g., 402 credits exhausted from OpenRouter).
+          // These have empty content but errorMessage/stopReason=error.
+          const fmAny = finalMsg as unknown as Record<string, unknown>;
+          const isErrorResponse = !!(
+            finalMsg.errorMessage ||
+            finalMsg.stopReason === 'error' ||
+            fmAny.stop_reason === 'error'
+          );
+          // Run is resolved if we have actual content OR it's an error response
+          const isResolved = hasOutput || isErrorResponse;
           const msgId = finalMsg.id || (toolOnly ? `run-${runId}-tool-${Date.now()}` : `run-${runId}`);
+          // Surface error message to the store
+          if (isErrorResponse && finalMsg.errorMessage) {
+            set({ error: String(finalMsg.errorMessage) });
+          }
           set((s) => {
             const nextTools = updates.length > 0 ? upsertToolStatuses(s.streamingTools, updates) : s.streamingTools;
-            const streamingTools = hasOutput ? [] : nextTools;
+            const streamingTools = isResolved ? [] : nextTools;
             // Check if message already exists (prevent duplicates)
             const alreadyExists = s.messages.some(m => m.id === msgId);
             if (alreadyExists) {
@@ -865,9 +977,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
               } : {
                 streamingText: '',
                 streamingMessage: null,
-                sending: hasOutput ? false : s.sending,
-                activeRunId: hasOutput ? null : s.activeRunId,
-                pendingFinal: hasOutput ? false : true,
+                sending: isResolved ? false : s.sending,
+                activeRunId: isResolved ? null : s.activeRunId,
+                pendingFinal: isResolved ? false : true,
                 streamingTools,
               };
             }
@@ -889,21 +1001,29 @@ export const useChatStore = create<ChatState>((set, get) => ({
               }],
               streamingText: '',
               streamingMessage: null,
-              sending: hasOutput ? false : s.sending,
-              activeRunId: hasOutput ? null : s.activeRunId,
-              pendingFinal: hasOutput ? false : true,
+              sending: isResolved ? false : s.sending,
+              activeRunId: isResolved ? null : s.activeRunId,
+              pendingFinal: isResolved ? false : true,
               streamingTools,
             };
           });
+          // If still pending after set, schedule safety net
+          if (get().pendingFinal) {
+            schedulePendingFinalSafetyNet(get, set);
+          } else {
+            clearPendingFinalTimers();
+          }
         } else {
           // No message in final event - reload history to get complete data
           set({ streamingText: '', streamingMessage: null, pendingFinal: true });
           get().loadHistory();
+          schedulePendingFinalSafetyNet(get, set);
         }
         break;
       }
       case 'error': {
         const errorMsg = String(event.errorMessage || 'An error occurred');
+        clearPendingFinalTimers();
         set({
           error: errorMsg,
           sending: false,
@@ -917,6 +1037,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         break;
       }
       case 'aborted': {
+        clearPendingFinalTimers();
         set({
           sending: false,
           activeRunId: null,

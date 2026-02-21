@@ -127,6 +127,99 @@ const electronAPI = {
         'openclaw:getSkillsDir',
         'openclaw:getCliCommand',
         'openclaw:installCliMac',
+        // Employee
+        'employee:list',
+        'employee:get',
+        'employee:activate',
+        'employee:deactivate',
+        'employee:status',
+        'employee:scan',
+        'employee:setSecret',
+        'employee:getSecrets',
+        'employee:getManifest',
+        // Task
+        'task:create',
+        'task:list',
+        'task:get',
+        'task:update',
+        'task:claim',
+        'task:complete',
+        'task:cancel',
+        'task:available',
+        'task:rate',
+        // Project
+        'project:create',
+        'project:list',
+        'project:get',
+        'project:execute',
+        // Message
+        'message:send',
+        'message:inbox',
+        'message:markRead',
+        // Built-in skills
+        'skill:listBuiltin',
+        // Onboarding (Browser Login)
+        'onboarding:browserLogin',
+        'onboarding:cancelLogin',
+        'onboarding:saveData',
+        'onboarding:getData',
+        // Camofox
+        'camofox:health',
+        'camofox:pushCookies',
+        // Execution
+        'execution:run',
+        'execution:cancel',
+        'execution:status',
+        // Memory (Episodic)
+        'memory:store',
+        'memory:recall',
+        'memory:search',
+        'memory:delete',
+        'memory:count',
+        // Memory (Semantic)
+        'memory:setSemantic',
+        'memory:getSemantic',
+        'memory:getSemanticByCategory',
+        'memory:getAllSemantic',
+        'memory:deleteSemantic',
+        // Activity
+        'activity:list',
+        // Credits
+        'credits:balance',
+        'credits:history',
+        'credits:consume',
+        'credits:topup',
+        'credits:dailySummary',
+        'credits:byEmployee',
+        'credits:byType',
+        // Prohibition (Rules & Restrictions)
+        'prohibition:list',
+        'prohibition:create',
+        'prohibition:update',
+        'prohibition:delete',
+        'prohibition:toggle',
+        // User
+        'user:list',
+        'user:get',
+        'user:create',
+        'user:update',
+        'user:delete',
+        'user:current',
+        'user:switch',
+        // License
+        'license:validate',
+        'license:status',
+        'license:deactivate',
+        // Ollama
+        'ollama:status',
+        'ollama:listModels',
+        'ollama:pullModel',
+        'ollama:deleteModel',
+        // Supervisor
+        'supervisor:enable',
+        'supervisor:disable',
+        'supervisor:status',
+        'supervisor:dispatch',
       ];
 
       if (validChannels.includes(channel)) {
@@ -160,6 +253,12 @@ const electronAPI = {
         'update:downloaded',
         'update:error',
         'cron:updated',
+        'employee:status-changed',
+        'task:changed',
+        'ollama:pull-progress',
+        'supervisor:delegation-started',
+        'supervisor:delegation-completed',
+        'supervisor:delegation-failed',
       ];
 
       if (validChannels.includes(channel)) {

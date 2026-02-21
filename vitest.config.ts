@@ -18,6 +18,7 @@ export default defineConfig({
     alias: {
       '@': resolve(__dirname, 'src'),
       '@electron': resolve(__dirname, 'electron'),
+      'better-sqlite3': resolve(__dirname, 'tests/__mocks__/better-sqlite3.ts'),
     },
   },
 });

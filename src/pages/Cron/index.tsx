@@ -20,6 +20,7 @@ import {
   Loader2,
   Timer,
   History,
+  UserCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,9 +29,11 @@ import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select } from '@/components/ui/native-select';
 import { useCronStore } from '@/stores/cron';
 import { useChannelsStore } from '@/stores/channels';
 import { useGatewayStore } from '@/stores/gateway';
+import { useEmployeesStore } from '@/stores/employees';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { formatRelativeTime, cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -124,10 +127,12 @@ interface TaskDialogProps {
 function TaskDialog({ job, onClose, onSave }: TaskDialogProps) {
   const { t } = useTranslation('cron');
   const { channels } = useChannelsStore();
+  const { employees, fetchEmployees } = useEmployeesStore();
   const [saving, setSaving] = useState(false);
 
   const [name, setName] = useState(job?.name || '');
   const [message, setMessage] = useState(job?.message || '');
+  const [assignedEmployeeId, setAssignedEmployeeId] = useState(job?.assignedEmployeeId || '');
   // Extract cron expression string from CronSchedule object or use as-is if string
   const initialSchedule = (() => {
     const s = job?.schedule;
@@ -147,6 +152,11 @@ function TaskDialog({ job, onClose, onSave }: TaskDialogProps) {
 
   const selectedChannel = channels.find((c) => c.id === channelId);
   const isDiscord = selectedChannel?.type === 'discord';
+
+  // Fetch employees when dialog opens
+  useEffect(() => {
+    fetchEmployees();
+  }, [fetchEmployees]);
 
   const handleSubmit = async () => {
     if (!name.trim()) {
@@ -180,11 +190,7 @@ function TaskDialog({ job, onClose, onSave }: TaskDialogProps) {
         ? discordChannelId.trim()
         : '';
 
-      await onSave(
-        // ... (args omitted from replacement content, ensuring they match target if not changed, but here I am replacing the block)
-        // Wait, I should not replace the whole onSave call if I don't need to.
-        // Let's target the toast.
-        {
+      await onSave({
           name: name.trim(),
           message: message.trim(),
           schedule: finalSchedule,
@@ -194,6 +200,7 @@ function TaskDialog({ job, onClose, onSave }: TaskDialogProps) {
             channelName: selectedChannel!.name,
           },
           enabled,
+          assignedEmployeeId: assignedEmployeeId || undefined,
         });
       onClose();
       toast.success(job ? t('toast.updated') : t('toast.created'));
@@ -325,6 +332,25 @@ function TaskDialog({ job, onClose, onSave }: TaskDialogProps) {
               </p>
             </div>
           )}
+          {/* Assign Employee */}
+          <div className="space-y-2">
+            <Label>{t('dialog.assignEmployee')}</Label>
+            <Select
+              value={assignedEmployeeId}
+              onChange={(e) => setAssignedEmployeeId(e.target.value)}
+            >
+              <option value="">{t('dialog.noEmployee')}</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.avatar} {emp.name}
+                </option>
+              ))}
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {t('dialog.assignEmployeePlaceholder')}
+            </p>
+          </div>
+
           {/* Enabled */}
           <div className="flex items-center justify-between">
             <div>
@@ -372,6 +398,10 @@ interface CronJobCardProps {
 
 function CronJobCard({ job, onToggle, onEdit, onDelete, onTrigger }: CronJobCardProps) {
   const { t } = useTranslation('cron');
+  const employees = useEmployeesStore((s) => s.employees);
+  const assignedEmployee = job.assignedEmployeeId
+    ? employees.find((e) => e.id === job.assignedEmployeeId)
+    : undefined;
   const [triggering, setTriggering] = useState(false);
 
   const handleTrigger = async () => {
@@ -447,6 +477,13 @@ function CronJobCard({ job, onToggle, onEdit, onDelete, onTrigger }: CronJobCard
             {job.target.channelName}
           </span>
 
+          {assignedEmployee && (
+            <span className="flex items-center gap-1">
+              <UserCheck className="h-4 w-4" />
+              {t('card.assignedTo', { name: `${assignedEmployee.avatar} ${assignedEmployee.name}` })}
+            </span>
+          )}
+
           {job.lastRun && (
             <span className="flex items-center gap-1">
               <History className="h-4 w-4" />
@@ -508,19 +545,21 @@ export function Cron() {
   const { t } = useTranslation('cron');
   const { jobs, loading, error, fetchJobs, createJob, updateJob, toggleJob, deleteJob, triggerJob } = useCronStore();
   const { fetchChannels } = useChannelsStore();
+  const { fetchEmployees } = useEmployeesStore();
   const gatewayStatus = useGatewayStore((state) => state.status);
   const [showDialog, setShowDialog] = useState(false);
   const [editingJob, setEditingJob] = useState<CronJob | undefined>();
 
   const isGatewayRunning = gatewayStatus.state === 'running';
 
-  // Fetch jobs and channels on mount
+  // Fetch jobs, channels, and employees on mount
   useEffect(() => {
     if (isGatewayRunning) {
       fetchJobs();
       fetchChannels();
     }
-  }, [fetchJobs, fetchChannels, isGatewayRunning]);
+    fetchEmployees();
+  }, [fetchJobs, fetchChannels, fetchEmployees, isGatewayRunning]);
 
   // Statistics
   const activeJobs = jobs.filter((j) => j.enabled);

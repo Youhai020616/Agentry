@@ -1,28 +1,39 @@
 {
-    "gateway": "ゲートウェイ",
-    "channels": "チャンネル",
-    "skills": "スキル",
-    "uptime": "稼働時間",
-    "port": "ポート: {{port}}",
-    "pid": "PID: {{pid}}",
-    "connectedOf": "{{total}} 中 {{connected}} 接続済み",
-    "enabledOf": "{{total}} 中 {{enabled}} 有効",
-    "sinceRestart": "前回の再起動から",
-    "gatewayNotRunning": "ゲートウェイが停止中",
-    "quickActions": {
-        "title": "クイックアクション",
-        "description": "よく使うタスクとショートカット",
-        "addChannel": "チャンネル追加",
-        "browseSkills": "スキルを探す",
-        "openChat": "チャットを開く",
-        "settings": "設定",
-        "devConsole": "開発者コンソール"
-    },
-    "connectedChannels": "接続済みチャンネル",
-    "noChannels": "チャンネルが設定されていません",
-    "addFirst": "最初のチャンネルを追加",
-    "activeSkills": "アクティブなスキル",
-    "noSkills": "有効なスキルがありません",
-    "enableSome": "スキルを有効にする",
-    "more": "+{{count}} 件"
+  "title": "アクティビティ",
+  "subtitle": "AIチームの作業状況をリアルタイムで確認",
+  "statusBar": {
+    "online": "{{count}} オンライン",
+    "activeTasks": "{{count}} タスク進行中",
+    "credits": "残高 {{count}}"
+  },
+  "events": {
+    "task_created": "タスク「{{subject}}」を作成しました",
+    "task_claimed": "タスク「{{subject}}」を担当しました",
+    "task_completed": "タスク「{{subject}}」を完了しました",
+    "task_cancelled": "タスク「{{subject}}」をキャンセルしました",
+    "employee_activated": "{{name}} がオンラインになりました",
+    "employee_deactivated": "{{name}} がオフラインになりました",
+    "employee_working": "{{name}} が作業を開始しました",
+    "employee_idle": "{{name}} が待機中です",
+    "employee_error": "{{name}} でエラーが発生しました",
+    "credits_consumed": "{{amount}} クレジットを消費しました",
+    "gateway_running": "Gateway が起動しました",
+    "gateway_stopped": "Gateway が停止しました",
+    "gateway_error": "Gateway でエラーが発生しました",
+    "delegation_started": "スーパーバイザーが {{name}} にタスクを委任しました",
+    "delegation_completed": "委任タスクが完了しました",
+    "delegation_failed": "委任タスクが失敗しました"
+  },
+  "empty": "アクティビティがありません",
+  "emptyHint": "AI従業員が作業を開始すると、ここにアクティビティが表示されます。",
+  "loadMore": "もっと読み込む",
+  "today": "今日",
+  "yesterday": "昨日",
+  "earlier": "それ以前",
+  "timeAgo": {
+    "justNow": "たった今",
+    "minutesAgo": "{{count}}分前",
+    "hoursAgo": "{{count}}時間前",
+    "daysAgo": "{{count}}日前"
+  }
 }

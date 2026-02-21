@@ -1,0 +1,52 @@
+{
+  "title": "Employee Marketplace",
+  "subtitle": "Hire AI employees for your team",
+  "search": "Search employees...",
+  "hire": "Hire",
+  "hired": "Hired",
+  "details": "Details",
+  "filters": {
+    "all": "All",
+    "knowledge": "Knowledge",
+    "execution": "Execution",
+    "hybrid": "Hybrid",
+    "free": "Free",
+    "included": "Pro",
+    "premium": "Premium"
+  },
+  "categories": {
+    "all": "All",
+    "marketing": "Marketing Team",
+    "dev": "Dev Team",
+    "research": "Research Team",
+    "general": "General",
+    "development": "Development",
+    "design": "Design",
+    "writing": "Writing",
+    "analytics": "Analytics"
+  },
+  "card": {
+    "install": "Hire",
+    "uninstall": "Remove",
+    "installed": "Hired",
+    "details": "View Details",
+    "by": "by {{author}}",
+    "type": {
+      "knowledge": "Knowledge",
+      "execution": "Execution",
+      "hybrid": "Hybrid"
+    },
+    "team": "Team"
+  },
+  "empty": {
+    "title": "No employees found",
+    "description": "Try adjusting your search or filters"
+  },
+  "detail": {
+    "title": "Employee Details",
+    "skills": "Skills",
+    "capabilities": "Capabilities",
+    "requirements": "Requirements",
+    "install": "Hire This Employee"
+  }
+}

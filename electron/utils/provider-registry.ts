@@ -61,7 +61,7 @@ const REGISTRY: Record<string, ProviderBackendMeta> = {
   },
   openrouter: {
     envVar: 'OPENROUTER_API_KEY',
-    defaultModel: 'openrouter/anthropic/claude-opus-4.6',
+    defaultModel: 'openrouter/deepseek/deepseek-r1',
     providerConfig: {
       baseUrl: 'https://openrouter.ai/api/v1',
       api: 'openai-completions',

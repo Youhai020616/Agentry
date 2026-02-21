@@ -5,10 +5,11 @@
  */
 import { NavLink } from 'react-router-dom';
 import {
-  Home,
-  MessageSquare,
+  Activity,
+  Users,
+  Crown,
   Radio,
-  Puzzle,
+  Wrench,
   Clock,
   Settings,
   ChevronLeft,
@@ -36,11 +37,9 @@ function NavItem({ to, icon, label, badge, collapsed }: NavItemProps) {
       to={to}
       className={({ isActive }) =>
         cn(
-          'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+          'flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors',
           'hover:bg-accent hover:text-accent-foreground',
-          isActive
-            ? 'bg-accent text-accent-foreground'
-            : 'text-muted-foreground',
+          isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground',
           collapsed && 'justify-center px-2'
         )
       }
@@ -67,7 +66,7 @@ export function Sidebar() {
 
   const openDevConsole = async () => {
     try {
-      const result = await window.electron.ipcRenderer.invoke('gateway:getControlUiUrl') as {
+      const result = (await window.electron.ipcRenderer.invoke('gateway:getControlUiUrl')) as {
         success: boolean;
         url?: string;
         error?: string;
@@ -85,59 +84,58 @@ export function Sidebar() {
   const { t } = useTranslation();
 
   const navItems = [
-    { to: '/', icon: <MessageSquare className="h-5 w-5" />, label: t('sidebar.chat') },
-    { to: '/cron', icon: <Clock className="h-5 w-5" />, label: t('sidebar.cronTasks') },
-    { to: '/skills', icon: <Puzzle className="h-5 w-5" />, label: t('sidebar.skills') },
-    { to: '/channels', icon: <Radio className="h-5 w-5" />, label: t('sidebar.channels') },
-    { to: '/dashboard', icon: <Home className="h-5 w-5" />, label: t('sidebar.dashboard') },
-    { to: '/settings', icon: <Settings className="h-5 w-5" />, label: t('sidebar.settings') },
+    { to: '/', icon: <Crown className="h-5 w-5" />, label: t('nav.supervisor') },
+    { to: '/employees', icon: <Users className="h-5 w-5" />, label: t('nav.employees') },
+    { to: '/dashboard', icon: <Activity className="h-5 w-5" />, label: t('nav.dashboard') },
+    { to: '/channels', icon: <Radio className="h-5 w-5" />, label: t('nav.channels') },
+    { to: '/skills', icon: <Wrench className="h-5 w-5" />, label: t('nav.skills') },
+    { to: '/cron', icon: <Clock className="h-5 w-5" />, label: t('nav.cron') },
+    { to: '/settings', icon: <Settings className="h-5 w-5" />, label: t('nav.settings') },
   ];
 
   return (
     <aside
       className={cn(
-        'flex shrink-0 flex-col border-r bg-background transition-all duration-300',
-        sidebarCollapsed ? 'w-16' : 'w-64'
+        'flex shrink-0 flex-col transition-all duration-300',
+        sidebarCollapsed ? 'w-16' : 'w-56'
       )}
     >
-      {/* Navigation */}
-      <nav className="flex-1 space-y-1 overflow-auto p-2">
-        {navItems.map((item) => (
-          <NavItem
-            key={item.to}
-            {...item}
-            collapsed={sidebarCollapsed}
-          />
-        ))}
-      </nav>
+      <div className="flex flex-1 flex-col m-1.5 rounded-2xl bg-card glass-border shadow-island overflow-hidden">
+        {/* Navigation */}
+        <nav className="flex-1 space-y-1 overflow-auto p-2">
+          {navItems.map((item) => (
+            <NavItem key={item.to} {...item} collapsed={sidebarCollapsed} />
+          ))}
+        </nav>
 
-      {/* Footer */}
-      <div className="p-2 space-y-2">
-        {devModeUnlocked && !sidebarCollapsed && (
+        {/* Footer */}
+        <div className="p-2 space-y-2">
+          {devModeUnlocked && !sidebarCollapsed && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start rounded-xl"
+              onClick={openDevConsole}
+            >
+              <Terminal className="h-4 w-4 mr-2" />
+              {t('sidebar.devConsole')}
+              <ExternalLink className="h-3 w-3 ml-auto" />
+            </Button>
+          )}
+
           <Button
             variant="ghost"
-            size="sm"
-            className="w-full justify-start"
-            onClick={openDevConsole}
+            size="icon"
+            className="w-full rounded-xl"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
           >
-            <Terminal className="h-4 w-4 mr-2" />
-            {t('sidebar.devConsole')}
-            <ExternalLink className="h-3 w-3 ml-auto" />
+            {sidebarCollapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
           </Button>
-        )}
-
-        <Button
-          variant="ghost"
-          size="icon"
-          className="w-full"
-          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-        >
-          {sidebarCollapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
-            <ChevronLeft className="h-4 w-4" />
-          )}
-        </Button>
+        </div>
       </div>
     </aside>
   );

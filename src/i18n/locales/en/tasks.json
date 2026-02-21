@@ -1,0 +1,87 @@
+{
+    "board": {
+        "title": "Task Board",
+        "empty": "No tasks yet. Assign a task to an employee to get started.",
+        "search": "Search tasks...",
+        "newProject": "New Project",
+        "allProjects": "All Projects",
+        "selectProject": "Select Project"
+    },
+    "status": {
+        "pending": "Pending",
+        "in_progress": "In Progress",
+        "in_review": "In Review",
+        "completed": "Completed",
+        "blocked": "Blocked"
+    },
+    "create": {
+        "title": "New Task",
+        "subjectLabel": "Subject",
+        "subjectPlaceholder": "Brief task title...",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "Detailed instructions for the employee...",
+        "assignLabel": "Assign to Employee",
+        "priorityLabel": "Priority",
+        "submit": "Create Task",
+        "cancel": "Cancel"
+    },
+    "detail": {
+        "title": "Task Details",
+        "description": "Description",
+        "assignedTo": "Assigned To",
+        "createdAt": "Created",
+        "startedAt": "Started",
+        "completedAt": "Completed",
+        "duration": "Duration",
+        "result": "Result",
+        "error": "Error",
+        "output": "Output",
+        "outputFiles": "Output Files",
+        "plan": "Plan",
+        "planStatus": "Plan Status",
+        "wave": "Wave",
+        "priority": "Priority",
+        "dependencies": "Dependencies",
+        "tokens": "Tokens Used",
+        "credits": "Credits",
+        "noOutput": "No output yet",
+        "noFiles": "No output files",
+        "openFile": "Open in Finder",
+        "downloadFile": "Download"
+    },
+    "card": {
+        "unassigned": "Unassigned",
+        "dependencies": "{{count}} dependencies",
+        "priority": {
+            "low": "Low",
+            "medium": "Medium",
+            "high": "High",
+            "urgent": "Urgent"
+        }
+    },
+    "actions": {
+        "cancel": "Cancel Task",
+        "retry": "Retry",
+        "claim": "Claim Task",
+        "complete": "Complete",
+        "approve": "Approve",
+        "reject": "Reject",
+        "viewResult": "View Result"
+    },
+    "rating": {
+        "title": "Rate this task",
+        "placeholder": "Optional feedback...",
+        "submitted": "Rating submitted",
+        "stars": "{{count}} stars"
+    },
+    "project": {
+        "title": "Projects",
+        "goal": "Goal",
+        "status": "Status",
+        "employees": "Employees",
+        "tasks": "Tasks",
+        "create": "Create Project",
+        "goalPlaceholder": "Describe your goal...",
+        "selectPM": "Select Project Manager"
+    }
+}

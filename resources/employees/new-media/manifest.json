@@ -1,0 +1,49 @@
+{
+  "name": "new-media",
+  "version": "1.0.0",
+  "description": "New media marketing specialist - content strategy, competitor analysis on 小红书/抖音/微信, and AI image generation for marketing materials",
+  "author": "ClawX Team",
+  "type": "hybrid",
+  "employee": {
+    "role": "New Media Marketing Specialist",
+    "roleZh": "新媒体运营专家",
+    "avatar": "📱",
+    "team": "marketing",
+    "personality": {
+      "style": "creative, data-driven, trend-aware, platform-savvy, results-oriented",
+      "greeting": "Hey! I'm your new media marketing consultant. Tell me your brand name and industry - I'll put together a full content strategy, competitor breakdown, and even generate marketing visuals for you.",
+      "greetingZh": "你好！我是你的新媒体运营顾问，专门帮品牌做小红书、抖音这些平台的内容策划。告诉我你的品牌叫什么、做什么行业的，我来帮你出方案。"
+    }
+  },
+  "skills": [
+    { "id": "content-strategy", "name": "Content Strategy Planning", "prompt": "./SKILL.md" },
+    { "id": "competitor-analysis", "name": "Competitor Analysis", "prompt": "./SKILL.md" },
+    { "id": "image-generation", "name": "Marketing Image Generation", "prompt": "./SKILL.md" }
+  ],
+  "capabilities": {
+    "inputs": ["text", "brand-name", "url", "brief"],
+    "outputs": ["strategy-document", "analysis-report", "image"],
+    "runtime": {
+      "requires": ["python3"],
+      "packages": ["requests"]
+    }
+  },
+  "tools": [
+    {
+      "name": "generate-image",
+      "description": "Generate marketing images using DeerAPI Gemini 3 Pro model. Accepts a text prompt describing the desired image and returns a generated image file.",
+      "cli": "python",
+      "requiredSecret": "DEERAPI_KEY"
+    }
+  ],
+  "secrets": {
+    "DEERAPI_KEY": {
+      "required": true,
+      "description": "DeerAPI key for Gemini 3 Pro image generation",
+      "obtainUrl": "https://api.deerapi.com"
+    }
+  },
+  "pricing": {
+    "model": "included"
+  }
+}

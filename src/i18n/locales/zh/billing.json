@@ -1,0 +1,76 @@
+{
+  "title": "账单与订阅",
+  "currentPlan": "当前方案",
+  "usage": "用量",
+  "usageOf": "已使用 {{used}} / {{total}} 积分",
+  "usagePercent": "已使用 {{percent}}%",
+  "creditsRemaining": "剩余 {{remaining}} 积分",
+  "tiers": {
+    "free": {
+      "name": "免费",
+      "price": "$0",
+      "period": "永久",
+      "features": [
+        "每月 1,000 积分",
+        "3 个 AI 员工",
+        "基础对话",
+        "社区支持"
+      ]
+    },
+    "pro": {
+      "name": "专业版",
+      "price": "$29",
+      "period": "/月",
+      "features": [
+        "每月 10,000 积分",
+        "无限员工",
+        "工具执行",
+        "优先支持",
+        "BYOK 折扣"
+      ]
+    },
+    "team": {
+      "name": "团队版",
+      "price": "$99",
+      "period": "/月",
+      "features": [
+        "每月 50,000 积分",
+        "团队协作",
+        "API 访问",
+        "自定义员工",
+        "专属支持"
+      ]
+    }
+  },
+  "upgrade": "升级",
+  "current": "当前",
+  "comingSoon": "即将推出",
+  "mostPopular": "最受欢迎",
+  "history": "查看积分历史",
+  "paywall": {
+    "title": "需要升级",
+    "description": "{{feature}} 需要 {{tier}} 方案",
+    "benefits": "使用 {{tier}} 解锁更多功能",
+    "upgrade": "立即升级",
+    "later": "稍后再说"
+  },
+  "byok": {
+    "title": "自带密钥",
+    "description": "使用您自己的 API 密钥以降低积分消耗",
+    "enabled": "BYOK 已启用",
+    "disabled": "BYOK 未启用",
+    "discount": "使用 BYOK 免除 AI 积分消耗",
+    "configureKeys": "配置 API 密钥",
+    "keysConfigured": "已配置 {{count}} 个提供商",
+    "noKeysConfigured": "未配置 API 密钥",
+    "comparison": {
+      "title": "积分对比",
+      "normal": "标准",
+      "byok": "使用 BYOK",
+      "chat": "对话",
+      "tool": "工具使用",
+      "execution": "执行",
+      "feature": "功能积分仍需扣除"
+    }
+  }
+}

@@ -1,8 +1,8 @@
-# ClawX AI Employee Platform - Product Plan
+# ClawX AI Employee Platform — Product Requirements Document
 
-> Version: 1.1 | Date: 2026-02-18
-> Status: Draft
-> Update: Added Supervisor Engine design based on Claude Code Agent Team patterns
+> Version: 2.0 | Date: 2026-02-21
+> Status: Living Document (auto-generated from codebase analysis)
+> Previous: v1.1 (2026-02-18)
 
 ---
 
@@ -77,1565 +77,1416 @@ Pain Points:
 
 ## 3. System Architecture
 
-### 3.1 Overall Architecture
+### 3.1 Overall Architecture (Actual Implementation)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     CLIENT LAYER                             │
 │                                                              │
 │  ┌──────────────────────┐  ┌──────────────────────────────┐ │
-│  │  Desktop App          │  │  Web Dashboard (Phase 2+)    │ │
-│  │  Electron + React 19  │  │  React SPA (轻量监控)        │ │
-│  │  员工管理/对话/设置    │  │  员工状态/任务结果/简单指令   │ │
+│  │  Desktop App          │  │  Cloud Backend (Phase 2)     │ │
+│  │  Electron 40 + React  │  │  Express + SQLite            │ │
+│  │  员工管理/对话/设置    │  │  Task Sync / 远程执行        │ │
 │  └──────────┬───────────┘  └──────────────┬───────────────┘ │
 └─────────────┼──────────────────────────────┼────────────────┘
-              │ IPC                          │ HTTPS
-┌─────────────▼──────────────────────────────▼────────────────┐
-│                     LOCAL ENGINE LAYER                        │
-│                                                              │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │              Skill Runtime Engine (NEW)                │   │
-│  │  ┌─────────────┐ ┌──────────────┐ ┌───────────────┐ │   │
-│  │  │ Skill       │ │ Employee     │ │ Task Queue    │ │   │
-│  │  │ Compiler    │ │ Manager      │ │ (Persistent)  │ │   │
-│  │  │ SKILL.md →  │ │ 生命周期管理  │ │ SQLite 持久化 │ │   │
-│  │  │ SysPrompt   │ │ 状态追踪     │ │ 断点续做      │ │   │
-│  │  └─────────────┘ └──────────────┘ └───────────────┘ │   │
-│  │  ┌─────────────┐ ┌──────────────┐ ┌───────────────┐ │   │
-│  │  │ Supervisor  │ │ Memory       │ │ Manifest      │ │   │
-│  │  │ Engine      │ │ System       │ │ Parser        │ │   │
-│  │  │ PM 编排     │ │ 三层记忆     │ │ 依赖解析      │ │   │
-│  │  └─────────────┘ └──────────────┘ └───────────────┘ │   │
-│  └──────────────────────────┬───────────────────────────┘   │
-│                             │                                │
-│  ┌──────────────────────────▼───────────────────────────┐   │
-│  │              OpenClaw Gateway (:18789)                 │   │
-│  │  Chat Session 管理 | Tool Call 执行 | Channel 通讯     │   │
-│  │  每个员工 = 1 个 Session + 专业 System Prompt          │   │
-│  └──────────────────────────┬───────────────────────────┘   │
-│                             │                                │
-│  ┌──────────────────────────▼───────────────────────────┐   │
-│  │              One-API (:3000)                           │   │
-│  │  多模型统一接口 | 用量统计 | 额度管理 | Key 管理       │   │
-│  │     ├── OpenAI    ├── Anthropic   ├── Google           │   │
-│  │     ├── DeepSeek  ├── 通义千问     ├── Ollama (本地)   │   │
-│  │     └── OpenRouter └── 其他...     └── 自定义          │   │
-│  └──────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-              │
-              │ HTTPS (Phase 2+)
-              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     CLOUD LAYER (Phase 2+)                   │
-│                                                              │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │              Cloud Agent Service                      │   │
-│  │  ┌─────────────┐ ┌──────────────┐ ┌───────────────┐ │   │
-│  │  │ Task API    │ │ Docker       │ │ Scheduler     │ │   │
-│  │  │ 任务接收    │ │ 沙箱执行     │ │ 定时/Webhook  │ │   │
-│  │  └─────────────┘ └──────────────┘ └───────────────┘ │   │
-│  │  ┌─────────────┐ ┌──────────────┐ ┌───────────────┐ │   │
-│  │  │ One-API     │ │ Result Store │ │ User Auth     │ │   │
-│  │  │ (Cloud)     │ │ 结果存储     │ │ JWT/OAuth     │ │   │
-│  │  └─────────────┘ └──────────────┘ └───────────────┘ │   │
-│  └──────────────────────────────────────────────────────┘   │
-│                                                              │
-│  Infrastructure: Docker + VPS ($20-100/月起步)               │
-└─────────────────────────────────────────────────────────────┘
+              │ IPC (contextBridge)          │ HTTPS
+┌─────────────▼─────────────────────────────────────────────┐
+│                   MAIN PROCESS LAYER                        │
+│                                                             │
+│  ┌───────────────────────────────────────────────────────┐ │
+│  │              Skill Runtime Engine                       │ │
+│  │                                                         │ │
+│  │  Phase 0 (always loaded):                              │ │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ │ │
+│  │  │ Manifest │ │ Skill    │ │ Tool     │ │ Employee │ │ │
+│  │  │ Parser   │ │ Compiler │ │ Registry │ │ Manager  │ │ │
+│  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘ │ │
+│  │  ┌──────────┐                                         │ │
+│  │  │ Credits  │                                         │ │
+│  │  │ Engine   │                                         │ │
+│  │  └──────────┘                                         │ │
+│  │                                                         │ │
+│  │  Phase 1 (lazy-loaded on first use):                   │ │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ │ │
+│  │  │ Task     │ │ Message  │ │Supervisor│ │ Execution│ │ │
+│  │  │ Queue    │ │ Bus      │ │ Engine   │ │ Worker   │ │ │
+│  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘ │ │
+│  │  ┌──────────┐ ┌──────────┐                            │ │
+│  │  │ Memory   │ │Prohibition│                           │ │
+│  │  │ Engine   │ │ Engine   │                            │ │
+│  │  └──────────┘ └──────────┘                            │ │
+│  └───────────────────────────────────────────────────────┘ │
+│                                                             │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐     │
+│  │ IPC      │ │ Gateway  │ │ System   │ │ Auto     │     │
+│  │ Handlers │ │ Manager  │ │ Tray     │ │ Updater  │     │
+│  │(28 groups│ │          │ │          │ │          │     │
+│  │ 220+ ch) │ │          │ │          │ │          │     │
+│  └──────────┘ └────┬─────┘ └──────────┘ └──────────┘     │
+└─────────────────────┼──────────────────────────────────────┘
+                      │ JSON-RPC 2.0 over WebSocket
+                      ▼
+              ┌──────────────────┐
+              │  OpenClaw Gateway │
+              │  Port :18789      │
+              │                   │
+              │  每个员工 = 1 session │
+              │  + System Prompt  │
+              └────────┬─────────┘
+                       │ Direct API Call
+                       ▼
+              ┌──────────────────┐
+              │  LLM Providers    │
+              │                   │
+              │  Anthropic        │
+              │  OpenAI           │
+              │  Google           │
+              │  OpenRouter       │
+              │  Moonshot         │
+              │  SiliconFlow      │
+              │  Ollama (local)   │
+              │  Custom           │
+              └──────────────────┘
 ```
 
-### 3.2 Process Startup Sequence
+**重要说明**: Gateway 直连 LLM Provider（BYOK 用户自带 API Key），不经过中间代理层。Provider 配置存储在 `electron-store` 中，API Key 在 Gateway 启动时通过环境变量注入。
+
+### 3.2 Three-Layer IPC Architecture
 
 ```
-Electron Main Process 启动
-  │
-  ├─ 1. 启动 One-API 子进程 (:3000)
-  │     └─ 加载 API Key 配置
-  │
-  ├─ 2. 启动 OpenClaw Gateway 子进程 (:18789)
-  │     └─ Gateway LLM endpoint 指向 One-API localhost:3000
-  │
-  ├─ 3. 初始化 Skill Runtime Engine
-  │     ├─ 扫描已安装的 Skill Packages
-  │     ├─ 解析 manifest.json
-  │     ├─ 编译 SKILL.md → System Prompts
-  │     └─ 恢复未完成的任务队列 (SQLite)
-  │
-  ├─ 4. 初始化 Employee Manager
-  │     ├─ 为每个活跃员工创建/恢复 Gateway Session
-  │     ├─ 注入对应的 System Prompt + Tool 定义
-  │     └─ 恢复员工状态 (idle/working/blocked)
-  │
-  ├─ 5. 创建 Electron BrowserWindow
-  │     └─ 渲染 React UI
-  │
-  └─ 6. 创建 System Tray
-        └─ 显示员工工作状态
-        └─ 关窗口 → 隐藏到托盘（不退出）
+Renderer (React 19, contextIsolation: true, nodeIntegration: false)
+    │
+    │  window.electron.ipcRenderer.invoke(channel, ...args)
+    │
+    ▼
+Preload (electron/preload/index.ts)
+    │
+    │  validChannels 白名单验证
+    │  无效 channel → throw Error("Invalid IPC channel")
+    │
+    ▼
+Main Process (electron/main/ipc-handlers.ts)
+    │
+    │  ipcMain.handle(channel, handler)
+    │  统一返回: { success: boolean; result?: T; error?: string }
+    │
+    ▼
+Engine / Gateway / Utilities
 ```
 
-### 3.3 Window Close Behavior
+### 3.3 Gateway Communication Protocol
 
 ```
-用户点击 × (关闭窗口)
-  → event.preventDefault()
-  → mainWindow.hide()
-  → 托盘图标更新："3 个员工正在工作"
-  → Gateway + One-API + Skill Runtime 继续运行
-  → 员工继续执行当前任务
+JSON-RPC 2.0 over WebSocket
 
-用户点击托盘 → "退出 ClawX"
-  → 保存所有任务状态到 SQLite
-  → 标记进行中的任务为 "paused"
-  → 停止 Gateway
-  → 停止 One-API
-  → app.quit()
+Request:
+{ "jsonrpc": "2.0", "id": "uuid", "method": "sessions.create", "params": {...} }
 
-下次启动
-  → 恢复 paused 任务
-  → 员工自动继续工作
+Response:
+{ "jsonrpc": "2.0", "id": "uuid", "result": {...} }
+
+Notification (no id, no response):
+{ "jsonrpc": "2.0", "method": "chat.event", "params": {...} }
+
+Error Codes:
+  -32700  PARSE_ERROR
+  -32600  INVALID_REQUEST
+  -32601  METHOD_NOT_FOUND
+  -32602  INVALID_PARAMS
+  -32603  INTERNAL_ERROR
+  -32000  SERVER_ERROR
+  -32001  NOT_CONNECTED
+  -32002  AUTH_REQUIRED
+  -32003  PERMISSION_DENIED
+  -32004  NOT_FOUND
+  -32005  TIMEOUT
+  -32006  RATE_LIMITED
 ```
+
+### 3.4 Startup Sequence
+
+```
+1. App Entry (electron/main/index.ts)
+   ↓
+2. Logger Init → Network Warmup (async)
+   ↓
+3. Create Application Menu
+   ↓
+4. Create Main Window (contextIsolation, no nodeIntegration)
+   ↓
+5. Create System Tray
+   ↓
+6. Setup Security Headers (CSP)
+   ↓
+7. Bind Hide-to-Tray Behavior
+   ↓
+8. Bootstrap Engine Phase 0
+   │  ├── ManifestParser
+   │  ├── SkillCompiler
+   │  ├── ToolRegistry
+   │  ├── EmployeeManager (scan disk for skills)
+   │  └── CreditsEngine (SQLite init, seed 1000 welcome credits)
+   ↓
+9. Register IPC Handlers (28 groups, 220+ channels)
+   ↓
+10. Register Update Handlers
+    ↓
+11. Auto-start Gateway (spawn process, WebSocket connect)
+    ↓
+12. Bind Tray Updates to Employee Status Events
+    ↓
+13. Ready — Renderer can call any IPC channel
+```
+
+### 3.5 Window Close Behavior
+
+- 关闭窗口 → 隐藏到系统托盘（不退出进程）
+- 托盘右键 → Quit → 保存任务状态，暂停员工，停止 Gateway
+- 重启 → 恢复暂停的任务，员工继续工作
 
 ---
 
-## 4. Skill-to-Employee System
+## 4. Tech Stack
 
-### 4.1 Skill Package Standard
+| Layer | Technology | Version | Notes |
+|-------|-----------|---------|-------|
+| Shell | Electron | 40 | contextIsolation, no nodeIntegration |
+| UI Framework | React | 19 | Functional components, hooks |
+| Language | TypeScript | 5.7 | strict mode enforced |
+| Routing | React Router | 7 | Client-side SPA routing |
+| State | Zustand | 5 | Only settings uses persist middleware |
+| Styling | Tailwind CSS | 3.4 | + shadcn/ui + Radix UI primitives |
+| Animations | Framer Motion | 12 | Page transitions, dock animations |
+| i18n | i18next + react-i18next | 25 / 16 | 13 namespaces, 3 languages |
+| Icons | Lucide React | 0.563 | |
+| Markdown | react-markdown + remark-gfm | 10 / 4 | Chat message rendering |
+| Toast | Sonner | 2.0 | Bottom-right notifications |
+| Database | better-sqlite3 | 12 | 4 databases (tasks, memory, credits, prohibitions) |
+| WebSocket | ws | 8.19 | Gateway communication |
+| Marketplace | ClawHub CLI | 0.5 | Skill discovery & install |
+| Gateway | OpenClaw | 2026.2.6 | JSON-RPC 2.0, port 18789 |
+| Build | Vite | 7 | + vite-plugin-electron |
+| Lint | ESLint | 10 | Flat config, strict rules |
+| Format | Prettier | — | semi, singleQuote, 2-space, 100 width |
+| Test | Vitest + Testing Library | 4 / 16 | jsdom environment |
+| E2E | Playwright | 1.49 | |
+| Package | electron-builder | 26 | macOS DMG, Windows NSIS, Linux AppImage |
+| Package Manager | pnpm | 10 | |
 
-每个 Skill Package 是一个目录，遵循统一标准：
+### Build Targets
 
-```
-skill-package/
-├── manifest.json          ← 统一元数据（必须）
-├── SKILL.md               ← 专家提示词（必须）
-├── README.md              ← 人类可读文档（推荐）
-├── scripts/               ← 可执行脚本（可选，execution 型）
-│   ├── main.py
-│   └── utils.py
-├── tools/                 ← API 工具封装（可选）
-│   ├── clis/              ← CLI 工具
-│   └── integrations/      ← 集成指南
-├── styles/                ← 风格/模板资源（可选）
-├── references/            ← 知识库/参考材料（可选）
-├── templates/             ← 输出模板（可选）
-└── .env.example           ← 所需 API Key 声明（推荐）
-```
+| Platform | Formats | Architectures |
+|----------|---------|---------------|
+| macOS | DMG + ZIP | x64, arm64 |
+| Windows | NSIS installer | x64, arm64 |
+| Linux | AppImage, DEB, RPM | x64, arm64 |
 
-### 4.2 manifest.json Schema
+### Auto-Update
 
-```jsonc
-{
-  // --- 基础信息 ---
-  "name": "seo-specialist",
-  "version": "1.0.0",
-  "description": "Expert SEO audit and optimization",
-  "author": "ClawX Team",
-  "license": "MIT",
-  
-  // --- 员工类型 ---
-  "type": "knowledge",           // "knowledge" | "execution" | "hybrid"
-  
-  // --- 员工角色 ---
-  "employee": {
-    "role": "SEO Specialist",
-    "roleZh": "SEO 专家",
-    "avatar": "seo-specialist",  // 像素头像 key
-    "team": "marketing",         // 所属团队
-    "personality": {
-      "style": "data-driven, methodical, detail-oriented",
-      "greeting": "I'll analyze your site's SEO health and provide actionable recommendations.",
-      "greetingZh": "我来分析你网站的 SEO 健康状况，给出可执行的优化建议。"
-    }
-  },
-
-  // --- 技能列表（knowledge 型可包含多个子技能）---
-  "skills": [
-    {
-      "id": "seo-audit",
-      "name": "SEO Audit",
-      "prompt": "./skills/seo-audit/SKILL.md",
-      "references": ["./skills/seo-audit/references/"]
-    },
-    {
-      "id": "schema-markup",
-      "name": "Schema Markup",
-      "prompt": "./skills/schema-markup/SKILL.md"
-    }
-  ],
-
-  // --- 能力声明 ---
-  "capabilities": {
-    "inputs": ["text", "url", "markdown", "csv"],
-    "outputs": ["text", "markdown", "json"],
-    "runtime": {                   // execution 型才需要
-      "requires": ["python3"],
-      "packages": ["google-genai", "pillow"]
-    }
-  },
-
-  // --- 工具声明 ---
-  "tools": [
-    {
-      "name": "ahrefs",
-      "cli": "./tools/clis/ahrefs.js",
-      "requiredSecret": "AHREFS_API_KEY"
-    },
-    {
-      "name": "google-search-console",
-      "cli": "./tools/clis/google-search-console.js",
-      "requiredSecret": "GSC_API_KEY"
-    }
-  ],
-
-  // --- 所需密钥 ---
-  "secrets": {
-    "AHREFS_API_KEY": {
-      "required": false,
-      "description": "Ahrefs API key for backlink analysis",
-      "obtainUrl": "https://ahrefs.com/api"
-    },
-    "GSC_API_KEY": {
-      "required": false,
-      "description": "Google Search Console API key"
-    }
-  },
-
-  // --- 定价（Marketplace 用）---
-  "pricing": {
-    "model": "included",          // "included" | "premium" | "free"
-    "tier": "pro"                 // 包含在哪个付费层
-  }
-}
-```
-
-### 4.3 Employee Types
-
-```
-┌─────────────────────────────────────────────────────┐
-│                  Employee Types                      │
-│                                                      │
-│  ┌──────────────────┐                               │
-│  │  Knowledge Worker │ ← marketingskills 的 26 个技能 │
-│  │  知识型员工       │                               │
-│  ├──────────────────┤                               │
-│  │ 能力：SKILL.md 专家提示词                         │
-│  │ 工具：API CLI 调用（可选）                        │
-│  │ 输出：文字、策略、分析报告                        │
-│  │ 运行：纯 LLM 推理 + 可选 API 调用                │
-│  │ 代表：SEO专家、文案、策略师                       │
-│  └──────────────────┘                               │
-│                                                      │
-│  ┌──────────────────┐                               │
-│  │ Execution Worker  │ ← NanoBanana-PPT 等           │
-│  │ 执行型员工       │                               │
-│  ├──────────────────┤                               │
-│  │ 能力：SKILL.md + 脚本代码                         │
-│  │ 工具：Python/JS + 外部 API + 本地工具链           │
-│  │ 输出：文件（PNG、MP4、HTML、PDF）                 │
-│  │ 运行：LLM 推理 + 代码执行                        │
-│  │ 代表：PPT设计师、海报设计、视频制作               │
-│  └──────────────────┘                               │
-│                                                      │
-│  ┌──────────────────┐                               │
-│  │  Supervisor / PM  │ ← 编排引擎（核心 IP）         │
-│  │  管理型员工       │                               │
-│  ├──────────────────┤                               │
-│  │ 能力：任务分解 + 分配 + 协调 + 质检               │
-│  │ 输入：用户的高层目标                              │
-│  │ 输出：子任务分配 + 进度追踪 + 最终交付            │
-│  │ 核心：DAG 任务链 + 跨员工上下文传递               │
-│  │ 代表：营销经理、创意总监、项目经理                │
-│  └──────────────────┘                               │
-└─────────────────────────────────────────────────────┘
-```
-
-### 4.4 First Batch Employees
-
-#### Marketing Team (来自 marketingskills)
-
-| Employee | Type | Skills Count | Key Skills |
-|---|---|---|---|
-| SEO Specialist | Knowledge | 5 | seo-audit, schema-markup, programmatic-seo, analytics-tracking, competitor-alternatives |
-| Copywriter | Knowledge | 4 | copywriting, copy-editing, cold-email, email-sequence |
-| Content Strategist | Knowledge | 4 | content-strategy, social-content, marketing-ideas, free-tool-strategy |
-| Growth Expert | Knowledge | 7 | page-cro, form-cro, signup-flow-cro, popup-cro, onboarding-cro, paywall-upgrade-cro, ab-test-setup |
-| Marketing Manager (PM) | Supervisor | 6 | product-marketing-context, pricing-strategy, launch-strategy, referral-program, paid-ads, marketing-psychology |
-
-#### Creative Team (来自 NanoBanana-PPT 等)
-
-| Employee | Type | Capabilities |
-|---|---|---|
-| PPT Designer | Execution | Document analysis → PPT image gen → Video transitions → Full PPT video |
-| *(Future)* Poster Designer | Execution | TBD |
-| *(Future)* Video Creator | Execution | TBD |
+- Primary: Alibaba Cloud OSS (fast for Chinese users)
+- Fallback: GitHub Releases
+- Check interval: 6 hours
 
 ---
 
-## 5. Feature Breakdown by Phase
-
-### Phase 0: Foundation (Week 1-4)
-
-**Goal: Skill Runtime 基础架构，让第一个员工能跑起来**
+## 5. Directory Structure (Actual)
 
 ```
-Core:
-├─ [ ] manifest.json 规范定义 + 解析器
-├─ [ ] Skill Compiler: SKILL.md → System Prompt
-├─ [ ] Employee Manager: 员工生命周期管理
-│      ├─ createEmployee(manifest) → Gateway Session
-│      ├─ activateEmployee(id) → inject System Prompt
-│      ├─ deactivateEmployee(id) → pause session
-│      └─ getEmployeeStatus(id) → idle/working/blocked
-├─ [ ] One-API 集成
-│      ├─ 作为子进程启动
-│      ├─ Go binary 打包进 Electron resources
-│      └─ Gateway LLM endpoint → localhost:3000
-└─ [ ] 托盘常驻模式
-       ├─ 关窗口 → hide（不退出）
-       └─ 托盘菜单显示员工状态
-
-UI:
-├─ [ ] /employees 页面（新增路由）
-│      ├─ 员工卡片列表（头像、名字、角色、状态）
-│      ├─ 点击员工 → 进入对话
-│      └─ 员工启用/停用开关
-├─ [ ] 员工对话界面（复用 Chat 组件）
-│      ├─ 顶部显示当前员工信息
-│      └─ System Prompt 已自动注入，用户直接对话
-└─ [ ] 设置页面增加 One-API 配置入口
-
-Data:
-├─ [ ] 员工配置持久化 (SQLite or JSON)
-└─ [ ] 导入 marketingskills 的 5 个角色作为内置员工
-```
-
-### Phase 1: Product (Week 5-10)
-
-**Goal: 完整的员工体验，可以给 Beta 用户使用**
-
-```
-Employee Experience:
-├─ [ ] Execution 型员工支持
-│      ├─ Python 脚本执行环境
-│      ├─ Tool registration → Gateway tool_call
-│      └─ 文件输出展示（图片/视频预览）
-├─ [ ] 导入 NanoBanana-PPT 作为 PPT 设计师
-├─ [ ] 员工工具配置（API Key 管理 per employee）
-├─ [ ] 员工个性化
-│      ├─ 像素风头像系统（预置 + 可选）
-│      ├─ 员工命名
-│      └─ 工作风格偏好设置
-└─ [ ] 任务持久化
-       ├─ SQLite 任务队列
-       ├─ 任务状态追踪 (pending → working → done/failed)
-       └─ 断点续做（软件重启后恢复）
-
-PM / Supervisor:
-├─ [ ] 营销经理角色实现
-│      ├─ 接收用户高层目标
-│      ├─ 分解为子任务
-│      ├─ 分配给对应员工
-│      └─ 收集结果 + 整合交付
-├─ [ ] 跨员工上下文传递
-│      └─ 员工 A 的输出作为员工 B 的输入
-└─ [ ] 任务看板 UI
-       ├─ 任务列表（按员工分组）
-       ├─ 状态标签（进行中/已完成/失败）
-       └─ 任务详情（输入/输出/耗时）
-
-Cron Integration:
-├─ [ ] 定时任务绑定员工
-│      └─ "SEO 专家每周一 9:00 自动审计网站"
-└─ [ ] Cron 触发 → 自动创建任务 → 员工执行
-
-Quality:
-├─ [ ] 员工工作质量评分（用户评价）
-├─ [ ] 任务执行日志
-└─ [ ] 错误处理 + 重试机制
-```
-
-### Phase 2: Monetization + Cloud (Week 11-20)
-
-**Goal: 能赚钱 + 员工能 24 小时在线**
-
-```
-Monetization:
-├─ [ ] Credits 体系
-│      ├─ 每次员工交互消耗 credits
-│      ├─ Free: 20 credits/天
-│      ├─ Pro: 1500 credits/月
-│      ├─ credits 用量仪表盘
-│      └─ One-API 用量数据 → credits 换算
-├─ [ ] 付费墙
-│      ├─ 免费：1-2 个基础员工
-│      ├─ Pro：全部员工 + 工具集成
-│      └─ 支付集成（Stripe / LemonSqueezy）
-├─ [ ] BYOK 模式
-│      ├─ 用户自带 LLM API Key
-│      ├─ 不消耗 AI credits
-│      └─ 仍消耗功能 credits（编排/记忆/工具）
-└─ [ ] License Key 验证系统
-
-Cloud Backend:
-├─ [ ] Cloud Agent Service（轻量版）
-│      ├─ Node.js / Go API 服务
-│      ├─ Docker 容器执行环境
-│      ├─ One-API (Cloud) 实例
-│      ├─ 任务接收 API
-│      ├─ 结果存储 + 同步
-│      └─ 部署：单台 VPS ($20-100/月)
-├─ [ ] 桌面端 ↔ 云端同步
-│      ├─ 任务上传到云端执行
-│      ├─ 结果同步回本地
-│      └─ 冲突处理
-├─ [ ] "让员工上云值班" 功能
-│      ├─ 用户选择哪些员工上云
-│      ├─ 云端 credits 消耗（AI + 计算）
-│      └─ 付费功能
-├─ [ ] Web Dashboard (轻量)
-│      ├─ 员工状态一览
-│      ├─ 任务结果查看
-│      ├─ 简单指令下达
-│      └─ 手机可访问
-└─ [ ] 触发机制扩展
-       ├─ Webhook 触发
-       ├─ 邮件触发
-       └─ 定时任务（云端 Cron）
-
-Memory System:
-├─ [ ] Working Memory（工作记忆）
-│      └─ 当前任务上下文（已有，基于 Chat Session）
-├─ [ ] Episodic Memory（情景记忆）
-│      ├─ 历史任务记录
-│      ├─ 用户反馈和偏好
-│      └─ SQLite 存储
-└─ [ ] Semantic Memory（语义记忆）
-       ├─ 用户品牌信息
-       ├─ 产品定位
-       ├─ 竞品信息
-       └─ 长期知识库
-```
-
-### Phase 3: Ecosystem (Week 21-36)
-
-**Goal: 开放生态 + 规模化增长**
-
-```
-Marketplace:
-├─ [ ] Skill Package SDK
-│      ├─ create-skill-package CLI 脚手架
-│      ├─ manifest.json 验证器
-│      ├─ 本地测试环境
-│      └─ 发布流程
-├─ [ ] ClawHub Employee Marketplace
-│      ├─ 浏览/搜索员工
-│      ├─ 一键安装
-│      ├─ 评分/评论系统
-│      ├─ 付费员工（平台抽成 30%）
-│      └─ 开发者收入仪表盘
-└─ [ ] 社区贡献激励
-       ├─ 开源员工榜单
-       └─ 优秀贡献者标识
-
-More Employee Teams:
-├─ [ ] 开发团队 (dev-skills)
-│      ├─ 前端工程师
-│      ├─ 后端工程师
-│      └─ DevOps
-├─ [ ] 销售团队 (sales-skills)
-├─ [ ] 研究团队 (research-skills)
-└─ [ ] 内容团队 (content-skills)
-
-Advanced Features:
-├─ [ ] 像素风虚拟办公室 UI (PixiJS)
-│      ├─ 2D 像素办公室场景
-│      ├─ 员工角色动画
-│      ├─ 实时状态可视化
-│      └─ 社交传播功能（截图/录屏分享）
-├─ [ ] 禁令系统 (Prohibition System)
-│      ├─ Hard Rules: 绝对不能做的事
-│      ├─ Soft Rules: 需要确认的事
-│      └─ 管理界面
-├─ [ ] 本地大模型支持
-│      ├─ Ollama 集成
-│      ├─ 模型下载管理
-│      └─ 离线模式（部分功能）
-├─ [ ] 多语言支持
-│      ├─ 英文（国际化）
-│      ├─ 日文
-│      └─ 其他
-└─ [ ] 团队协作
-       ├─ 多用户共享员工团队
-       ├─ 权限管理
-       └─ 协作工作流
-```
-
----
-
-## 6. UI/UX Design
-
-### 6.1 New Route Structure
-
-```
-Current ClawX Routes:
-/setup/*        → 初始化向导
-/               → Chat（主页）
-/dashboard      → 仪表盘
-/channels       → 通道管理
-/skills         → 技能管理
-/cron           → 定时任务
-/settings/*     → 设置
-
-New Routes (AI Employee Platform):
-/setup/*        → 初始化向导（增加员工选择步骤）
-/               → Employee Hub（员工总览 — 新主页）
-/employees/:id  → 员工详情 + 对话（复用 Chat 组件）
-/tasks          → 任务看板（新增）
-/dashboard      → 仪表盘（改造：员工工作统计）
-/marketplace    → 员工市场（Phase 3）
-/channels       → 通道管理（保留）
-/cron           → 定时任务（增加员工绑定）
-/settings/*     → 设置（增加 One-API、Credits、Cloud）
-```
-
-### 6.2 Employee Hub (新主页)
-
-```
-┌──────────────────────────────────────────────────────┐
-│  ClawX                            🔍 Search  ⚙️ ≡   │
-├──────────────────────────────────────────────────────┤
-│                                                      │
-│  Good morning! Your team is ready.                   │
-│  Credits: 1,234 remaining    3 employees working     │
-│                                                      │
-│  ┌─────────────────────────────────────────────────┐ │
-│  │ MARKETING TEAM                           5/5 ▶  │ │
-│  │                                                  │ │
-│  │ ┌──────────┐ ┌──────────┐ ┌──────────┐         │ │
-│  │ │ [pixel]  │ │ [pixel]  │ │ [pixel]  │         │ │
-│  │ │ SEO 专家  │ │ 文案大师  │ │ 内容策略  │  ...   │ │
-│  │ │ 🟢 审计中 │ │ ⚪ 空闲   │ │ 🟡 等待   │         │ │
-│  │ │ ████░ 60%│ │          │ │          │         │ │
-│  │ └──────────┘ └──────────┘ └──────────┘         │ │
-│  └─────────────────────────────────────────────────┘ │
-│                                                      │
-│  ┌─────────────────────────────────────────────────┐ │
-│  │ CREATIVE TEAM                            1/3 ▶  │ │
-│  │                                                  │ │
-│  │ ┌──────────┐ ┌──────────┐ ┌──────────┐         │ │
-│  │ │ [pixel]  │ │ [🔒 Pro] │ │ [🔒 Pro] │         │ │
-│  │ │PPT 设计师│ │ 海报设计  │ │ 视频制作  │         │ │
-│  │ │ ⚪ 空闲   │ │ 升级解锁  │ │ 升级解锁  │         │ │
-│  │ └──────────┘ └──────────┘ └──────────┘         │ │
-│  └─────────────────────────────────────────────────┘ │
-│                                                      │
-│  ┌─────────────────────────────────────────────────┐ │
-│  │ 📋 RECENT TASKS                                  │ │
-│  │ ✅ SEO 审计报告 — SEO专家 — 2h ago — 查看结果   │ │
-│  │ 🔄 产品文案撰写 — 文案大师 — 进行中 (40%)       │ │
-│  │ ⏰ 周报 PPT — PPT设计师 — 定时:周五 17:00       │ │
-│  └─────────────────────────────────────────────────┘ │
-│                                                      │
-├──────────────────────────────────────────────────────┤
-│  🏠 Hub  │  📋 Tasks  │  📊 Dashboard  │  ⚙️ More   │
-└──────────────────────────────────────────────────────┘
-```
-
-### 6.3 Employee Chat View
-
-```
-┌──────────────────────────────────────────────────────┐
-│  ← Back    SEO Specialist    🟢 Working    ⚙️ ···    │
-├──────────────────────────────────────────────────────┤
-│                                                      │
-│  ┌──────────────────────────────────────────────┐   │
-│  │ [pixel avatar]                                │   │
-│  │ Hi! I'm your SEO specialist equipped with     │   │
-│  │ 5 professional skills:                        │   │
-│  │ • SEO Audit  • Schema Markup                  │   │
-│  │ • Programmatic SEO  • Analytics               │   │
-│  │ • Competitor Analysis                         │   │
-│  │                                               │   │
-│  │ What would you like me to work on?            │   │
-│  └──────────────────────────────────────────────┘   │
-│                                                      │
-│          ┌──────────────────────────────────────┐   │
-│          │ Please audit my website               │   │
-│          │ https://mysite.com for SEO issues     │   │
-│          └──────────────────────────────────────┘   │
-│                                                      │
-│  ┌──────────────────────────────────────────────┐   │
-│  │ 🔧 Using tool: ahrefs.backlink_analysis      │   │
-│  │ ████████████░░░░ 75%                          │   │
-│  │                                               │   │
-│  │ I'm analyzing your site. Here's what I've     │   │
-│  │ found so far:                                 │   │
-│  │                                               │   │
-│  │ **Technical SEO Issues:**                     │   │
-│  │ 1. Missing meta descriptions on 12 pages      │   │
-│  │ 2. Slow page load (4.2s average)              │   │
-│  │ ...                                           │   │
-│  └──────────────────────────────────────────────┘   │
-│                                                      │
-├──────────────────────────────────────────────────────┤
-│  📎  Type a message...                        Send ▶│
-└──────────────────────────────────────────────────────┘
-```
-
----
-
-## 7. Business Model
-
-### 7.1 Pricing Tiers
-
-| Tier | Price | Content |
-|---|---|---|
-| **Free** | $0 | 2 basic employees, 20 credits/day, BYOK only |
-| **Pro** | $29/month | All employees, 1500 credits/month, tool integrations, task persistence |
-| **Team** | $99/month | Multi-user (up to 5), PM Supervisor, shared memory, priority support |
-| **Cloud** | +$19/month add-on | 24/7 cloud execution, web dashboard, scheduled tasks, webhook triggers |
-| **Enterprise** | Custom | Self-hosted cloud, custom employees, SLA, dedicated support |
-
-### 7.2 Credits System
-
-```
-Credit Consumption:
-├─ Employee chat message:     1 credit
-├─ Tool call (API):           2 credits
-├─ Execution task (script):   5 credits
-├─ PM task orchestration:     3 credits per sub-task
-├─ Cloud execution:           2x local rate (AI + compute)
-└─ Memory retrieval:          0.5 credits
-
-Credit Packages (Add-on):
-├─ 500 credits:   $10
-├─ 1500 credits:  $25 (17% off)
-├─ 5000 credits:  $70 (30% off)
-└─ Validity: 12 months
-
-BYOK Discount:
-├─ User provides own LLM API Key
-├─ AI credits consumption = 0
-├─ Still consumes feature credits (tool/orchestration/memory)
-└─ Effective cost: ~50% reduction
-```
-
-### 7.3 Revenue Streams
-
-```
-Revenue Mix (Target Year 1):
-
-1. Subscriptions (60%)
-   ├─ Pro: $29/month × users
-   ├─ Team: $99/month × teams
-   └─ Cloud add-on: $19/month × cloud users
-
-2. Credits (25%)
-   ├─ Add-on credit packages
-   └─ Overage charges
-
-3. Marketplace (10%, Phase 3+)
-   ├─ 30% commission on paid employees
-   └─ Featured listing fees
-
-4. API Margin (5%)
-   └─ Bulk API procurement markup (via One-API)
-```
-
-### 7.4 Unit Economics Target
-
-```
-Key Metrics:
-├─ CAC (Customer Acquisition Cost): < $30
-├─ LTV (Lifetime Value): > $500 (17+ months × $29)
-├─ LTV:CAC Ratio: > 15:1
-├─ Monthly Churn: < 5%
-├─ Free → Pro Conversion: > 8%
-├─ API Cost per User: < $10/month (at Pro tier)
-├─ Gross Margin: > 70%
-
-North Star Metric:
-  Weekly Active Employee Tasks Completed (WAETC)
-  "每周有多少员工任务被成功完成"
-```
-
----
-
-## 8. Cloud Backend Architecture
-
-### 8.1 Lightweight Cloud Service
-
-Phase 2 的云端不需要 Warp/Oz 那样的重量级基础设施。
-用最小可行的架构即可。
-
-```
-Cloud Service Stack:
-├─ Runtime: Node.js (TypeScript) or Go
-├─ API Framework: Fastify / Hono
-├─ Database: PostgreSQL (user/task/credits)
-├─ Task Queue: BullMQ (Redis) or SQLite
-├─ Container: Docker (agent execution sandbox)
-├─ LLM Proxy: One-API (self-hosted instance)
-├─ Auth: JWT + API Key
-├─ Storage: S3-compatible (task outputs)
-├─ Hosting: Single VPS to start
-│   ├─ Hetzner CX32: €15/month (4 vCPU, 8GB RAM)
-│   ├─ or DigitalOcean: $24/month (4 vCPU, 8GB RAM)
-│   └─ Scale: Add VPS as needed
-└─ Monitoring: Uptime Kuma (self-hosted)
-```
-
-### 8.2 Cloud API Design
-
-```
-POST /api/tasks
-  → Create a task for a cloud employee
-  Body: { employeeId, prompt, priority }
-  
-GET /api/tasks/:id
-  → Get task status and result
-  
-GET /api/tasks?status=working
-  → List active tasks
-  
-POST /api/tasks/:id/cancel
-  → Cancel a running task
-  
-GET /api/employees/status
-  → All cloud employees status
-  
-POST /api/webhooks
-  → Register webhook trigger
-  
-POST /api/schedules
-  → Create scheduled task (cron)
-
-WebSocket /ws/tasks/:id
-  → Real-time task progress streaming
-```
-
-### 8.3 Desktop ↔ Cloud Sync
-
-```
-Sync Flow:
-
-User clicks "Send to Cloud" on a task:
-  1. Desktop serializes task (employee config + prompt + context)
-  2. POST /api/tasks → Cloud API
-  3. Cloud creates Docker container
-  4. Injects One-API endpoint + employee System Prompt
-  5. Executes task in container
-  6. Streams progress via WebSocket
-  7. On complete: stores result in S3
-  8. Desktop polls or receives WebSocket notification
-  9. Result synced to local SQLite
-  10. User sees result in desktop app
-
-Auto-sync for "Always-On" employees:
-  - Desktop periodically syncs task queue with cloud
-  - Cloud executes scheduled tasks independently
-  - Results accumulate in cloud
-  - Desktop syncs when online
-```
-
----
-
-## 9. Growth Strategy
-
-### 9.1 Launch Strategy
-
-```
-Phase 0 — Closed Beta (20 users)
-├─ Source: Indie Hacker communities, ProductHunt upcoming
-├─ Criteria: Active solopreneurs doing their own marketing
-├─ Goal: Daily usage, qualitative feedback
-└─ Channel: Direct outreach + invite-only
-
-Phase 1 — Public Beta (200 users)
-├─ ProductHunt launch
-├─ Hacker News Show HN
-├─ V2EX / 少数派 (Chinese dev community)
-├─ Twitter/X indie maker community
-└─ Goal: Free → Pro conversion > 5%
-
-Phase 2 — Growth (1000+ users)
-├─ Content marketing (see below)
-├─ SEO (use own AI employees to do SEO!)
-├─ Community building
-└─ Goal: MRR > $5,000
-```
-
-### 9.2 Content Marketing — Dogfooding
-
-**Use ClawX's own AI employees to market ClawX.**
-
-```
-The Marketing Flywheel:
-├─ SEO Specialist audits clawx.dev → publishes improvements
-├─ Content Strategist plans blog calendar
-├─ Copywriter writes landing page copy
-├─ Social Media Strategist posts on Twitter/LinkedIn
-├─ PPT Designer creates pitch decks
+ClawX/
+├── electron/                     # Main Process
+│   ├── main/
+│   │   ├── index.ts              # App entry, startup sequence
+│   │   ├── ipc-handlers.ts       # 28 handler groups, 220+ channels
+│   │   ├── tray.ts               # System tray with dynamic employee status
+│   │   ├── menu.ts               # Application menu
+│   │   └── updater.ts            # Auto-updater with dual CDN
+│   │
+│   ├── gateway/
+│   │   ├── manager.ts            # Gateway process lifecycle, WebSocket, reconnect
+│   │   ├── client.ts             # Typed RPC wrapper (channels, skills, chat, cron, providers)
+│   │   ├── protocol.ts           # JSON-RPC 2.0 types & utilities
+│   │   └── clawhub.ts            # ClawHub marketplace CLI wrapper
+│   │
+│   ├── engine/                   # Skill Runtime Engine
+│   │   ├── bootstrap.ts          # Phase 0 init + Phase 1 lazy-loader
+│   │   ├── manifest-parser.ts    # Parse & validate manifest.json
+│   │   ├── compiler.ts           # SKILL.md → System Prompt (template + injection)
+│   │   ├── tool-registry.ts      # CLI tool definitions per employee
+│   │   ├── employee-manager.ts   # Discovery, activation, secret management
+│   │   ├── credits-engine.ts     # SQLite credit tracking (clawx-credits.db)
+│   │   ├── task-queue.ts         # SQLite task/project DAG (clawx-tasks.db)
+│   │   ├── message-bus.ts        # SQLite inter-employee messaging
+│   │   ├── supervisor.ts         # PM orchestration (plan → execute → synthesize)
+│   │   ├── execution-worker.ts   # Task execution runtime
+│   │   ├── memory.ts             # Episodic + Semantic memory (clawx-memory.db)
+│   │   └── prohibition.ts        # Rules & restrictions (clawx-prohibitions.db)
+│   │
+│   ├── utils/
+│   │   ├── secure-storage.ts     # Provider configs + API keys (electron-store)
+│   │   ├── provider-registry.ts  # Built-in provider metadata
+│   │   ├── paths.ts              # Cross-platform path resolution
+│   │   ├── config.ts             # Ports, timeouts, constants
+│   │   ├── logger.ts             # File-based logging
+│   │   ├── store.ts              # electron-store wrapper (ESM-only, lazy import)
+│   │   ├── license-validator.ts  # License key validation
+│   │   ├── ollama-manager.ts     # Local model management
+│   │   ├── channel-config.ts     # Channel persistence
+│   │   ├── skill-config.ts       # Skill configuration
+│   │   ├── whatsapp-login.ts     # WhatsApp QR flow
+│   │   ├── openclaw-auth.ts      # Provider key injection to Gateway
+│   │   ├── openclaw-cli.ts       # CLI installation helpers
+│   │   ├── uv-setup.ts           # Python environment management
+│   │   └── uv-env.ts             # UV mirror configuration
+│   │
+│   └── preload/
+│       └── index.ts              # IPC channel whitelist + contextBridge
 │
-└─ ALL of this is done by ClawX itself
-   → Record the process
-   → Publish as case studies
-   → "Look, our AI employees did our marketing"
-   → Most compelling proof of product value
-```
-
-### 9.3 Community Strategy
-
-```
-Open Source Components:
-├─ Skill Package Standard (manifest.json spec): Open
-├─ Basic Skill Packages: Open (drives contributions)
-├─ Skill Compiler: Open (builds trust)
-├─ Desktop App: Source-available (not fully open)
-├─ Orchestration Engine: Closed (competitive moat)
-├─ Cloud Backend: Closed
-└─ Premium Employees: Closed
-
-Community Channels:
-├─ GitHub: Skill packages repo, issues, discussions
-├─ Discord: User community, skill developers, support
-└─ Blog: Tutorials, case studies, employee showcases
-```
-
----
-
-## 10. Competitive Moat Strategy
-
-### What We DON'T Have (Be Honest)
-
-```
-❌ Individual Skills — open source, copyable
-❌ Electron wrapper — no technical barrier
-❌ LLM integration — commodity
-❌ UI design — can be cloned
-```
-
-### What We MUST Build
-
-```
-Moat 1: Orchestration Intelligence (Phase 1-2)
-├─ PM Supervisor: task decomposition + assignment + QA
-├─ Cross-employee context passing
-├─ Multi-step workflow execution
-├─ Error recovery and retry logic
-└─ This is hard to replicate without extensive real-world tuning
-
-Moat 2: User Memory (Phase 2)
-├─ Employees "know" the user's brand, style, preferences
-├─ 3 months of usage = massive switching cost
-├─ Competitors start from zero knowledge
-└─ Memory compounds over time
-
-Moat 3: Marketplace Network Effect (Phase 3)
-├─ 200+ skill packages = unmatched employee variety
-├─ Developer ecosystem = continuous improvement
-├─ Network effect: more users → more developers → more employees → more users
-└─ Winner-take-most dynamics
-
-Moat 4: Brand & Category Creation
-├─ "AI Employee" as a new category (vs "AI tool" / "AI agent")
-├─ First mover in desktop AI employee management
-├─ Pixel office visual identity = memorable, shareable
-└─ Category creators get disproportionate mindshare
-```
-
----
-
-## 11. Risk Mitigation
-
-| Risk | Probability | Impact | Mitigation |
-|---|---|---|---|
-| OpenAI/Google launches "AI Employees" | High | Critical | Desktop privacy moat + local model support + open ecosystem |
-| LLM API price increase | Medium | High | One-API multi-model switch + Ollama local fallback + BYOK |
-| Skills copied by competitors | High | Medium | Moat is orchestration + memory, not individual skills |
-| OpenClaw Gateway stops maintenance | Medium | Critical | Skill Runtime designed to be Gateway-independent |
-| Electron performance issues | High | Medium | Optimize memory usage, lazy loading, process management |
-| Low free→paid conversion | High | High | Strong free experience (2 employees), clear value gap |
-| Cloud infrastructure costs | Medium | Medium | Start with 1 VPS, scale only with revenue |
-| User data loss | Low | Critical | SQLite backups, cloud sync, export functionality |
-
----
-
-## 12. Implementation Roadmap
-
-```
-2026 Q1 (Feb-Mar): Foundation
-├─ Week 1-2: manifest.json spec + Skill Compiler
-├─ Week 3-4: Employee Manager + One-API integration
-├─ Week 5-6: Employee Hub UI + Chat integration
-├─ Week 7-8: Import marketing team (5 employees) + PPT designer
-└─ Milestone: First employee conversation working end-to-end
-
-2026 Q2 (Apr-Jun): Product
-├─ Week 9-12: PM Supervisor + task orchestration
-├─ Week 13-16: Task persistence + Cron integration
-├─ Week 17-20: Memory system v1 + employee tools
-├─ Week 20: Closed Beta launch (20 users)
-└─ Milestone: Beta users completing real tasks daily
-
-2026 Q3 (Jul-Sep): Monetization + Cloud
-├─ Week 21-24: Credits system + payment integration
-├─ Week 25-28: Cloud backend v1 (single VPS)
-├─ Week 29-32: Web dashboard + scheduled tasks
-├─ Week 30: Public Beta + ProductHunt launch
-└─ Milestone: MRR > $1,000
-
-2026 Q4 (Oct-Dec): Scale
-├─ Week 33-36: Skill Package SDK + Marketplace v1
-├─ Week 37-40: More employee teams (dev/sales/content)
-├─ Week 41-44: Pixel office UI + advanced features
-├─ Week 44: General Availability
-└─ Milestone: MRR > $5,000, 100+ skill packages
-```
-
----
-
-## 13. Success Metrics
-
-### Phase 0-1 (Foundation + Product)
-
-| Metric | Target |
-|---|---|
-| Beta users | 20 |
-| Daily active users | 10+ |
-| Tasks completed per user per week | 5+ |
-| Employee conversation satisfaction | > 4/5 |
-| Bug reports resolved | < 48h |
-
-### Phase 2 (Monetization)
-
-| Metric | Target |
-|---|---|
-| Registered users | 500+ |
-| Free → Pro conversion | > 8% |
-| MRR | > $1,000 |
-| Monthly churn | < 5% |
-| Cloud adoption rate | > 20% of Pro users |
-
-### Phase 3 (Scale)
-
-| Metric | Target |
-|---|---|
-| Registered users | 2,000+ |
-| MRR | > $5,000 |
-| Skill packages on Marketplace | 100+ |
-| Third-party developers | 30+ |
-| Employee teams available | 5+ verticals |
-
----
-
-## 14. Tech Stack Summary
-
-```
-Desktop:
-├─ Electron 40+
-├─ React 19 + TypeScript
-├─ Zustand (state management)
-├─ Tailwind CSS + shadcn/ui
-├─ SQLite (via better-sqlite3, task/memory persistence)
-├─ i18next (internationalization)
-└─ Vite (build tool)
-
-Local Engine:
-├─ OpenClaw Gateway (agent runtime)
-├─ One-API (Go binary, LLM proxy)
-├─ Skill Runtime Engine (TypeScript, new module)
-├─ gray-matter (SKILL.md YAML parsing)
-└─ Node.js child_process (script execution)
-
-Cloud Backend (Phase 2+):
-├─ Node.js + Fastify (or Go + Fiber)
-├─ PostgreSQL (users, tasks, credits)
-├─ Redis + BullMQ (task queue)
-├─ Docker (agent sandboxes)
-├─ One-API (cloud LLM proxy)
-├─ S3-compatible storage (MinIO or cloud S3)
-├─ JWT authentication
-└─ Hetzner / DigitalOcean VPS
-
-Pixel Office (Phase 3):
-├─ PixiJS (2D rendering)
-├─ Aseprite format sprites
-└─ WebSocket for real-time state
+├── src/                          # Renderer Process
+│   ├── App.tsx                   # Routes + error boundary + theme/language sync
+│   ├── main.tsx                  # React entry (BrowserRouter)
+│   │
+│   ├── pages/
+│   │   ├── Supervisor/           # HOME PAGE — Supervisor Manager
+│   │   │   └── index.tsx         #   Chat + MessageDock character switcher
+│   │   ├── Employees/            # Employee Hub + Chat
+│   │   │   ├── index.tsx         #   Grid roster with pixel-art workstations
+│   │   │   ├── EmployeeChat.tsx  #   Chat view for individual employee
+│   │   │   ├── EmployeeHeader.tsx#   Header bar with avatar + status
+│   │   │   ├── OnboardingWizard.tsx # Multi-step browser login wizard
+│   │   │   ├── HireDialog.tsx    #   Hire from built-in skill list
+│   │   │   └── EmployeeSecrets.tsx#  Per-employee API key config
+│   │   ├── Chat/                 # Reusable chat interface
+│   │   │   ├── index.tsx         #   Messages + streaming + external session mode
+│   │   │   ├── ChatMessage.tsx   #   Markdown + images + thinking + tool calls
+│   │   │   ├── ChatInput.tsx     #   Text input + file attachments
+│   │   │   └── ChatToolbar.tsx   #   Session selector, thinking toggle
+│   │   ├── Dashboard/            # Analytics & overview
+│   │   │   ├── index.tsx         #   Stats, workload, credits, recent tasks
+│   │   │   └── CreditsChart.tsx  #   Daily credit consumption chart
+│   │   ├── Tasks/                # Kanban task board
+│   │   │   └── index.tsx         #   Status columns, drag-drop, star ratings
+│   │   ├── Skills/               # Skill marketplace
+│   │   │   ├── index.tsx         #   Browse, search, install/uninstall
+│   │   │   └── SkillCard.tsx     #   Skill detail card
+│   │   ├── Channels/             # Channel integrations (11 types)
+│   │   │   └── index.tsx         #   WhatsApp, Telegram, Discord, Feishu, etc.
+│   │   ├── Cron/                 # Scheduled tasks
+│   │   │   └── index.tsx         #   Create/edit with schedule presets
+│   │   ├── Settings/             # Application configuration
+│   │   │   ├── index.tsx         #   Theme, language, gateway, dev mode
+│   │   │   ├── Billing.tsx       #   Subscription management
+│   │   │   ├── BYOK.tsx          #   Bring Your Own Key
+│   │   │   ├── BrandMemory.tsx   #   Brand knowledge base
+│   │   │   ├── License.tsx       #   License key management
+│   │   │   ├── LocalModels.tsx   #   Ollama local model management
+│   │   │   ├── Prohibitions.tsx  #   Employee behavior rules
+│   │   │   └── TeamMembers.tsx   #   Multi-user RBAC
+│   │   └── Setup/                # First-launch wizard
+│   │       └── index.tsx         #   Language + provider key setup
+│   │
+│   ├── stores/                   # Zustand State Management
+│   │   ├── chat.ts               # Chat messages, streaming, sessions
+│   │   ├── gateway.ts            # Gateway lifecycle, health, RPC proxy
+│   │   ├── employees.ts          # Employee roster, activation, real-time status
+│   │   ├── tasks.ts              # Tasks, projects, real-time updates
+│   │   ├── credits.ts            # Balance, history, daily summary
+│   │   ├── skills.ts             # Skill registry, marketplace search
+│   │   ├── settings.ts           # Persisted settings (localStorage)
+│   │   ├── cron.ts               # Scheduled jobs
+│   │   └── channels.ts           # Channel connections
+│   │
+│   ├── types/
+│   │   ├── electron.d.ts         # window.electron type declarations
+│   │   ├── employee.ts           # Employee, EmployeeStatus, EmployeeSource
+│   │   ├── task.ts               # Task, Project, Message, priorities
+│   │   ├── skill.ts              # Skill, SkillBundle, MarketplaceSkill
+│   │   ├── manifest.ts           # SkillManifest, ManifestTool, ManifestOnboarding
+│   │   ├── credits.ts            # CreditTransaction, CreditsBalance, rates
+│   │   ├── memory.ts             # EpisodicMemory, SemanticMemory
+│   │   ├── user.ts               # User, UserRole, RBAC permissions
+│   │   ├── cron.ts               # CronJob, CronSchedule
+│   │   └── channel.ts            # Channel, 11 ChannelTypes, CHANNEL_META
+│   │
+│   ├── components/
+│   │   ├── layout/
+│   │   │   ├── MainLayout.tsx    # TitleBar + Sidebar + Outlet
+│   │   │   ├── Sidebar.tsx       # 7 nav items, collapsible, dev console
+│   │   │   └── TitleBar.tsx      # Window chrome (macOS/Windows)
+│   │   ├── ui/                   # Shadcn/ui + custom primitives
+│   │   │   ├── message-dock.tsx  # Character selector for Supervisor
+│   │   │   ├── ai-input.tsx      # Auto-resize textarea
+│   │   │   ├── button.tsx, card.tsx, dialog.tsx, etc.
+│   │   │   └── native-select.tsx
+│   │   ├── chat/
+│   │   │   ├── ChatMessage.tsx   # Message rendering (markdown, images, tools)
+│   │   │   ├── ChatInput.tsx     # Input with file staging
+│   │   │   ├── ChatToolbar.tsx   # Session/thinking controls
+│   │   │   ├── FilePreview.tsx   # Attachment previews
+│   │   │   └── message-utils.ts  # Content extraction helpers
+│   │   ├── employees/
+│   │   │   └── PixelAvatar.tsx   # Emoji avatar with status ring
+│   │   ├── common/
+│   │   │   ├── LoadingSpinner.tsx
+│   │   │   ├── PaywallDialog.tsx
+│   │   │   └── StatusBadge.tsx
+│   │   └── settings/
+│   │       ├── ProvidersSettings.tsx
+│   │       └── UpdateSettings.tsx
+│   │
+│   ├── i18n/
+│   │   ├── index.ts              # i18next init, 13 namespaces
+│   │   └── locales/
+│   │       ├── en/ (13 files)    # English
+│   │       ├── zh/ (13 files)    # 中文
+│   │       └── ja/ (13 files)    # 日本語
+│   │
+│   └── lib/
+│       └── utils.ts              # cn() + helpers
+│
+├── tests/
+│   ├── setup.ts                  # Vitest setup (mock window.electron, localStorage)
+│   ├── __mocks__/
+│   │   └── better-sqlite3.ts     # SQLite mock for unit tests
+│   └── unit/
+│       ├── utils.test.ts
+│       ├── stores.test.ts
+│       ├── stores/
+│       │   ├── employees.test.ts
+│       │   └── tasks.test.ts
+│       └── engine/
+│           ├── manifest-parser.test.ts
+│           ├── compiler.test.ts
+│           ├── employee-manager.test.ts
+│           ├── task-queue.test.ts
+│           ├── supervisor.test.ts
+│           └── message-bus.test.ts
+│
+├── resources/employees/          # 11 bundled employee packages
+│   ├── marketing-seo/
+│   ├── marketing-copywriter/
+│   ├── marketing-content-strategist/
+│   ├── marketing-growth/
+│   ├── marketing-manager/
+│   ├── dev-backend/
+│   ├── dev-frontend/
+│   ├── research-analyst/
+│   ├── supervisor/
+│   └── ... (more)
+│
+├── cloud/                        # Cloud backend (Phase 2)
+│   ├── package.json
+│   ├── Dockerfile
+│   ├── docker-compose.yml
+│   └── src/
+│       ├── index.ts              # Express entry
+│       ├── db.ts                 # SQLite schema
+│       └── routes/
+│           ├── tasks.ts          # Task API
+│           └── sync.ts           # Desktop↔Cloud sync
+│
+├── scripts/                      # Build & utility scripts
+│   ├── create-skill-package.ts   # Scaffold new employee skill
+│   ├── validate-manifest.ts      # Validate manifest.json
+│   ├── bundle-openclaw.mjs       # Bundle Gateway binary
+│   ├── download-bundled-uv.mjs   # Download UV for Python tools
+│   ├── generate-icons.mjs        # Generate app icons
+│   ├── after-pack.cjs            # Post-build hook
+│   └── installer.nsh             # Windows NSIS customization
+│
+├── PRODUCT_PLAN.md               # This file
+├── CLAUDE.md                     # Developer instructions
+├── package.json                  # v0.1.13, pnpm 10
+├── tsconfig.json                 # Strict TS, path aliases
+├── vite.config.ts                # Vite + Electron plugin
+├── vitest.config.ts              # Vitest + jsdom
+├── eslint.config.mjs             # Flat ESLint config
+├── .prettierrc                   # Code formatting rules
+└── electron-builder.yml          # Build & packaging config
 ```
 
 ---
 
-## Appendix A: Key File Mapping (Current → New)
+## 6. Core Features (Implemented)
+
+### 6.1 Supervisor Manager (Home Page)
+
+**路由**: `/` (默认首页)
+**文件**: `src/pages/Supervisor/index.tsx`
+
+Supervisor Manager 是 ClawX 的主控界面，融合全屏 Chat 视图和 MessageDock 角色切换器。
 
 ```
-Current ClawX:                    AI Employee Platform:
-─────────────────────            ─────────────────────────
-src/pages/Chat/         →        src/pages/EmployeeChat/    (renamed)
-src/pages/Skills/       →        src/pages/Marketplace/     (evolved)
-src/pages/Dashboard/    →        src/pages/Dashboard/       (enhanced)
-src/pages/Cron/         →        src/pages/Cron/            (employee-bound)
-(new)                   →        src/pages/Employees/       (Employee Hub)
-(new)                   →        src/pages/Tasks/           (Task Board)
-src/stores/chat.ts      →        src/stores/chat.ts         (employee-aware)
-src/stores/skills.ts    →        src/stores/employees.ts    (new)
-(new)                   →        src/stores/tasks.ts        (new)
-(new)                   →        src/stores/credits.ts      (new)
-(new)                   →        src/stores/memory.ts       (new)
-src/types/skill.ts      →        src/types/employee.ts      (new)
-(new)                   →        src/types/task.ts          (new)
-(new)                   →        src/types/manifest.ts      (new)
-(new)                   →        electron/engine/            (Skill Runtime)
-(new)                   →        electron/engine/compiler.ts
-(new)                   →        electron/engine/employee-manager.ts
-(new)                   →        electron/engine/task-queue.ts
-(new)                   →        electron/engine/supervisor.ts
-(new)                   →        electron/engine/memory.ts
-electron/main/tray.ts   →        electron/main/tray.ts      (enhanced)
-electron/main/index.ts  →        electron/main/index.ts     (tray-hide + One-API)
+┌──────────────────────────────────┐
+│  [👔 Supervisor]                 │  ← 当前角色指示器
+│  ──────────────────────────────  │
+│                                  │
+│  Chat Messages Area              │  ← 显示当前选中角色的对话
+│  (复用 Chat 组件)                 │
+│                                  │
+│  [用户消息...]                    │
+│  [AI 回复...]                    │
+│                                  │
+│  ┌──────────────────────────┐    │
+│  │  Chat Input              │    │  ← 完整的聊天输入框
+│  └──────────────────────────┘    │
+│  ──────────────────────────────  │
+│  ┌─────────────────────────────┐ │
+│  │ 👔  🧙‍♂️  🦄  🐵  🤖       │ │  ← MessageDock 角色切换
+│  └─────────────────────────────┘ │
+└──────────────────────────────────┘
 ```
 
----
+**关键逻辑**:
+- 默认选中 Supervisor（👔），session key = `agent:main:main`
+- 点击员工头像 → 如果 offline 则自动 activate → 切换到 `agent:main:employee-${slug}` session
+- 员工状态通过 `employee:status-changed` IPC 事件实时更新
+- MessageDock 显示所有员工头像 + 状态指示灯（green=idle, amber=working, red=error, gray=offline）
 
----
+### 6.2 Employee System
 
-## 15. Supervisor Engine Design (Based on Claude Code Agent Team)
+#### Employee Hub
 
-### 15.1 Design Philosophy
+**路由**: `/employees`
+**文件**: `src/pages/Employees/index.tsx`
 
-The Supervisor/PM engine is inspired by Claude Code's Agent Team architecture.
-Core principle: **decentralized coordination via shared task board + mesh communication**.
+网格布局的员工花名册，每个员工以像素风工作站卡片呈现。
+
+**功能**:
+- 像素渲染的迷你角色（显示器、椅子、咖啡杯）
+- 状态颜色编码（working=blue, idle=purple, blocked=red, offline=gray）
+- 每个员工的操作按钮：Chat、Settings、Play/Pause 激活
+- HireDialog: 从内置 Skill 列表雇佣新员工
+- EmployeeSecrets: 配置每个员工的 API Key
+
+#### Employee Chat
+
+**路由**: `/employees/:slug`
+**文件**: `src/pages/Employees/EmployeeChat.tsx`
+
+与单个员工的独立聊天页面。
+
+**流程**:
+1. 检查员工是否需要 Onboarding（execution-type skills）
+2. 如需要且未完成 → 显示 OnboardingWizard（多步骤引导）
+3. 如员工 offline → 自动激活
+4. 绑定到员工的 Gateway session key
+5. 复用 Chat 组件 (`externalSession=true`)
+
+#### Employee Lifecycle
 
 ```
-Key Design Decisions:
-├─ No central scheduler — employees self-organize via shared task board
-├─ Mesh communication — employees talk directly, PM monitors but doesn't bottleneck
-├─ Dependency DAG — upstream completion auto-unblocks downstream tasks
-├─ Plan Approval Gates — prevent expensive misdirection
-├─ Delegate Mode — PM only coordinates, never does employees' work
-├─ Model Tiering — expensive model for PM, cheap models for employees
-└─ Graceful Lifecycle — two-phase shutdown preserves consistency
-```
-
-### 15.2 Seven Core Primitives
-
-Mapping from Claude Code to ClawX:
-
-| # | Primitive | Claude Code | ClawX Implementation |
-|---|---|---|---|
-| 1 | **Project Init** | TeamCreate | `supervisor.createProject(goal, employees[])` |
-| 2 | **Task Creation** | TaskCreate | `supervisor.createTask({ subject, description, assignTo?, blockedBy? })` |
-| 3 | **Task Board** | TaskList | `taskQueue.list()` → shared SQLite table |
-| 4 | **Task Transition** | TaskUpdate | `taskQueue.update(id, { status, owner })` with row-level locking |
-| 5 | **Employee Spawn** | Task (spawn) | `employeeManager.activate(roleId, sessionConfig)` → Gateway Session |
-| 6 | **Messaging** | SendMessage | `messageBus.send({ type, recipient, content })` |
-| 7 | **Cleanup** | TeamDelete | `supervisor.closeProject()` → archive + cleanup |
-
-### 15.3 Task State Machine
-
-```
-                    ┌──────────┐
-                    │ created  │
-                    └────┬─────┘
-                         │ PM creates task
+                    ┌─────────┐
+         scan ──→   │ offline │
+                    └────┬────┘
+                         │ activate()
                          ▼
-    ┌──────────────────────────────────────┐
-    │              pending                  │
-    │  (waiting for dependencies or claim)  │
-    └────┬─────────────────────────────┬───┘
-         │                             │
-         │ employee self-claims        │ PM assigns
-         ▼                             ▼
-    ┌──────────────────────────────────────┐
-    │            in_progress                │
-    │  owner: "seo-specialist"              │
-    └────┬──────────────┬──────────────┬───┘
-         │              │              │
-         │ success      │ needs review │ stuck/timeout
-         ▼              ▼              ▼
-    ┌──────────┐  ┌──────────┐  ┌──────────┐
-    │completed │  │in_review │  │ blocked  │
-    └──────────┘  └────┬─────┘  └────┬─────┘
-                       │              │
-                  PM approves    PM reassigns
-                       │         to other employee
-                       ▼              │
-                  ┌──────────┐        │
-                  │completed │        │
-                  └──────────┘   back to pending
+                    ┌─────────┐
+    ┌───────────→   │  idle   │  ←─────────────┐
+    │               └────┬────┘                │
+    │                    │ task assigned        │ task completed
+    │                    ▼                      │
+    │               ┌─────────┐                │
+    │               │ working │  ──────────────┘
+    │               └────┬────┘
+    │                    │ dependency wait
+    │                    ▼
+    │               ┌─────────┐
+    │               │ blocked │
+    │               └────┬────┘
+    │                    │ dependency resolved
+    │                    │
+    └────────────────────┘
+                    │ error
+                    ▼
+               ┌─────────┐
+               │  error  │
+               └─────────┘
 ```
 
-### 15.4 Task Schema
+#### Employee Discovery (Scan-Based)
+
+员工来自两个目录：
+1. **Built-in**: `resources/employees/` — 随应用打包（11 个）
+2. **Marketplace**: `~/.openclaw/skills/` — 通过 ClawHub 安装
+
+Employee Manager 扫描这两个目录，解析 `manifest.json`，生成员工列表。
+
+#### Bundled Employee Packages (11)
+
+| Package | Role | Team | Type |
+|---------|------|------|------|
+| marketing-seo | SEO Specialist 🔍 | Marketing | Knowledge |
+| marketing-copywriter | Copywriter 📝 | Marketing | Knowledge |
+| marketing-content-strategist | Content Strategist 📋 | Marketing | Knowledge |
+| marketing-growth | Growth Expert 📈 | Marketing | Knowledge |
+| marketing-manager | Marketing PM 👔 | Marketing | Knowledge |
+| dev-backend | Backend Engineer | Dev | Hybrid |
+| dev-frontend | Frontend Engineer | Dev | Hybrid |
+| research-analyst | Research Analyst | Research | Knowledge |
+| supervisor | Supervisor PM | Management | Knowledge |
+| reddit-nurture | Reddit Growth | Marketing | Execution |
+| ... | ... | ... | ... |
+
+### 6.3 Skill System
+
+#### Skill Package Standard
+
+每个 Skill 包 = 一个目录：
+
+```
+employee-slug/
+├── manifest.json          # 元数据、能力声明、工具定义
+├── SKILL.md               # 专家系统 Prompt 模板
+├── scripts/               # (可选) 执行脚本
+├── tools/                 # (可选) CLI 工具
+├── references/            # (可选) 知识库
+└── templates/             # (可选) 输出模板
+```
+
+#### manifest.json Structure
 
 ```typescript
-// src/types/task.ts
+interface SkillManifest {
+  name: string;                    // 唯一标识 (slug)
+  version: string;                 // semver
+  description: string;
+  type: 'knowledge' | 'execution' | 'hybrid';
 
-interface Task {
-  id: string;
-  projectId: string;              // which project this belongs to
-  subject: string;                // short title
-  description: string;            // detailed instructions (the actual prompt)
-  status: 'pending' | 'in_progress' | 'in_review' | 'completed' | 'blocked';
-  owner: string | null;           // employee role ID
-  assignedBy: 'self' | 'pm';     // who assigned this task
-  blockedBy: string[];            // task IDs that must complete first
-  blocks: string[];               // task IDs that this blocks (computed)
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  
-  // Plan Approval Gate
-  requiresApproval: boolean;      // if true, employee must submit plan first
-  plan: string | null;            // employee's submitted plan
-  planStatus: 'none' | 'submitted' | 'approved' | 'rejected';
-  planFeedback: string | null;    // PM's feedback on rejected plan
-  
-  // Execution
-  output: string | null;          // task result/deliverable
-  outputFiles: string[];          // generated file paths
-  tokensUsed: number;
-  creditsConsumed: number;
-  
-  // Timestamps
-  createdAt: number;
-  startedAt: number | null;
-  completedAt: number | null;
-  estimatedDuration: number;      // seconds
-  
-  // Wave execution (computed)
-  wave: number;                   // which dependency wave this task belongs to
-}
+  employee: {
+    role: string;                  // 英文角色名
+    roleZh: string;                // 中文角色名
+    avatar: string;                // Emoji
+    team: string;                  // 团队名
+    personality: {
+      style: string;               // 人格风格描述
+      greeting: string;            // 英文问候语
+      greetingZh?: string;         // 中文问候语
+    };
+  };
 
-interface Project {
-  id: string;
-  goal: string;                   // user's original request
-  pmEmployeeId: string;           // which PM is managing this
-  employees: string[];            // active employee IDs
-  tasks: string[];                // task IDs
-  status: 'planning' | 'executing' | 'reviewing' | 'completed';
-  createdAt: number;
-  completedAt: number | null;
-}
-```
+  skills: Array<{
+    id: string;
+    name: string;
+    prompt: string;                // 技能提示词
+    references?: string[];         // 引用文件
+  }>;
 
-### 15.5 Supervisor Engine Implementation
+  capabilities?: {
+    inputs: string[];              // 支持的输入类型
+    outputs: string[];             // 产出类型
+  };
 
-```typescript
-// electron/engine/supervisor.ts
+  tools?: Array<{
+    name: string;
+    description: string;
+    cli: string;                   // CLI 命令
+    requiredSecret?: string;       // 所需密钥名
+  }>;
 
-class SupervisorEngine {
-  private taskQueue: TaskQueue;         // SQLite-backed
-  private messageBus: MessageBus;       // inter-employee communication
-  private employeeManager: EmployeeManager;
-  private gateway: GatewayManager;
+  secrets?: Array<{
+    key: string;
+    description: string;
+    required: boolean;
+  }>;
 
-  /**
-   * Phase 1: Decompose user goal into tasks
-   * The PM employee receives the user's goal and creates a task DAG
-   */
-  async planProject(userGoal: string, pmEmployeeId: string): Promise<Project> {
-    // PM employee analyzes the goal and creates tasks
-    const pmSession = this.employeeManager.getSession(pmEmployeeId);
-    
-    // PM operates in Delegate Mode — coordination tools only
-    const taskPlan = await this.gateway.rpc('chat.send', {
-      session: pmSession.key,
-      message: `
-        You are the Project Manager. Analyze this goal and create a task plan.
-        
-        USER GOAL: ${userGoal}
-        
-        AVAILABLE EMPLOYEES:
-        ${this.employeeManager.listActive().map(e => 
-          `- ${e.role}: ${e.skills.join(', ')}`
-        ).join('\n')}
-        
-        Create tasks with:
-        1. Clear subject and detailed description
-        2. Assignment to the right employee
-        3. Dependencies (blockedBy) where needed
-        4. Plan approval required for high-risk tasks
-        
-        Output as JSON array of tasks.
-      `
-    });
-    
-    // Parse PM's task plan and create tasks
-    const tasks = this.parsePMTaskPlan(taskPlan);
-    for (const task of tasks) {
-      await this.taskQueue.create(task);
-    }
-    
-    return project;
-  }
+  onboarding?: {
+    type: 'browser-login';
+    loginUrl: string;
+    successIndicator: string;
+    cookieDomains: string[];
+    configTemplate?: Record<string, unknown>;
+  };
 
-  /**
-   * Phase 2: Execute — employees claim and work on tasks
-   * This is the main execution loop, decentralized via shared task board
-   */
-  async executeProject(projectId: string): Promise<void> {
-    const project = await this.getProject(projectId);
-    
-    // Notify all employees that work is available
-    for (const employeeId of project.employees) {
-      await this.messageBus.send({
-        type: 'message',
-        recipient: employeeId,
-        content: `New project started: "${project.goal}". Check the task board for available work.`,
-        summary: 'New project — check task board'
-      });
-    }
-    
-    // Monitor loop (PM watches progress)
-    this.startMonitorLoop(projectId);
-  }
-
-  /**
-   * Employee work loop (runs in each employee's session)
-   * Injected into employee's System Prompt
-   */
-  getEmployeeWorkLoopPrompt(): string {
-    return `
-      ## Work Loop Instructions
-      
-      After each task, check the task board for more work:
-      1. Call taskBoard.list() to see available tasks
-      2. Find tasks where: status=pending, owner=null, all blockedBy completed
-      3. Claim the lowest-ID available task (prefer sequential order)
-      4. If task requires approval: submit your plan first, wait for PM approval
-      5. Execute the task using your skills
-      6. Mark task as completed with your output
-      7. Notify PM of completion
-      8. Check for more tasks
-      9. If no tasks available, go idle and notify PM
-    `;
-  }
-
-  /**
-   * Monitor loop: PM watches for stuck tasks, reassigns, synthesizes
-   */
-  private async startMonitorLoop(projectId: string): Promise<void> {
-    const POLL_INTERVAL = 30_000; // 30 seconds
-    const STUCK_THRESHOLD = 300_000; // 5 minutes
-    
-    const interval = setInterval(async () => {
-      const tasks = await this.taskQueue.list(projectId);
-      
-      // Check for stuck tasks
-      for (const task of tasks) {
-        if (task.status === 'in_progress') {
-          const elapsed = Date.now() - (task.startedAt || 0);
-          if (elapsed > STUCK_THRESHOLD) {
-            // Notify PM about stuck task
-            await this.handleStuckTask(task);
-          }
-        }
-      }
-      
-      // Check if all tasks completed
-      const allDone = tasks.every(t => t.status === 'completed');
-      if (allDone) {
-        clearInterval(interval);
-        await this.synthesizeResults(projectId);
-      }
-      
-      // Auto-unblock: check if any pending tasks can now be started
-      await this.checkAutoUnblock(tasks);
-      
-    }, POLL_INTERVAL);
-  }
-
-  /**
-   * Auto-unblock: when a task completes, check if downstream tasks are now unblocked
-   */
-  private async checkAutoUnblock(tasks: Task[]): Promise<void> {
-    const completedIds = new Set(
-      tasks.filter(t => t.status === 'completed').map(t => t.id)
-    );
-    
-    for (const task of tasks) {
-      if (task.status === 'pending' && task.blockedBy.length > 0) {
-        const allDepsCompleted = task.blockedBy.every(dep => completedIds.has(dep));
-        if (allDepsCompleted) {
-          // Task is now unblocked — notify assigned employee or broadcast availability
-          if (task.owner) {
-            await this.messageBus.send({
-              type: 'message',
-              recipient: task.owner,
-              content: `Task "${task.subject}" is now unblocked. You can start working on it.`,
-              summary: `Task unblocked: ${task.subject}`
-            });
-          }
-        }
-      }
-    }
-  }
-
-  /**
-   * Plan Approval Gate
-   */
-  async handlePlanSubmission(taskId: string, plan: string): Promise<void> {
-    await this.taskQueue.update(taskId, {
-      plan,
-      planStatus: 'submitted'
-    });
-    
-    const task = await this.taskQueue.get(taskId);
-    const project = await this.getProject(task.projectId);
-    
-    // Send to PM for review
-    await this.messageBus.send({
-      type: 'message',
-      recipient: project.pmEmployeeId,
-      content: `Employee ${task.owner} submitted a plan for "${task.subject}":\n\n${plan}\n\nApprove or reject with feedback.`,
-      summary: `Plan submitted for review: ${task.subject}`
-    });
-  }
-
-  async approvePlan(taskId: string): Promise<void> {
-    await this.taskQueue.update(taskId, { planStatus: 'approved' });
-    const task = await this.taskQueue.get(taskId);
-    await this.messageBus.send({
-      type: 'message',
-      recipient: task.owner!,
-      content: `Your plan for "${task.subject}" has been approved. Proceed with execution.`,
-      summary: 'Plan approved — proceed'
-    });
-  }
-
-  async rejectPlan(taskId: string, feedback: string): Promise<void> {
-    await this.taskQueue.update(taskId, { 
-      planStatus: 'rejected', 
-      planFeedback: feedback 
-    });
-    const task = await this.taskQueue.get(taskId);
-    await this.messageBus.send({
-      type: 'message',
-      recipient: task.owner!,
-      content: `Your plan for "${task.subject}" was rejected. Feedback: ${feedback}\nPlease revise and resubmit.`,
-      summary: 'Plan rejected — revise'
-    });
-  }
-
-  /**
-   * Phase 3: Synthesis — PM collects all results and produces final deliverable
-   */
-  async synthesizeResults(projectId: string): Promise<string> {
-    const project = await this.getProject(projectId);
-    const tasks = await this.taskQueue.list(projectId);
-    const pmSession = this.employeeManager.getSession(project.pmEmployeeId);
-    
-    const results = tasks.map(t => ({
-      subject: t.subject,
-      owner: t.owner,
-      output: t.output,
-      files: t.outputFiles
-    }));
-    
-    const synthesis = await this.gateway.rpc('chat.send', {
-      session: pmSession.key,
-      message: `
-        All tasks for project "${project.goal}" are complete.
-        
-        Results from each employee:
-        ${JSON.stringify(results, null, 2)}
-        
-        Please synthesize these into a cohesive final deliverable for the user.
-        Highlight key findings, cross-reference between employee outputs,
-        and provide actionable next steps.
-      `
-    });
-    
-    return synthesis;
-  }
-
-  /**
-   * Graceful shutdown (two-phase)
-   */
-  async closeProject(projectId: string): Promise<void> {
-    const project = await this.getProject(projectId);
-    
-    // Phase 1: Request shutdown from all employees
-    for (const employeeId of project.employees) {
-      await this.messageBus.send({
-        type: 'shutdown_request',
-        recipient: employeeId,
-        content: 'Project completed. Wrapping up.'
-      });
-    }
-    
-    // Phase 2: Wait for all acknowledgments (with timeout)
-    await this.waitForShutdownAcks(project.employees, 60_000);
-    
-    // Phase 3: Archive project and clean up
-    await this.archiveProject(projectId);
-  }
+  pricing?: {
+    model: 'included' | 'premium' | 'free';
+  };
 }
 ```
 
-### 15.6 Message Bus Implementation
-
-```typescript
-// electron/engine/message-bus.ts
-
-interface Message {
-  id: string;
-  type: 'message' | 'broadcast' | 'shutdown_request' | 'shutdown_response' | 'plan_approval';
-  from: string;                   // sender employee ID
-  recipient: string | 'all';     // target employee ID or 'all' for broadcast
-  content: string;
-  summary: string;
-  requestId?: string;             // for response correlation
-  approve?: boolean;              // for approval responses
-  timestamp: number;
-  read: boolean;
-}
-
-class MessageBus {
-  private db: Database;           // SQLite
-
-  async send(msg: Omit<Message, 'id' | 'timestamp' | 'read'>): Promise<void> {
-    if (msg.type === 'broadcast') {
-      // Send to all active employees (expensive — use sparingly)
-      const employees = await this.employeeManager.listActive();
-      for (const emp of employees) {
-        if (emp.id !== msg.from) {
-          await this.insertMessage({ ...msg, recipient: emp.id });
-          await this.notifyEmployee(emp.id);
-        }
-      }
-    } else {
-      await this.insertMessage(msg);
-      await this.notifyEmployee(msg.recipient);
-    }
-  }
-
-  // Employee polls inbox (or gets notified via Gateway event)
-  async getInbox(employeeId: string): Promise<Message[]> {
-    return this.db.prepare(
-      'SELECT * FROM messages WHERE recipient = ? AND read = 0 ORDER BY timestamp ASC'
-    ).all(employeeId);
-  }
-
-  // Notify employee of new message via Gateway session
-  private async notifyEmployee(employeeId: string): Promise<void> {
-    const session = this.employeeManager.getSession(employeeId);
-    if (session) {
-      // Inject message into employee's chat session as a system notification
-      await this.gateway.rpc('chat.inject', {
-        session: session.key,
-        role: 'system',
-        content: `[New message in your inbox. Check messageBus.getInbox()]`
-      });
-    }
-  }
-}
-```
-
-### 15.7 Model Tiering Strategy
+#### System Prompt Compilation
 
 ```
-Cost Optimization via One-API Model Assignment:
-
-┌───────────────────────────────────────────────────────────┐
-│ Employee Role          │ Model              │ Cost/1M Token│
-├────────────────────────┼────────────────────┼──────────────┤
-│ PM / Supervisor        │ claude-opus-4      │ $15          │
-│ (decisions matter most)│ or gpt-4o          │ $5           │
-├────────────────────────┼────────────────────┼──────────────┤
-│ Knowledge Workers      │ claude-sonnet-4    │ $3           │
-│ (SEO, 文案, 策略)      │ or gpt-4o-mini     │ $0.30        │
-├────────────────────────┼────────────────────┼──────────────┤
-│ Execution Workers      │ claude-sonnet-4    │ $3           │
-│ (PPT, 海报)           │ + domain APIs       │              │
-├────────────────────────┼────────────────────┼──────────────┤
-│ Research/Scout         │ claude-haiku-4     │ $0.25        │
-│ (竞品分析, 数据收集)   │ or deepseek-v3     │ $0.14        │
-└───────────────────────────────────────────────────────────┘
-
-One-API 配置（每个员工 Session 指向不同 channel）:
-  PM Session      → One-API channel: "premium" (claude-opus)
-  SEO Session     → One-API channel: "standard" (claude-sonnet)
-  Research tasks  → One-API channel: "economy" (claude-haiku)
-
-预估成本（一次完整项目编排）:
-  PM 规划 + 协调:     ~50K tokens × $15/M  = $0.75
-  5 个员工执行:        ~200K tokens × $3/M  = $0.60
-  总计:               ~$1.35/project
-  对比单个 Opus 全程:  ~250K tokens × $15/M = $3.75
-  节省: 64%
+SKILL.md (模板)
+    │
+    │  替换模板变量:
+    │  {{ROLE}} → manifest.employee.role
+    │  {{ROLE_ZH}} → manifest.employee.roleZh
+    │  {{TEAM}} → manifest.employee.team
+    │  {{PERSONALITY_STYLE}} → manifest.employee.personality.style
+    │  {{TEAM_ROSTER}} → 动态员工列表 (Supervisor 用)
+    │
+    ▼
++ 注入 Tool Prompt Section (如果有注册工具)
+    │
+    ▼
++ 注入 Episodic Memory Section (最近任务经验)
+    │
+    ▼
++ 注入 Business Context Section (语义记忆)
+    │
+    ▼
++ 注入 Prohibition Rules Section (行为规则)
+    │
+    ▼
+完整 System Prompt (10K-30K chars)
 ```
 
-### 15.8 User-Facing Workflow Example
+### 6.4 Chat System
+
+**文件**: `src/pages/Chat/index.tsx`, `src/stores/chat.ts`
+
+Chat 组件是 ClawX 的核心交互界面，被 Supervisor 和 EmployeeChat 复用。
+
+**功能**:
+- Markdown 渲染 (react-markdown + remark-gfm)
+- Streaming 实时显示（逐字输出）
+- Thinking blocks 展示（可折叠）
+- Tool call 渲染
+- 图片附件支持
+- 文件上传 (staging via IPC)
+- 多 Session 切换
+- 自动滚动到最新消息
+
+**External Session 模式**:
+当 `externalSession=true` 时，Chat 不自行管理 session，由父组件通过 `useChatStore.switchSession()` 控制。
+
+**Chat Streaming Flow**:
 
 ```
-用户打开 ClawX → 点击营销经理 → 对话：
-
-用户: "我下周要发布新产品，帮我准备所有营销材料"
-
-营销经理(PM): 
-  "好的，我来规划这次产品发布的营销工作。
-   让我分析一下需要哪些员工参与..."
-  
-  [PM 内部: 创建 Project + 分解 8 个 Tasks + 依赖关系]
-
-营销经理(PM): 
-  "我已经制定了计划，需要 4 个员工协作完成 8 项任务：
-
-   📋 任务计划:
-   ┌────────────────────────────────────────────┐
-   │ Wave 1 (立即开始，并行):                     │
-   │  T1: 竞品定位分析 → SEO 专家               │
-   │  T2: 产品价值主张提炼 → 文案大师           │
-   │                                            │
-   │ Wave 2 (T2 完成后自动开始):                 │
-   │  T3: 着陆页文案 → 文案大师                  │
-   │  T4: 发布 PPT → PPT 设计师                  │
-   │  T5: 邮件序列 → 文案大师                    │
-   │  T6: 社媒推广计划 → 内容策略师              │
-   │                                            │
-   │ Wave 3 (T3 完成后):                         │
-   │  T7: 着陆页 SEO 优化 → SEO 专家            │
-   │                                            │
-   │ Wave 4 (全部完成后):                        │
-   │  T8: 整合所有材料 → 我(PM)                  │
-   └────────────────────────────────────────────┘
-   
-   预计完成时间: 约 15 分钟
-   预计消耗: ~45 credits
-   
-   是否开始执行？"
-
-用户: "开始吧"
-
-[任务自动执行，UI 显示实时进度]
-
-营销经理(PM): 
-  "所有任务已完成！以下是整合后的产品发布营销包：
-   
-   📊 竞品分析报告 (来自 SEO 专家)
-   ✍️ 产品价值主张 + 着陆页文案 (来自文案大师)
-   🎨 产品发布 PPT (来自 PPT 设计师)  [点击查看]
-   📧 5 封发布邮件序列 (来自文案大师)
-   📱 各平台社媒推广方案 (来自内容策略师)
-   🔍 着陆页 SEO 优化建议 (来自 SEO 专家)
-   
-   总消耗: 38 credits
-   
-   需要我对任何部分进行调整吗？"
+User sends message
+    │
+    ▼
+chat.ts → gateway:rpc('chat.send', { sessionKey, message })
+    │
+    ▼
+Gateway processes → LLM API call
+    │
+    ▼
+Gateway sends streaming events via WebSocket
+    │
+    ▼
+Main process receives → forwards via IPC:
+  - gateway:notification (agent events)
+  - gateway:chat-message (streaming chunks)
+    │
+    ▼
+gateway.ts store receives → dedup by runId:seq → forwards to chat.ts
+    │
+    ▼
+chat.ts → handleChatEvent() → updates streamingMessage/streamingText
+    │
+    ▼
+React re-renders → user sees streaming text
 ```
 
-### 15.9 Anti-Patterns to Avoid
+### 6.5 Task Management
 
-| Anti-Pattern | Why It Fails | Correct Pattern |
-|---|---|---|
-| 所有沟通经过 PM | PM 成为瓶颈，杀死并行性 | 网状通讯，员工直接对话 |
-| PM 自己执行任务 | 浪费协调能力，上下文被污染 | Delegate Mode: PM 只用协调工具 |
-| 任务太碎（< 1 分钟） | 协调开销 > 任务本身价值 | 每员工 3-6 个有意义的任务 |
-| 没有文件所有权边界 | 多员工同时改同一输出 → 冲突 | 每任务明确输出物归属 |
-| 跳过方案审批 | 错误执行消耗大量 token | 高风险任务必须 Plan → Approve → Execute |
-| 强制终止员工 | 状态不一致：半完成的任务 | 两阶段优雅关闭 |
-| 广播常规消息 | N 条消息 × N 员工 = 浪费 | 默认用直接消息 |
-| 所有员工用最贵模型 | 成本暴涨 | 模型分层：PM 用贵的，执行用便宜的 |
+**路由**: `/tasks` (TODO: 侧边栏暂未添加)
+**文件**: `src/pages/Tasks/index.tsx`, `src/stores/tasks.ts`
+
+看板式任务管理。
+
+**任务状态列**:
+```
+pending → in_progress → in_review → completed
+                                  ↗
+             blocked ─────────────┘
+```
+
+**Task 属性**:
+- `subject`, `description` — 任务描述
+- `owner` — 分配给哪个员工
+- `priority` — low / medium / high / urgent
+- `blockedBy[]`, `blocks[]` — 依赖关系 (DAG)
+- `wave` — 执行波次（0=无依赖, 1=依赖 wave 0, ...）
+- `plan`, `planStatus` — PM 的执行计划 (none/submitted/approved/rejected)
+- `output`, `outputFiles[]` — 任务产出
+- `rating`, `feedback` — 用户评分 (1-5 stars)
+- `tokensUsed`, `creditsConsumed` — 资源消耗
+
+**Project 属性**:
+- `goal` — 用户目标
+- `pmEmployeeId` — 负责的 PM 员工
+- `employees[]`, `tasks[]` — 参与者和任务列表
+- `status` — planning / executing / reviewing / completed
+
+### 6.6 Supervisor Engine (PM Orchestration)
+
+**文件**: `electron/engine/supervisor.ts`
+
+Supervisor Engine 是 PM 级别的编排器，将用户目标分解为任务 DAG，分配给员工，监控执行，综合结果。
+
+**三阶段流程**:
+
+```
+Phase 1: Plan (规划)
+─────────────────────
+  用户输入目标
+    ↓
+  PM 员工分析目标
+    ↓
+  生成任务列表:
+  - subject + description
+  - 分配给哪个员工
+  - 依赖关系 (blockedBy)
+  - 优先级 + 波次
+    ↓
+  创建 Project + Task 记录
+
+Phase 2: Execute (执行)
+─────────────────────────
+  找出无依赖的任务 (wave 0)
+    ↓
+  通过 MessageBus 分配给员工
+    ↓
+  监控完成情况 (每 30 秒轮询)
+    ↓
+  完成后解锁依赖任务 (wave 1+)
+    ↓
+  处理超时任务 (>300 秒无进展)
+
+Phase 3: Synthesize (综合)
+───────────────────────────
+  所有任务完成
+    ↓
+  PM 综合所有结果
+    ↓
+  生成最终报告给用户
+```
+
+**Delegation Protocol (Feishu 模式)**:
+
+Supervisor 可以通过 DELEGATE 标记将任务委派给员工：
+
+```html
+<!-- DELEGATE {"employee":"marketing-seo","task":"Analyze SEO for example.com","context":"Focus on technical SEO issues"} -->
+```
+
+Main process 检测到此标记后：
+1. 解析 DELEGATE JSON
+2. 调用 `dispatchToEmployee(slug, task, context)`
+3. 转发结果回 Supervisor session
+4. Supervisor 综合所有委派结果
+
+### 6.7 Memory System
+
+**文件**: `electron/engine/memory.ts`
+
+双层记忆系统，为 AI 员工提供持久化上下文。
+
+#### Episodic Memory (情景记忆)
+
+- **目的**: 记录过去的任务经验
+- **存储**: SQLite `clawx-memory.db` → `episodic_memories` 表
+- **属性**: employeeId, content, tags[], importance (1-5), taskId
+- **注入**: 编译 System Prompt 时自动附加最近 N 条记忆
+
+#### Semantic Memory (语义记忆)
+
+- **目的**: 长期知识（品牌信息、客户数据、定价策略）
+- **存储**: SQLite `clawx-memory.db` → `semantic_memories` 表
+- **属性**: category, key, value
+- **共享**: 所有员工共享的业务上下文
+
+### 6.8 Credits System
+
+**文件**: `electron/engine/credits-engine.ts`, `src/stores/credits.ts`
+
+内部信用额度系统，追踪 AI 操作消耗。
+
+**费率**:
+
+| 操作 | Credits |
+|------|---------|
+| Chat message | 1 |
+| Tool call | 2 |
+| Execution | 5 |
+| PM orchestration | 3 |
+| Memory access | 0.5 |
+| Topup | +N |
+| Bonus | +N |
+
+**初始化**: 新用户赠送 1000 welcome credits。
+
+**Dashboard 展示**: 余额、每日消耗图表、按员工/按类型分析。
+
+### 6.9 Prohibition System
+
+**文件**: `electron/engine/prohibition.ts`
+
+为 AI 员工设定行为规则和限制。
+
+**级别**:
+- `hard` — 不可覆盖（立即失败）
+- `soft` — 需要人工确认
+
+**默认规则**:
+1. "Never share API keys or secrets in responses"
+2. "Never execute destructive operations without explicit confirmation"
+3. "Ask for confirmation before making changes that affect pricing or billing"
+
+**注入**: 规则在编译 System Prompt 时自动附加。
+
+### 6.10 Inter-Employee Messaging
+
+**文件**: `electron/engine/message-bus.ts`
+
+SQLite 支持的员工间消息系统。
+
+**消息类型**:
+- `message` — 点对点消息
+- `request` — 任务分配请求
+- `approval` — 审批请求
+- `broadcast` — 广播给所有活跃员工
+
+### 6.11 Channel Integrations
+
+**路由**: `/channels`
+**支持**: 11 个消息平台
+
+| Channel | 接入方式 |
+|---------|---------|
+| Telegram | Bot Token |
+| Discord | Bot Token |
+| WhatsApp | QR Code |
+| Feishu (飞书) | App ID + Secret |
+| iMessage | AppleScript |
+| Matrix | Server + Token |
+| LINE | Channel Token |
+| MS Teams | OAuth |
+| Google Chat | Webhook |
+| Mattermost | Token |
+| Signal | Signal CLI |
+
+### 6.12 Cron Tasks
+
+**路由**: `/cron`
+**文件**: `src/pages/Cron/index.tsx`
+
+定时任务系统，支持多种调度模式。
+
+**调度类型**:
+- `daily` — 每日定时
+- `weekly` — 每周定时
+- `monthly` — 每月定时
+- `interval` — 间隔执行 (everyMs)
+- `custom` — 自定义 cron 表达式
+
+**功能**: 目标渠道选择、员工自动分配、启用/禁用、手动触发。
+
+### 6.13 Dashboard
+
+**路由**: `/dashboard`
+**文件**: `src/pages/Dashboard/index.tsx`
+
+团队概览仪表板。
+
+**展示内容**:
+- 员工状态统计（按状态分组）
+- 各员工工作负载仪表
+- Credits 余额 + 每日消耗图表
+- 最近完成的任务（含星级评分）
+- 快速操作按钮（雇佣员工、创建任务）
+- 团队成员头像 + 状态
+
+### 6.14 Settings
+
+**路由**: `/settings/*`
+**文件**: `src/pages/Settings/`
+
+| 设置项 | 说明 |
+|--------|------|
+| Theme | Light / Dark / System |
+| Language | English / 中文 / 日本語 |
+| Gateway | 自动启动、端口配置 |
+| Providers | LLM 提供商 API Key (BYOK) |
+| Supervisor | 启用/禁用 PM 编排模式 |
+| Dev Mode | 解锁开发者控制台 |
+| Updates | 更新频道、自动检查/下载 |
+| License | 许可证管理 |
+| Local Models | Ollama 模型管理 |
+| Prohibitions | 员工行为规则 |
+| Brand Memory | 品牌知识库 |
+| Team Members | 多用户 RBAC |
+| Billing | 订阅管理 |
+
+### 6.15 System Tray
+
+**文件**: `electron/main/tray.ts`
+
+**功能**:
+- 点击: 切换窗口显示/隐藏
+- 右键菜单:
+  - Show/Hide window
+  - 员工状态列表（实时更新）
+  - 快捷入口（Employee Hub, Task Board, Settings）
+  - Quit
+- Tooltip: "ClawX - N employees working"
+- 动态更新: 监听 `employee:status-changed` 事件
 
 ---
 
-*This document is the single source of truth for ClawX AI Employee Platform development.*
+## 7. IPC Channel Registry (28 Groups, 220+ Channels)
+
+### 7.1 Gateway Management
+
+| Channel | Type | Description |
+|---------|------|-------------|
+| `gateway:start` | invoke | Start Gateway process |
+| `gateway:stop` | invoke | Stop Gateway process |
+| `gateway:restart` | invoke | Restart Gateway |
+| `gateway:status` | invoke | Get current status |
+| `gateway:health` | invoke | Health check |
+| `gateway:rpc` | invoke | JSON-RPC call proxy |
+| `gateway:getControlUiUrl` | invoke | Dev Console URL |
+| `gateway:status-changed` | event | Status change notification |
+| `gateway:error` | event | Error notification |
+| `gateway:notification` | event | Agent events (streaming) |
+| `gateway:chat-message` | event | Chat streaming events |
+
+### 7.2 Employee Management
+
+| Channel | Type | Description |
+|---------|------|-------------|
+| `employee:list` | invoke | List all employees |
+| `employee:get` | invoke | Get single employee |
+| `employee:activate` | invoke | Compile prompt + create session |
+| `employee:deactivate` | invoke | Set offline |
+| `employee:status` | invoke | Current status |
+| `employee:scan` | invoke | Rescan skill directories |
+| `employee:setSecret` | invoke | Store per-employee secret |
+| `employee:getSecrets` | invoke | Retrieve secrets |
+| `employee:getManifest` | invoke | Get skill manifest |
+| `employee:status-changed` | event | Real-time status updates |
+
+### 7.3 Task Management
+
+| Channel | Type | Description |
+|---------|------|-------------|
+| `task:create` | invoke | Create task |
+| `task:list` | invoke | List tasks (optional projectId filter) |
+| `task:get` | invoke | Get single task |
+| `task:update` | invoke | Update task fields |
+| `task:claim` | invoke | Assign employee to task |
+| `task:complete` | invoke | Mark complete with output |
+| `task:cancel` | invoke | Cancel task |
+| `task:available` | invoke | Available unassigned tasks |
+| `task:rate` | invoke | Rate completed task (1-5 stars) |
+| `task:changed` | event | Real-time task updates |
+
+### 7.4 Project Management
+
+| Channel | Type | Description |
+|---------|------|-------------|
+| `project:create` | invoke | Create project |
+| `project:list` | invoke | List projects |
+| `project:get` | invoke | Get project |
+| `project:execute` | invoke | Trigger Supervisor execution |
+
+### 7.5 Supervisor (PM)
+
+| Channel | Type | Description |
+|---------|------|-------------|
+| `supervisor:enable` | invoke | Activate PM mode |
+| `supervisor:disable` | invoke | Deactivate PM mode |
+| `supervisor:status` | invoke | Current PM status |
+| `supervisor:dispatch` | invoke | Delegate goal to PM |
+| `supervisor:delegation-*` | event | Delegation progress events |
+
+### 7.6 Other Groups
+
+- **Credits** (7 channels): balance, history, consume, topup, dailySummary, byEmployee, byType
+- **Memory** (10 channels): episodic CRUD + search, semantic CRUD + category query
+- **Message Bus** (3 channels): send, inbox, markRead
+- **Execution** (3 channels): run, cancel, status
+- **Prohibition** (5 channels): list, create, update, delete, toggle
+- **Channel** (6 channels): list, create, update, delete, connect, listConfigured
+- **WhatsApp** (2+events): requestQr, cancelQr + qr/success/error events
+- **Cron** (6 channels): list, create, update, delete, toggle, trigger
+- **Skills** (1 channel): listBuiltin
+- **Skill Config** (3 channels): updateConfig, getConfig, getAllConfigs
+- **Provider** (9 channels): list, save, get, delete, setDefault, getDefault, test, listKeyIds, setActiveModel
+- **Settings** (7 channels): get, set, getAll, openExternal, getAppVersion, devMode
+- **File** (3 channels): stage, stageBuffer, getThumbnails
+- **Logging** (2 channels): listFiles, readFile
+- **Window** (4 channels): minimize, maximize, close, isMaximized
+- **License** (3 channels): validate, status, deactivate
+- **User** (7 channels): list, get, create, update, delete, current, switch
+- **Ollama** (4+events): status, listModels, pullModel, deleteModel + pullProgress event
+- **Onboarding** (5 channels): browserLogin, cancelLogin, saveData, getData, camofoxHealth
+- **ClawHub** (5 channels): search, explore, install, uninstall, list
+- **Navigate** (1 event): navigate (main → renderer)
+
+---
+
+## 8. Data Persistence
+
+### 8.1 SQLite Databases (4)
+
+| Database | File | Engine | Purpose |
+|----------|------|--------|---------|
+| Tasks | `clawx-tasks.db` | TaskQueue + MessageBus | 任务、项目、依赖关系、消息 |
+| Memory | `clawx-memory.db` | MemoryEngine | 情景记忆 + 语义记忆 |
+| Credits | `clawx-credits.db` | CreditsEngine | 信用交易记录 |
+| Prohibitions | `clawx-prohibitions.db` | ProhibitionEngine | 行为规则 |
+
+### 8.2 electron-store
+
+- **Provider configs**: API keys, base URLs, default models
+- **Settings**: theme, language, gateway config, sidebar state
+- **Onboarding state**: per-employee onboarding completion
+
+### 8.3 localStorage (Renderer)
+
+- **Zustand persist**: settings store only
+- **Image cache**: base64 thumbnails for uploaded images (max 100 entries)
+
+### 8.4 Disk-Based (Source of Truth)
+
+- **Employee roster**: `resources/employees/` + `~/.openclaw/skills/` (scan-based discovery)
+- **Skill configs**: `~/.openclaw/openclaw.json`
+- **Logs**: `~/.clawx/logs/`
+
+---
+
+## 9. i18n System
+
+### 9.1 Configuration
+
+| Setting | Value |
+|---------|-------|
+| Framework | i18next + react-i18next |
+| Default language | English (`en`) |
+| Fallback language | English (`en`) |
+| Default namespace | `common` |
+| Total namespaces | 13 |
+| Total languages | 3 (en, zh, ja) |
+| Total files | 39 (13 × 3) |
+| Interpolation | `{{variable}}` syntax |
+| React | `useSuspense: false` |
+
+### 9.2 Namespace Inventory
+
+| Namespace | Scope | Key Count (approx) |
+|-----------|-------|-----|
+| `common` | Sidebar, actions, status, nav, gateway, supervisor | 72 |
+| `settings` | Settings pages, providers, appearance | 135 |
+| `dashboard` | Metrics, credits, analytics | 55 |
+| `chat` | Chat interface | 18 |
+| `channels` | Channel management (largest) | 263 |
+| `skills` | Skills/toolbox management | 70 |
+| `cron` | Scheduled tasks, triggers | 73 |
+| `setup` | First-launch wizard | 118 |
+| `employees` | Employee hub, cards, onboarding | 140 |
+| `tasks` | Task board, projects | 87 |
+| `marketplace` | Employee marketplace | 52 |
+| `credits` | Credits tracking | 35 |
+| `billing` | Subscriptions, payment | 76 |
+
+### 9.3 Supported Languages
+
+| Code | Label | Coverage |
+|------|-------|----------|
+| `en` | English | 100% (reference) |
+| `zh` | 中文 | 100% |
+| `ja` | 日本語 | 100% |
+
+---
+
+## 10. Provider System
+
+### 10.1 Supported LLM Providers
+
+| Provider | Type | Default Model | Env Var |
+|----------|------|---------------|---------|
+| Anthropic | Built-in | claude-opus-4-6 | ANTHROPIC_API_KEY |
+| OpenAI | Built-in | gpt-4o | OPENAI_API_KEY |
+| Google | Built-in | gemini-2.0-flash | GOOGLE_API_KEY |
+| OpenRouter | Built-in | deepseek/deepseek-r1 | OPENROUTER_API_KEY |
+| Moonshot | Built-in | moonshot-v1-auto | MOONSHOT_API_KEY |
+| SiliconFlow | Built-in | — | SILICONFLOW_API_KEY |
+| Ollama | Local | — | (local server) |
+| Custom | User-defined | — | — |
+
+**附加 (env var only)**: Groq, Deepgram, Cerebras, XAI, Mistral
+
+### 10.2 BYOK (Bring Your Own Key)
+
+用户通过 Settings > Providers 配置自己的 API Key。Key 存储在 `electron-store` 中，Gateway 启动时通过环境变量注入。
+
+---
+
+## 11. Testing
+
+### 11.1 Test Infrastructure
+
+| Tool | Purpose | Config |
+|------|---------|--------|
+| Vitest | Unit tests | jsdom environment, globals |
+| @testing-library/react | Component tests | React rendering + queries |
+| Playwright | E2E tests | Browser automation |
+| better-sqlite3 mock | Database tests | In-memory SQLite mock |
+
+### 11.2 Test Files (12)
+
+| Test | Target | Phase |
+|------|--------|-------|
+| `utils.test.ts` | Utility functions | Core |
+| `stores.test.ts` | Zustand stores (general) | Core |
+| `stores/employees.test.ts` | Employee store | Phase 0 |
+| `stores/tasks.test.ts` | Task store | Phase 0 |
+| `engine/manifest-parser.test.ts` | Manifest parsing | Phase 0 |
+| `engine/compiler.test.ts` | Prompt compilation | Phase 0 |
+| `engine/employee-manager.test.ts` | Employee lifecycle | Phase 0 |
+| `engine/task-queue.test.ts` | SQLite task queue | Phase 0 |
+| `engine/supervisor.test.ts` | PM orchestration | Phase 1 |
+| `engine/message-bus.test.ts` | Messaging | Phase 1 |
+
+**最新状态**: 142/142 tests passing, 10/10 files green.
+
+### 11.3 Commands
+
+```bash
+pnpm test         # vitest run (142 tests)
+pnpm test:e2e     # playwright test
+pnpm typecheck    # tsc --noEmit (3 pre-existing errors in Billing/BYOK)
+pnpm lint         # eslint --fix
+```
+
+---
+
+## 12. Route Structure
+
+| Route | Page | Description |
+|-------|------|-------------|
+| `/` | Supervisor | Home — Chat + MessageDock |
+| `/employees` | Employees | Employee Hub (grid roster) |
+| `/employees/:slug` | EmployeeChat | Individual employee chat |
+| `/dashboard` | Dashboard | Analytics & overview |
+| `/channels` | Channels | 11 channel integrations |
+| `/skills` | Skills | Skill marketplace |
+| `/cron` | Cron | Scheduled tasks |
+| `/settings/*` | Settings | Application configuration |
+| `/setup/*` | Setup | First-launch wizard |
+
+**Sidebar Navigation** (7 items):
+1. 👑 Supervisor (Crown icon) → `/`
+2. 👥 Employees (Users icon) → `/employees`
+3. 🏠 Dashboard (Home icon) → `/dashboard`
+4. 📻 Channels (Radio icon) → `/channels`
+5. 🔧 Skills (Wrench icon) → `/skills`
+6. ⏰ Cron (Clock icon) → `/cron`
+7. ⚙️ Settings (Settings icon) → `/settings`
+
+---
+
+## 13. Pricing Model (Planned)
+
+| Tier | Price | Employees | Credits | Features |
+|------|-------|-----------|---------|----------|
+| Free | $0 | 2 | 20/day | BYOK only |
+| Pro | $29/mo | Unlimited | 1500/mo | All tools, priority support |
+| Team | $99/mo | Unlimited | 5000/mo | 5 users, PM, shared memory |
+| Cloud | +$19/mo | — | — | 24/7 execution add-on |
+| Enterprise | Custom | — | — | Custom deployment |
+
+---
+
+## 14. Implementation Status
+
+### Phase 0: "Hire Your First AI Employee" ✅ COMPLETE
+
+| Feature | Status | Files |
+|---------|--------|-------|
+| ManifestParser | ✅ | `engine/manifest-parser.ts` |
+| SkillCompiler | ✅ | `engine/compiler.ts` |
+| ToolRegistry | ✅ | `engine/tool-registry.ts` |
+| EmployeeManager | ✅ | `engine/employee-manager.ts` |
+| CreditsEngine | ✅ | `engine/credits-engine.ts` |
+| Engine Bootstrap | ✅ | `engine/bootstrap.ts` |
+| Employee IPC (10 channels) | ✅ | `ipc-handlers.ts` |
+| Employee Hub UI | ✅ | `pages/Employees/` |
+| Employee Chat View | ✅ | `pages/Employees/EmployeeChat.tsx` |
+| Onboarding Wizard | ✅ | `pages/Employees/OnboardingWizard.tsx` |
+| Hire Dialog | ✅ | `pages/Employees/HireDialog.tsx` |
+| Supervisor Manager (Home) | ✅ | `pages/Supervisor/` |
+| MessageDock | ✅ | `components/ui/message-dock.tsx` |
+| Dashboard (enhanced) | ✅ | `pages/Dashboard/` |
+| Sidebar update | ✅ | `components/layout/Sidebar.tsx` |
+| System Tray (dynamic) | ✅ | `main/tray.ts` |
+| i18n: employees namespace | ✅ | `locales/*/employees.json` |
+| 11 bundled employees | ✅ | `resources/employees/` |
+| Unit tests (10 files) | ✅ | `tests/unit/` |
+
+### Phase 1: "Team Collaboration" ✅ COMPLETE
+
+| Feature | Status | Files |
+|---------|--------|-------|
+| TaskQueue (SQLite) | ✅ | `engine/task-queue.ts` |
+| MessageBus | ✅ | `engine/message-bus.ts` |
+| SupervisorEngine | ✅ | `engine/supervisor.ts` |
+| ExecutionWorker | ✅ | `engine/execution-worker.ts` (stub) |
+| MemoryEngine | ✅ | `engine/memory.ts` |
+| ProhibitionEngine | ✅ | `engine/prohibition.ts` |
+| Task IPC (9 channels) | ✅ | `ipc-handlers.ts` |
+| Project IPC (4 channels) | ✅ | `ipc-handlers.ts` |
+| Supervisor IPC (4+events) | ✅ | `ipc-handlers.ts` |
+| Message IPC (3 channels) | ✅ | `ipc-handlers.ts` |
+| Memory IPC (10 channels) | ✅ | `ipc-handlers.ts` |
+| Prohibition IPC (5 channels) | ✅ | `ipc-handlers.ts` |
+| Execution IPC (3 channels) | ✅ | `ipc-handlers.ts` |
+| Task Board UI | ✅ | `pages/Tasks/` |
+| Cron + employee assignment | ✅ | `pages/Cron/` |
+| Supervisor settings toggle | ✅ | `pages/Settings/` |
+
+### Phase 2: "Cloud & Monetization" 🔨 IN PROGRESS
+
+| Feature | Status | Files |
+|---------|--------|-------|
+| Cloud backend (Express + SQLite) | ✅ Scaffold | `cloud/` |
+| Credits tracking | ✅ | `engine/credits-engine.ts` |
+| Credits IPC (7 channels) | ✅ | `ipc-handlers.ts` |
+| Credits UI (Dashboard chart) | ✅ | `pages/Dashboard/CreditsChart.tsx` |
+| License validation | ✅ | `utils/license-validator.ts` |
+| License IPC (3 channels) | ✅ | `ipc-handlers.ts` |
+| User management IPC (7 channels) | ✅ | `ipc-handlers.ts` |
+| Billing UI | ✅ Scaffold | `pages/Settings/Billing.tsx` |
+| BYOK settings | ✅ Scaffold | `pages/Settings/BYOK.tsx` |
+| Desktop↔Cloud sync | 🔲 | `cloud/src/routes/sync.ts` |
+| Web Dashboard | 🔲 | — |
+| Cloud execution sandbox | 🔲 | — |
+| Stripe payment integration | 🔲 | — |
+
+### Phase 3: "Scale & Ecosystem" 🔲 NOT STARTED
+
+| Feature | Status |
+|---------|--------|
+| Skill SDK & Developer CLI | 🔲 |
+| ClawHub public marketplace | 🔲 |
+| More employee teams (sales, content, research) | Partial (dev + research bundled) |
+| Multi-user collaboration (RBAC) | ✅ Types defined |
+| Ollama support UI | ✅ `pages/Settings/LocalModels.tsx` |
+| Brand Memory UI | ✅ Scaffold |
+| Prohibition management UI | ✅ Scaffold |
+
+---
+
+## 15. Key Design Decisions
+
+### 15.1 Architecture Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Gateway 直连 LLM | No intermediate proxy | 减少延迟和单点故障 |
+| IPC 三层架构 | Preload whitelist | 安全性: renderer 无法直接访问 Node.js |
+| Scan-based employee discovery | 文件系统扫描 | 无需数据库，skill 包即是真相来源 |
+| Lazy Phase 1 loading | 按需加载 | 启动速度优化，Phase 1 组件仅在首次使用时初始化 |
+| SQLite for persistence | better-sqlite3 | 无外部依赖，同步 API，高性能 |
+| electron-store for config | ESM-only lazy import | Electron 推荐的设置存储方案 |
+| JSON-RPC 2.0 | Standard protocol | 与 Gateway 通信的标准化协议 |
+| Template-based prompts | SKILL.md + variable injection | 灵活可扩展，支持运行时注入记忆/工具/规则 |
+
+### 15.2 UI Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Supervisor as home page | 全屏 Chat + MessageDock | 最常用操作是和 AI 对话，减少导航 |
+| MessageDock character switcher | Framer Motion animated dock | 直观的角色切换，无需离开当前页面 |
+| Chat 组件复用 | externalSession mode | Supervisor 和 EmployeeChat 共享同一个 Chat |
+| 像素风工作站卡片 | Pixel art employees | 人格化呈现，增强用户与 AI 员工的情感连接 |
+| Shadcn/ui + Radix | Accessible primitives | 无障碍设计 + 可定制性 |
+
+### 15.3 Data Flow Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| 每个员工独立 session | Deterministic key: `agent:main:employee-${slug}` | 对话隔离，session 可恢复 |
+| Zustand 无 persist (除 settings) | 每次启动从 Engine 获取 | 避免 stale state |
+| Streaming via events | gateway:notification + gateway:chat-message | 实时显示 AI 回复 |
+| Dedup by runId:seq | gateway.ts store | 防止重复处理同一事件 |
+
+---
+
+## 16. Security Model
+
+### 16.1 Renderer Isolation
+
+- `contextIsolation: true` — Renderer 和 Preload 环境隔离
+- `nodeIntegration: false` — Renderer 无法访问 Node.js API
+- `sandbox: true` — 沙箱模式
+- CSP headers — Content Security Policy
+
+### 16.2 IPC Security
+
+- **Whitelist enforcement**: 所有 channel 必须在 `validChannels` 数组中
+- **Try/catch wrap**: 所有 handler 必须捕获异常
+- **Standard response**: 统一 `{ success, result, error }` 格式
+
+### 16.3 Secret Management
+
+- Provider API keys 存储在 electron-store 中（不暴露给 Renderer）
+- Per-employee secrets 通过 `employee:setSecret` IPC 存储
+- Gateway 启动时通过环境变量注入 API keys
+
+### 16.4 Prohibition System
+
+- Hard rules: AI 员工不可违反（如不能泄露 API keys）
+- Soft rules: 需要人工确认（如影响定价的操作）
+- 编译时注入 System Prompt
+
+---
+
+## 17. Performance Characteristics
+
+### 17.1 Startup
+
+- Phase 0 初始化 < 2 秒（parser, compiler, registry, employees, credits）
+- Phase 1 懒加载（首次使用时 < 1 秒）
+- Gateway 启动 < 5 秒（包含 WebSocket 连接）
+
+### 17.2 Runtime
+
+- Gateway 重连: 指数退避, max 10 attempts, 1-30s delay
+- Health check: 每 30 秒
+- RPC timeout: 30 秒
+- Task monitor poll: 每 30 秒
+- Stuck task threshold: 300 秒
+
+### 17.3 Storage
+
+- SQLite databases: < 100MB typical
+- Image cache: max 100 entries in localStorage
+- Logs: rotated by date
+
+---
+
+## 18. Future Roadmap
+
+### Near-term
+
+- [ ] Task Board 加入侧边栏导航
+- [ ] Cloud sync 实现 (desktop ↔ cloud)
+- [ ] Stripe 支付集成
+- [ ] Web Dashboard (远程监控)
+- [ ] 更多 execution-type skills (PPT, 海报, 视频)
+
+### Mid-term
+
+- [ ] Skill SDK for third-party developers
+- [ ] ClawHub 公开市场
+- [ ] 多用户协作 (RBAC 已有类型定义)
+- [ ] Agent-to-agent 工具调用
+- [ ] 更多 LLM provider 支持
+
+### Long-term
+
+- [ ] Cloud-native execution sandbox (Docker)
+- [ ] Mobile companion app
+- [ ] Enterprise SSO & audit logging
+- [ ] Skill versioning & dependency management
+- [ ] Performance analytics & optimization recommendations
+
+---
+
+> Generated from codebase analysis on 2026-02-21.
+> 142 tests passing | 10 test files | 220+ IPC channels | 13 i18n namespaces | 11 bundled employees

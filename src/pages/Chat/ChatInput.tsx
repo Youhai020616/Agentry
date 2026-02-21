@@ -1,15 +1,30 @@
 /**
  * Chat Input Component
- * Textarea with send button and universal file upload support.
+ * Redesigned with AIInput-inspired layout:
+ *   - Full-width textarea on top (borderless, auto-resize)
+ *   - Toolbar below with divider (attach left, send/stop right)
+ *   - Attachment previews inside container above textarea
+ *
  * Enter to send, Shift+Enter for new line.
  * Supports: native file picker, clipboard paste, drag & drop.
  * Files are staged to disk via IPC — only lightweight path references
  * are sent with the message (no base64 over WebSocket).
  */
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Square, X, Paperclip, FileText, Film, Music, FileArchive, File, Loader2 } from 'lucide-react';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import {
+  ArrowUp,
+  Square,
+  X,
+  Paperclip,
+  FileText,
+  Film,
+  Music,
+  FileArchive,
+  File,
+  Loader2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -18,8 +33,8 @@ export interface FileAttachment {
   fileName: string;
   mimeType: string;
   fileSize: number;
-  stagedPath: string;        // disk path for gateway
-  preview: string | null;    // data URL for images, null for others
+  stagedPath: string; // disk path for gateway
+  preview: string | null; // data URL for images, null for others
   status: 'staging' | 'ready' | 'error';
   error?: string;
 }
@@ -43,8 +58,21 @@ function formatFileSize(bytes: number): string {
 function FileIcon({ mimeType, className }: { mimeType: string; className?: string }) {
   if (mimeType.startsWith('video/')) return <Film className={className} />;
   if (mimeType.startsWith('audio/')) return <Music className={className} />;
-  if (mimeType.startsWith('text/') || mimeType === 'application/json' || mimeType === 'application/xml') return <FileText className={className} />;
-  if (mimeType.includes('zip') || mimeType.includes('compressed') || mimeType.includes('archive') || mimeType.includes('tar') || mimeType.includes('rar') || mimeType.includes('7z')) return <FileArchive className={className} />;
+  if (
+    mimeType.startsWith('text/') ||
+    mimeType === 'application/json' ||
+    mimeType === 'application/xml'
+  )
+    return <FileText className={className} />;
+  if (
+    mimeType.includes('zip') ||
+    mimeType.includes('compressed') ||
+    mimeType.includes('archive') ||
+    mimeType.includes('tar') ||
+    mimeType.includes('rar') ||
+    mimeType.includes('7z')
+  )
+    return <FileArchive className={className} />;
   if (mimeType === 'application/pdf') return <FileText className={className} />;
   return <File className={className} />;
 }
@@ -73,55 +101,85 @@ function readFileAsBase64(file: globalThis.File): Promise<string> {
   });
 }
 
+// ── Auto-resize hook ─────────────────────────────────────────────
+
+function useAutoResizeTextarea(minHeight: number, maxHeight: number) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const adjustHeight = useCallback(
+    (reset?: boolean) => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+
+      if (reset) {
+        textarea.style.height = `${minHeight}px`;
+        return;
+      }
+
+      textarea.style.height = `${minHeight}px`;
+      const newHeight = Math.max(minHeight, Math.min(textarea.scrollHeight, maxHeight));
+      textarea.style.height = `${newHeight}px`;
+    },
+    [minHeight, maxHeight]
+  );
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = `${minHeight}px`;
+    }
+  }, [minHeight]);
+
+  useEffect(() => {
+    const handleResize = () => adjustHeight();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [adjustHeight]);
+
+  return { textareaRef, adjustHeight };
+}
+
 // ── Component ────────────────────────────────────────────────────
 
 export function ChatInput({ onSend, onStop, disabled = false, sending = false }: ChatInputProps) {
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isComposingRef = useRef(false);
-
-  // Auto-resize textarea
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
-    }
-  }, [input]);
+  const { textareaRef, adjustHeight } = useAutoResizeTextarea(48, 200);
 
   // ── File staging via native dialog ─────────────────────────────
 
   const pickFiles = useCallback(async () => {
     try {
-      const result = await window.electron.ipcRenderer.invoke('dialog:open', {
+      const result = (await window.electron.ipcRenderer.invoke('dialog:open', {
         properties: ['openFile', 'multiSelections'],
-      }) as { canceled: boolean; filePaths?: string[] };
+      })) as { canceled: boolean; filePaths?: string[] };
       if (result.canceled || !result.filePaths?.length) return;
 
-      // Add placeholder entries immediately
       const tempIds: string[] = [];
       for (const filePath of result.filePaths) {
         const tempId = crypto.randomUUID();
         tempIds.push(tempId);
-        // Handle both Unix (/) and Windows (\) path separators
         const fileName = filePath.split(/[\\/]/).pop() || 'file';
-        setAttachments(prev => [...prev, {
-          id: tempId,
-          fileName,
-          mimeType: '',
-          fileSize: 0,
-          stagedPath: '',
-          preview: null,
-          status: 'staging' as const,
-        }]);
+        setAttachments((prev) => [
+          ...prev,
+          {
+            id: tempId,
+            fileName,
+            mimeType: '',
+            fileSize: 0,
+            stagedPath: '',
+            preview: null,
+            status: 'staging' as const,
+          },
+        ]);
       }
 
-      // Stage all files via IPC
       console.log('[pickFiles] Staging files:', result.filePaths);
-      const staged = await window.electron.ipcRenderer.invoke(
+      const staged = (await window.electron.ipcRenderer.invoke(
         'file:stage',
-        result.filePaths,
-      ) as Array<{
+        result.filePaths
+      )) as Array<{
         id: string;
         fileName: string;
         mimeType: string;
@@ -129,26 +187,31 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
         stagedPath: string;
         preview: string | null;
       }>;
-      console.log('[pickFiles] Stage result:', staged?.map(s => ({ id: s?.id, fileName: s?.fileName, mimeType: s?.mimeType, fileSize: s?.fileSize, stagedPath: s?.stagedPath, hasPreview: !!s?.preview })));
+      console.log(
+        '[pickFiles] Stage result:',
+        staged?.map((s) => ({
+          id: s?.id,
+          fileName: s?.fileName,
+          mimeType: s?.mimeType,
+          fileSize: s?.fileSize,
+          stagedPath: s?.stagedPath,
+          hasPreview: !!s?.preview,
+        }))
+      );
 
-      // Update each placeholder with real data
-      setAttachments(prev => {
+      setAttachments((prev) => {
         let updated = [...prev];
         for (let i = 0; i < tempIds.length; i++) {
           const tempId = tempIds[i];
           const data = staged[i];
           if (data) {
-            updated = updated.map(a =>
-              a.id === tempId
-                ? { ...data, status: 'ready' as const }
-                : a,
+            updated = updated.map((a) =>
+              a.id === tempId ? { ...data, status: 'ready' as const } : a
             );
           } else {
             console.warn(`[pickFiles] No staged data for tempId=${tempId} at index ${i}`);
-            updated = updated.map(a =>
-              a.id === tempId
-                ? { ...a, status: 'error' as const, error: 'Staging failed' }
-                : a,
+            updated = updated.map((a) =>
+              a.id === tempId ? { ...a, status: 'error' as const, error: 'Staging failed' } : a
             );
           }
         }
@@ -156,13 +219,11 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
       });
     } catch (err) {
       console.error('[pickFiles] Failed to stage files:', err);
-      // Mark any stuck 'staging' attachments as 'error' so the user can remove them
-      // and the send button isn't permanently blocked
-      setAttachments(prev => prev.map(a =>
-        a.status === 'staging'
-          ? { ...a, status: 'error' as const, error: String(err) }
-          : a,
-      ));
+      setAttachments((prev) =>
+        prev.map((a) =>
+          a.status === 'staging' ? { ...a, status: 'error' as const, error: String(err) } : a
+        )
+      );
     }
   }, []);
 
@@ -171,25 +232,28 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
   const stageBufferFiles = useCallback(async (files: globalThis.File[]) => {
     for (const file of files) {
       const tempId = crypto.randomUUID();
-      setAttachments(prev => [...prev, {
-        id: tempId,
-        fileName: file.name,
-        mimeType: file.type || 'application/octet-stream',
-        fileSize: file.size,
-        stagedPath: '',
-        preview: null,
-        status: 'staging' as const,
-      }]);
+      setAttachments((prev) => [
+        ...prev,
+        {
+          id: tempId,
+          fileName: file.name,
+          mimeType: file.type || 'application/octet-stream',
+          fileSize: file.size,
+          stagedPath: '',
+          preview: null,
+          status: 'staging' as const,
+        },
+      ]);
 
       try {
         console.log(`[stageBuffer] Reading file: ${file.name} (${file.type}, ${file.size} bytes)`);
         const base64 = await readFileAsBase64(file);
         console.log(`[stageBuffer] Base64 length: ${base64?.length ?? 'null'}`);
-        const staged = await window.electron.ipcRenderer.invoke('file:stageBuffer', {
+        const staged = (await window.electron.ipcRenderer.invoke('file:stageBuffer', {
           base64,
           fileName: file.name,
           mimeType: file.type || 'application/octet-stream',
-        }) as {
+        })) as {
           id: string;
           fileName: string;
           mimeType: string;
@@ -197,17 +261,19 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
           stagedPath: string;
           preview: string | null;
         };
-        console.log(`[stageBuffer] Staged: id=${staged?.id}, path=${staged?.stagedPath}, size=${staged?.fileSize}`);
-        setAttachments(prev => prev.map(a =>
-          a.id === tempId ? { ...staged, status: 'ready' as const } : a,
-        ));
+        console.log(
+          `[stageBuffer] Staged: id=${staged?.id}, path=${staged?.stagedPath}, size=${staged?.fileSize}`
+        );
+        setAttachments((prev) =>
+          prev.map((a) => (a.id === tempId ? { ...staged, status: 'ready' as const } : a))
+        );
       } catch (err) {
         console.error(`[stageBuffer] Error staging ${file.name}:`, err);
-        setAttachments(prev => prev.map(a =>
-          a.id === tempId
-            ? { ...a, status: 'error' as const, error: String(err) }
-            : a,
-        ));
+        setAttachments((prev) =>
+          prev.map((a) =>
+            a.id === tempId ? { ...a, status: 'error' as const, error: String(err) } : a
+          )
+        );
       }
     }
   }, []);
@@ -215,34 +281,40 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
   // ── Attachment management ──────────────────────────────────────
 
   const removeAttachment = useCallback((id: string) => {
-    setAttachments(prev => prev.filter(a => a.id !== id));
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
   }, []);
 
-  const allReady = attachments.length === 0 || attachments.every(a => a.status === 'ready');
+  const allReady = attachments.length === 0 || attachments.every((a) => a.status === 'ready');
   const canSend = (input.trim() || attachments.length > 0) && allReady && !disabled && !sending;
   const canStop = sending && !disabled && !!onStop;
 
   const handleSend = useCallback(() => {
     if (!canSend) return;
-    const readyAttachments = attachments.filter(a => a.status === 'ready');
-    // Capture values before clearing — clear input immediately for snappy UX,
-    // but keep attachments available for the async send
+    const readyAttachments = attachments.filter((a) => a.status === 'ready');
     const textToSend = input.trim();
     const attachmentsToSend = readyAttachments.length > 0 ? readyAttachments : undefined;
-    console.log(`[handleSend] text="${textToSend.substring(0, 50)}", attachments=${attachments.length}, ready=${readyAttachments.length}, sending=${!!attachmentsToSend}`);
+    console.log(
+      `[handleSend] text="${textToSend.substring(0, 50)}", attachments=${attachments.length}, ready=${readyAttachments.length}, sending=${!!attachmentsToSend}`
+    );
     if (attachmentsToSend) {
-      console.log('[handleSend] Attachment details:', attachmentsToSend.map(a => ({
-        id: a.id, fileName: a.fileName, mimeType: a.mimeType, fileSize: a.fileSize,
-        stagedPath: a.stagedPath, status: a.status, hasPreview: !!a.preview,
-      })));
+      console.log(
+        '[handleSend] Attachment details:',
+        attachmentsToSend.map((a) => ({
+          id: a.id,
+          fileName: a.fileName,
+          mimeType: a.mimeType,
+          fileSize: a.fileSize,
+          stagedPath: a.stagedPath,
+          status: a.status,
+          hasPreview: !!a.preview,
+        }))
+      );
     }
     setInput('');
     setAttachments([]);
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
+    adjustHeight(true);
     onSend(textToSend, attachmentsToSend);
-  }, [input, attachments, canSend, onSend]);
+  }, [input, attachments, canSend, onSend, adjustHeight]);
 
   const handleStop = useCallback(() => {
     if (!canStop) return;
@@ -260,7 +332,7 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
         handleSend();
       }
     },
-    [handleSend],
+    [handleSend]
   );
 
   // Handle paste (Ctrl/Cmd+V with files)
@@ -281,7 +353,7 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
         stageBufferFiles(pastedFiles);
       }
     },
-    [stageBufferFiles],
+    [stageBufferFiles]
   );
 
   // Handle drag & drop
@@ -308,20 +380,26 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
         stageBufferFiles(Array.from(e.dataTransfer.files));
       }
     },
-    [stageBufferFiles],
+    [stageBufferFiles]
   );
 
   return (
     <div
-      className="bg-background p-4"
+      className="px-4 pt-2 pb-3"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <div className="max-w-4xl mx-auto">
+      <div
+        className={cn(
+          'max-w-4xl mx-auto divide-y divide-border overflow-hidden rounded-2xl border bg-card shadow-sm transition-shadow',
+          dragOver && 'ring-2 ring-primary shadow-md',
+          !disabled && 'focus-within:shadow-md'
+        )}
+      >
         {/* Attachment Previews */}
         {attachments.length > 0 && (
-          <div className="flex gap-2 mb-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap p-3 pb-2">
             {attachments.map((att) => (
               <AttachmentPreview
                 key={att.id}
@@ -332,55 +410,71 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
           </div>
         )}
 
-        {/* Input Row */}
-        <div className={`flex items-end gap-2 ${dragOver ? 'ring-2 ring-primary rounded-lg' : ''}`}>
+        {/* Textarea Area */}
+        <div className="relative">
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value);
+              adjustHeight();
+            }}
+            onKeyDown={handleKeyDown}
+            onCompositionStart={() => {
+              isComposingRef.current = true;
+            }}
+            onCompositionEnd={() => {
+              isComposingRef.current = false;
+            }}
+            onPaste={handlePaste}
+            placeholder={
+              disabled
+                ? 'Gateway not connected...'
+                : 'Message (Enter to send, Shift+Enter for new line)'
+            }
+            disabled={disabled}
+            className={cn(
+              'w-full resize-none bg-transparent px-4 py-3 text-sm outline-none',
+              'placeholder:text-muted-foreground',
+              'disabled:cursor-not-allowed disabled:opacity-50'
+            )}
+            rows={1}
+          />
+        </div>
 
-          {/* Attach Button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="shrink-0 h-[44px] w-[44px]"
-            onClick={pickFiles}
-            disabled={disabled || sending}
-            title="Attach files"
-          >
-            <Paperclip className="h-4 w-4" />
-          </Button>
-
-          {/* Textarea */}
-          <div className="flex-1 relative">
-            <Textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onCompositionStart={() => {
-                isComposingRef.current = true;
-              }}
-              onCompositionEnd={() => {
-                isComposingRef.current = false;
-              }}
-              onPaste={handlePaste}
-              placeholder={disabled ? 'Gateway not connected...' : 'Message (Enter to send, Shift+Enter for new line)'}
-              disabled={disabled}
-              className="min-h-[44px] max-h-[200px] resize-none pr-4"
-              rows={1}
-            />
+        {/* Toolbar */}
+        <div className="flex items-center justify-between px-2 py-1.5">
+          {/* Left: Tools */}
+          <div className="flex items-center gap-0.5">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              onClick={pickFiles}
+              disabled={disabled || sending}
+              title="Attach files"
+            >
+              <Paperclip className="h-4 w-4" />
+            </Button>
           </div>
 
-          {/* Send Button */}
+          {/* Right: Send / Stop */}
           <Button
             onClick={sending ? handleStop : handleSend}
             disabled={sending ? !canStop : !canSend}
             size="icon"
-            className="shrink-0 h-[44px] w-[44px]"
             variant={sending ? 'destructive' : 'default'}
+            className={cn(
+              'h-8 w-8 rounded-lg transition-all',
+              !sending && canSend && 'bg-primary text-primary-foreground shadow-sm'
+            )}
             title={sending ? 'Stop' : 'Send'}
           >
             {sending ? (
-              <Square className="h-4 w-4" />
+              <Square className="h-3.5 w-3.5" />
             ) : (
-              <Send className="h-4 w-4" />
+              <ArrowUp className="h-4 w-4" />
             )}
           </Button>
         </div>
@@ -401,9 +495,8 @@ function AttachmentPreview({
   const isImage = attachment.mimeType.startsWith('image/') && attachment.preview;
 
   return (
-    <div className="relative group rounded-lg overflow-hidden border border-border">
+    <div className="relative group rounded-lg overflow-hidden border border-border bg-muted/30">
       {isImage ? (
-        // Image thumbnail
         <div className="w-16 h-16">
           <img
             src={attachment.preview!}
@@ -412,9 +505,11 @@ function AttachmentPreview({
           />
         </div>
       ) : (
-        // Generic file card
-        <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 max-w-[200px]">
-          <FileIcon mimeType={attachment.mimeType} className="h-5 w-5 shrink-0 text-muted-foreground" />
+        <div className="flex items-center gap-2 px-3 py-2 max-w-[200px]">
+          <FileIcon
+            mimeType={attachment.mimeType}
+            className="h-4 w-4 shrink-0 text-muted-foreground"
+          />
           <div className="min-w-0 overflow-hidden">
             <p className="text-xs font-medium truncate">{attachment.fileName}</p>
             <p className="text-[10px] text-muted-foreground">
@@ -441,7 +536,7 @@ function AttachmentPreview({
       {/* Remove button */}
       <button
         onClick={onRemove}
-        className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="absolute -top-1 -right-1 bg-foreground/80 text-background rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
       >
         <X className="h-3 w-3" />
       </button>

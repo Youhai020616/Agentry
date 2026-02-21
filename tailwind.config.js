@@ -1,10 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: ['class'],
-  content: [
-    './index.html',
-    './src/**/*.{js,ts,jsx,tsx}',
-  ],
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     container: {
       center: true,
@@ -49,10 +46,19 @@ module.exports = {
           foreground: 'hsl(var(--card-foreground))',
         },
       },
+      fontFamily: {
+        pixel: ['Geist Pixel Square', 'monospace'],
+      },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+        xl: '1rem',
+        '2xl': '1.5rem',
+      },
+      boxShadow: {
+        island: '0 1px 3px 0 rgba(0,0,0,0.04), 0 4px 12px 0 rgba(0,0,0,0.03)',
+        'island-lg': '0 2px 8px 0 rgba(0,0,0,0.06), 0 12px 32px 0 rgba(0,0,0,0.04)',
       },
       keyframes: {
         'accordion-down': {
@@ -63,10 +69,26 @@ module.exports = {
           from: { height: 'var(--radix-accordion-content-height)' },
           to: { height: '0' },
         },
+        'pulse-ring': {
+          '0%, 100%': { boxShadow: '0 0 0 0 rgba(34, 197, 94, 0.4)' },
+          '50%': { boxShadow: '0 0 0 4px rgba(34, 197, 94, 0)' },
+        },
+        'iso-bob': {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-3px)' },
+        },
+        'iso-type': {
+          '0%, 100%': { transform: 'translateX(0) translateY(0)' },
+          '25%': { transform: 'translateX(-1px) translateY(-1px)' },
+          '75%': { transform: 'translateX(1px) translateY(0)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'pulse-ring': 'pulse-ring 2s ease-in-out infinite',
+        'iso-bob': 'iso-bob 3s ease-in-out infinite',
+        'iso-type': 'iso-type 0.8s ease-in-out infinite',
       },
     },
   },

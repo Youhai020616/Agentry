@@ -10,6 +10,11 @@ import enChannels from './locales/en/channels.json';
 import enSkills from './locales/en/skills.json';
 import enCron from './locales/en/cron.json';
 import enSetup from './locales/en/setup.json';
+import enEmployees from './locales/en/employees.json';
+import enTasks from './locales/en/tasks.json';
+import enMarketplace from './locales/en/marketplace.json';
+import enCredits from './locales/en/credits.json';
+import enBilling from './locales/en/billing.json';
 
 // ZH
 import zhCommon from './locales/zh/common.json';
@@ -20,6 +25,11 @@ import zhChannels from './locales/zh/channels.json';
 import zhSkills from './locales/zh/skills.json';
 import zhCron from './locales/zh/cron.json';
 import zhSetup from './locales/zh/setup.json';
+import zhEmployees from './locales/zh/employees.json';
+import zhTasks from './locales/zh/tasks.json';
+import zhMarketplace from './locales/zh/marketplace.json';
+import zhCredits from './locales/zh/credits.json';
+import zhBilling from './locales/zh/billing.json';
 
 // JA
 import jaCommon from './locales/ja/common.json';
@@ -30,6 +40,11 @@ import jaChannels from './locales/ja/channels.json';
 import jaSkills from './locales/ja/skills.json';
 import jaCron from './locales/ja/cron.json';
 import jaSetup from './locales/ja/setup.json';
+import jaEmployees from './locales/ja/employees.json';
+import jaTasks from './locales/ja/tasks.json';
+import jaMarketplace from './locales/ja/marketplace.json';
+import jaCredits from './locales/ja/credits.json';
+import jaBilling from './locales/ja/billing.json';
 
 export const SUPPORTED_LANGUAGES = [
     { code: 'en', label: 'English' },
@@ -49,6 +64,11 @@ const resources = {
         skills: enSkills,
         cron: enCron,
         setup: enSetup,
+        employees: enEmployees,
+        tasks: enTasks,
+        marketplace: enMarketplace,
+        credits: enCredits,
+        billing: enBilling,
     },
     zh: {
         common: zhCommon,
@@ -59,6 +79,11 @@ const resources = {
         skills: zhSkills,
         cron: zhCron,
         setup: zhSetup,
+        employees: zhEmployees,
+        tasks: zhTasks,
+        marketplace: zhMarketplace,
+        credits: zhCredits,
+        billing: zhBilling,
     },
     ja: {
         common: jaCommon,
@@ -69,6 +94,11 @@ const resources = {
         skills: jaSkills,
         cron: jaCron,
         setup: jaSetup,
+        employees: jaEmployees,
+        tasks: jaTasks,
+        marketplace: jaMarketplace,
+        credits: jaCredits,
+        billing: jaBilling,
     },
 };
 
@@ -79,7 +109,7 @@ i18n
         lng: 'en', // will be overridden by settings store
         fallbackLng: 'en',
         defaultNS: 'common',
-        ns: ['common', 'settings', 'dashboard', 'chat', 'channels', 'skills', 'cron', 'setup'],
+        ns: ['common', 'settings', 'dashboard', 'chat', 'channels', 'skills', 'cron', 'setup', 'employees', 'tasks', 'marketplace', 'credits', 'billing'],
         interpolation: {
             escapeValue: false, // React already escapes
         },

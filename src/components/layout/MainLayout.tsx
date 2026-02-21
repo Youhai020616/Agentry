@@ -15,8 +15,10 @@ export function MainLayout() {
       {/* Below the title bar: sidebar + content */}
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
-        <main className="flex-1 overflow-auto p-6">
-          <Outlet />
+        <main className="flex-1 overflow-hidden my-1.5 mr-1.5">
+          <div className="h-full overflow-auto rounded-2xl bg-card glass-border shadow-island p-6">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

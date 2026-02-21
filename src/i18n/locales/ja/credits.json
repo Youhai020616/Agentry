@@ -1,0 +1,35 @@
+{
+    "title": "クレジット",
+    "balance": {
+        "title": "クレジット残高",
+        "total": "合計クレジット",
+        "used": "使用済み",
+        "remaining": "残り"
+    },
+    "history": {
+        "title": "取引履歴",
+        "empty": "取引履歴はまだありません",
+        "employee": "従業員",
+        "amount": "クレジット",
+        "date": "日付",
+        "task": "タスク"
+    },
+    "types": {
+        "chat": "チャット",
+        "tool": "ツール使用",
+        "execution": "スクリプト実行",
+        "pm_orchestration": "PMオーケストレーション",
+        "memory": "メモリアクセス",
+        "topup": "チャージ",
+        "bonus": "ボーナス"
+    },
+    "tier": {
+        "free": "フリー",
+        "starter": "スターター",
+        "pro": "プロ",
+        "team": "チーム"
+    },
+    "insufficient": "クレジットが不足しています",
+    "consumed": "{{amount}} クレジットを消費しました",
+    "dailySummary": "日次サマリー"
+}

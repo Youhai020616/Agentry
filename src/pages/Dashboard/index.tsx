@@ -1,298 +1,329 @@
 /**
- * Dashboard Page
- * Main overview page showing system status and quick actions
+ * Activity Feed Page (formerly Dashboard)
+ * Timeline view of all AI team activity — tasks, credits, employee status, system events.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
-  Activity,
-  MessageSquare,
-  Radio,
-  Puzzle,
-  Clock,
-  Settings,
-  Plus,
-  Terminal,
+  CheckCircle2,
+  PlayCircle,
+  PlusCircle,
+  Coins,
+  Wifi,
+  WifiOff,
+  AlertCircle,
+  ArrowDownToLine,
+  Zap,
+  Inbox,
+  Loader2,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useGatewayStore } from '@/stores/gateway';
-import { useChannelsStore } from '@/stores/channels';
-import { useSkillsStore } from '@/stores/skills';
-import { useSettingsStore } from '@/stores/settings';
-import { StatusBadge } from '@/components/common/StatusBadge';
-import { useTranslation } from 'react-i18next';
+import { PixelAvatar } from '@/components/employees/PixelAvatar';
+import { useActivityStore } from '@/stores/activity';
+import type { ActivityEvent } from '@/stores/activity';
+import { useEmployeesStore } from '@/stores/employees';
+import { useTasksStore } from '@/stores/tasks';
+import { useCreditsStore } from '@/stores/credits';
 
-export function Dashboard() {
+// ── Helpers ────────────────────────────────────────────────────────
+
+function timeAgo(
+  timestamp: number,
+  t: (key: string, opts?: Record<string, unknown>) => string
+): string {
+  const now = Date.now();
+  const diffMs = now - timestamp;
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHour = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHour / 24);
+
+  if (diffSec < 60) return t('timeAgo.justNow');
+  if (diffMin < 60) return t('timeAgo.minutesAgo', { count: diffMin });
+  if (diffHour < 24) return t('timeAgo.hoursAgo', { count: diffHour });
+  return t('timeAgo.daysAgo', { count: diffDay });
+}
+
+function getDateGroup(
+  timestamp: number,
+  t: (key: string) => string
+): string {
+  const now = new Date();
+  const date = new Date(timestamp);
+
+  const isToday =
+    now.getFullYear() === date.getFullYear() &&
+    now.getMonth() === date.getMonth() &&
+    now.getDate() === date.getDate();
+
+  if (isToday) return t('today');
+
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday =
+    yesterday.getFullYear() === date.getFullYear() &&
+    yesterday.getMonth() === date.getMonth() &&
+    yesterday.getDate() === date.getDate();
+
+  if (isYesterday) return t('yesterday');
+
+  return t('earlier');
+}
+
+// ── Status Bar ────────────────────────────────────────────────────
+
+function StatusBar() {
   const { t } = useTranslation('dashboard');
-  const gatewayStatus = useGatewayStore((state) => state.status);
-  const { channels, fetchChannels } = useChannelsStore();
-  const { skills, fetchSkills } = useSkillsStore();
-  const devModeUnlocked = useSettingsStore((state) => state.devModeUnlocked);
+  const employees = useEmployeesStore((s) => s.employees);
+  const tasks = useTasksStore((s) => s.tasks);
+  const balance = useCreditsStore((s) => s.balance);
 
-  const isGatewayRunning = gatewayStatus.state === 'running';
-  const [uptime, setUptime] = useState(0);
-
-  // Fetch data only when gateway is running
-  useEffect(() => {
-    if (isGatewayRunning) {
-      fetchChannels();
-      fetchSkills();
-    }
-  }, [fetchChannels, fetchSkills, isGatewayRunning]);
-
-  // Calculate statistics safely
-  const connectedChannels = Array.isArray(channels) ? channels.filter((c) => c.status === 'connected').length : 0;
-  const enabledSkills = Array.isArray(skills) ? skills.filter((s) => s.enabled).length : 0;
-
-  // Update uptime periodically
-  useEffect(() => {
-    const updateUptime = () => {
-      if (gatewayStatus.connectedAt) {
-        setUptime(Math.floor((Date.now() - gatewayStatus.connectedAt) / 1000));
-      } else {
-        setUptime(0);
-      }
-    };
-
-    // Update immediately
-    updateUptime();
-
-    // Update every second
-    const interval = setInterval(updateUptime, 1000);
-
-    return () => clearInterval(interval);
-  }, [gatewayStatus.connectedAt]);
-
-  const openDevConsole = async () => {
-    try {
-      const result = await window.electron.ipcRenderer.invoke('gateway:getControlUiUrl') as {
-        success: boolean;
-        url?: string;
-        error?: string;
-      };
-      if (result.success && result.url) {
-        window.electron.openExternal(result.url);
-      } else {
-        console.error('Failed to get Dev Console URL:', result.error);
-      }
-    } catch (err) {
-      console.error('Error opening Dev Console:', err);
-    }
-  };
+  const onlineCount = employees.filter(
+    (e) => e.status === 'idle' || e.status === 'working'
+  ).length;
+  const activeTaskCount = tasks.filter(
+    (t) => t.status === 'pending' || t.status === 'in_progress'
+  ).length;
 
   return (
-    <div className="space-y-6">
-      {/* Status Cards */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {/* Gateway Status */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">{t('gateway')}</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <StatusBadge status={gatewayStatus.state} />
-            </div>
-            {gatewayStatus.state === 'running' && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                {t('port', { port: gatewayStatus.port })} | {t('pid', { pid: gatewayStatus.pid || 'N/A' })}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Channels */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">{t('channels')}</CardTitle>
-            <Radio className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{connectedChannels}</div>
-            <p className="text-xs text-muted-foreground">
-              {t('connectedOf', { connected: connectedChannels, total: channels.length })}
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Skills */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">{t('skills')}</CardTitle>
-            <Puzzle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{enabledSkills}</div>
-            <p className="text-xs text-muted-foreground">
-              {t('enabledOf', { enabled: enabledSkills, total: skills.length })}
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Uptime */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">{t('uptime')}</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {uptime > 0 ? formatUptime(uptime) : '—'}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {gatewayStatus.state === 'running' ? t('sinceRestart') : t('gatewayNotRunning')}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('quickActions.title')}</CardTitle>
-          <CardDescription>{t('quickActions.description')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <Button variant="outline" className="h-auto flex-col gap-2 py-4" asChild>
-              <Link to="/channels">
-                <Plus className="h-5 w-5" />
-                <span>{t('quickActions.addChannel')}</span>
-              </Link>
-            </Button>
-            <Button variant="outline" className="h-auto flex-col gap-2 py-4" asChild>
-              <Link to="/skills">
-                <Puzzle className="h-5 w-5" />
-                <span>{t('quickActions.browseSkills')}</span>
-              </Link>
-            </Button>
-            <Button variant="outline" className="h-auto flex-col gap-2 py-4" asChild>
-              <Link to="/">
-                <MessageSquare className="h-5 w-5" />
-                <span>{t('quickActions.openChat')}</span>
-              </Link>
-            </Button>
-            <Button variant="outline" className="h-auto flex-col gap-2 py-4" asChild>
-              <Link to="/settings">
-                <Settings className="h-5 w-5" />
-                <span>{t('quickActions.settings')}</span>
-              </Link>
-            </Button>
-            {devModeUnlocked && (
-              <Button
-                variant="outline"
-                className="h-auto flex-col gap-2 py-4"
-                onClick={openDevConsole}
-              >
-                <Terminal className="h-5 w-5" />
-                <span>{t('quickActions.devConsole')}</span>
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Recent Activity */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {/* Connected Channels */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">{t('connectedChannels')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {channels.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Radio className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>{t('noChannels')}</p>
-                <Button variant="link" asChild className="mt-2">
-                  <Link to="/channels">{t('addFirst')}</Link>
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {channels.slice(0, 5).map((channel) => (
-                  <div
-                    key={channel.id}
-                    className="flex items-center justify-between rounded-lg border p-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg">
-                        {channel.type === 'whatsapp' && '📱'}
-                        {channel.type === 'telegram' && '✈️'}
-                        {channel.type === 'discord' && '🎮'}
-                      </span>
-                      <div>
-                        <p className="font-medium">{channel.name}</p>
-                        <p className="text-xs text-muted-foreground capitalize">
-                          {channel.type}
-                        </p>
-                      </div>
-                    </div>
-                    <StatusBadge status={channel.status} />
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Enabled Skills */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">{t('activeSkills')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {skills.filter((s) => s.enabled).length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Puzzle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>{t('noSkills')}</p>
-                <Button variant="link" asChild className="mt-2">
-                  <Link to="/skills">{t('enableSome')}</Link>
-                </Button>
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {skills
-                  .filter((s) => s.enabled)
-                  .slice(0, 12)
-                  .map((skill) => (
-                    <Badge key={skill.id} variant="secondary">
-                      {skill.icon && <span className="mr-1">{skill.icon}</span>}
-                      {skill.name}
-                    </Badge>
-                  ))}
-                {skills.filter((s) => s.enabled).length > 12 && (
-                  <Badge variant="outline">
-                    {t('more', { count: skills.filter((s) => s.enabled).length - 12 })}
-                  </Badge>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+    <div className="flex items-center gap-4 rounded-xl bg-muted/50 px-4 py-2 text-sm">
+      <span className="flex items-center gap-1.5">
+        <span className="h-2 w-2 rounded-full bg-green-500" />
+        {t('statusBar.online', { count: onlineCount })}
+      </span>
+      <span className="text-muted-foreground/30">|</span>
+      <span className="text-muted-foreground">
+        {t('statusBar.activeTasks', { count: activeTaskCount })}
+      </span>
+      <span className="text-muted-foreground/30">|</span>
+      <span className="text-muted-foreground">
+        {t('statusBar.credits', { count: balance?.remaining ?? 0 })}
+      </span>
     </div>
   );
 }
 
-/**
- * Format uptime in human-readable format
- */
-function formatUptime(seconds: number): string {
-  const days = Math.floor(seconds / 86400);
-  const hours = Math.floor((seconds % 86400) / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
+// ── Activity Item ─────────────────────────────────────────────────
 
-  if (days > 0) {
-    return `${days}d ${hours}h`;
-  } else if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  } else {
-    return `${minutes}m`;
+function getEventIcon(event: ActivityEvent) {
+  switch (event.type) {
+    case 'task':
+      if (event.action === 'completed')
+        return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+      if (event.action === 'claimed')
+        return <PlayCircle className="h-4 w-4 text-blue-500" />;
+      return <PlusCircle className="h-4 w-4 text-muted-foreground" />;
+    case 'credits':
+      return <Coins className="h-4 w-4 text-amber-500" />;
+    case 'employee':
+      if (event.action === 'idle' || event.action === 'activated')
+        return <Wifi className="h-4 w-4 text-green-500" />;
+      if (event.action === 'error')
+        return <AlertCircle className="h-4 w-4 text-red-500" />;
+      if (event.action === 'deactivated' || event.action === 'offline')
+        return <WifiOff className="h-4 w-4 text-muted-foreground" />;
+      return <Wifi className="h-4 w-4 text-blue-500" />;
+    case 'system':
+      return <Zap className="h-4 w-4 text-violet-500" />;
+    case 'delegation':
+      return <ArrowDownToLine className="h-4 w-4 text-primary" />;
+    default:
+      return <Zap className="h-4 w-4 text-muted-foreground" />;
   }
+}
+
+function getEventText(
+  event: ActivityEvent,
+  t: (key: string, opts?: Record<string, unknown>) => string
+): string {
+  const name = event.employeeName ?? event.employeeId ?? '';
+
+  switch (event.type) {
+    case 'task': {
+      const key = `events.task_${event.action}`;
+      return t(key, { subject: event.title });
+    }
+    case 'credits':
+      return t('events.credits_consumed', { amount: event.amount ?? 0 });
+    case 'employee': {
+      const key = `events.employee_${event.action}`;
+      return t(key, { name });
+    }
+    case 'system': {
+      const key = `events.gateway_${event.action}`;
+      return t(key);
+    }
+    case 'delegation': {
+      const key = `events.delegation_${event.action}`;
+      return t(key, { name });
+    }
+    default:
+      return event.title;
+  }
+}
+
+function ActivityItem({ event }: { event: ActivityEvent }) {
+  const { t } = useTranslation('dashboard');
+  const employees = useEmployeesStore((s) => s.employees);
+
+  const employee = event.employeeId
+    ? employees.find((e) => e.id === event.employeeId)
+    : null;
+
+  return (
+    <div className="flex items-start gap-3 py-3">
+      {/* Avatar or icon */}
+      <div className="mt-0.5 shrink-0">
+        {employee ? (
+          <PixelAvatar
+            avatar={employee.avatar || employee.name.charAt(0).toUpperCase()}
+            status={employee.status}
+            size="sm"
+            showStatusRing={false}
+          />
+        ) : (
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+            {getEventIcon(event)}
+          </div>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="min-w-0 flex-1">
+        <p className="text-sm">{getEventText(event, t)}</p>
+        <div className="mt-0.5 flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">
+            {timeAgo(event.timestamp, t)}
+          </span>
+          {event.amount !== undefined && event.type === 'credits' && (
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+              -{event.amount}
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {/* Right icon */}
+      {employee && (
+        <div className="mt-1 shrink-0">{getEventIcon(event)}</div>
+      )}
+    </div>
+  );
+}
+
+// ── Activity Timeline ─────────────────────────────────────────────
+
+function ActivityTimeline() {
+  const { t } = useTranslation('dashboard');
+  const { events, loading, hasMore, loadMore } = useActivityStore();
+
+  const grouped = useMemo(() => {
+    const groups: { label: string; events: ActivityEvent[] }[] = [];
+    let currentLabel = '';
+
+    for (const event of events) {
+      const label = getDateGroup(event.timestamp, t);
+      if (label !== currentLabel) {
+        currentLabel = label;
+        groups.push({ label, events: [event] });
+      } else {
+        groups[groups.length - 1].events.push(event);
+      }
+    }
+
+    return groups;
+  }, [events, t]);
+
+  if (events.length === 0 && !loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+        <Inbox className="h-12 w-12 mb-3 opacity-40" />
+        <p className="text-sm font-medium">{t('empty')}</p>
+        <p className="text-xs mt-1">{t('emptyHint')}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {grouped.map((group) => (
+        <div key={group.label}>
+          {/* Date separator */}
+          <div className="sticky top-0 z-10 flex items-center gap-3 py-2 bg-background/80 backdrop-blur-sm">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              {group.label}
+            </span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+
+          {/* Events */}
+          <div className="divide-y divide-border/50">
+            {group.events.map((event) => (
+              <ActivityItem key={event.id} event={event} />
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {/* Load more */}
+      {hasMore && (
+        <div className="flex justify-center py-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="rounded-xl"
+            onClick={loadMore}
+            disabled={loading}
+          >
+            {loading ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : null}
+            {t('loadMore')}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main Component ────────────────────────────────────────────────
+
+export function Dashboard() {
+  const { t } = useTranslation('dashboard');
+  const { fetchEvents, init: initActivity } = useActivityStore();
+  const { fetchEmployees, init: initEmployees } = useEmployeesStore();
+  const { fetchTasks, init: initTasks } = useTasksStore();
+  const { fetchBalance } = useCreditsStore();
+
+  useEffect(() => {
+    initEmployees();
+    initTasks();
+    initActivity();
+    fetchEmployees();
+    fetchTasks();
+    fetchBalance();
+    fetchEvents();
+  }, [initEmployees, initTasks, initActivity, fetchEmployees, fetchTasks, fetchBalance, fetchEvents]);
+
+  return (
+    <div className="flex h-full flex-col gap-4 overflow-auto">
+      {/* Page header */}
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+      </div>
+
+      {/* Compact status bar */}
+      <StatusBar />
+
+      {/* Activity timeline */}
+      <div className={cn('bg-card rounded-2xl glass-border shadow-island p-6 flex-1 min-h-0 overflow-auto')}>
+        <ActivityTimeline />
+      </div>
+    </div>
+  );
 }
 
 export default Dashboard;

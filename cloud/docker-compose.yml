@@ -1,0 +1,15 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '4000:4000'
+    environment:
+      - PORT=4000
+    volumes:
+      - cloud-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  cloud-data:

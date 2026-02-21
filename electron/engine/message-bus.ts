@@ -1,0 +1,228 @@
+/**
+ * Message Bus
+ * SQLite-backed cross-employee messaging system for the ClawX AI Employee Platform.
+ *
+ * Events:
+ *  - 'new-message' (message: Message) — emitted when a message is inserted
+ */
+import { randomUUID } from 'node:crypto';
+import { EventEmitter } from 'node:events';
+import type Database from 'better-sqlite3';
+import { logger } from '../utils/logger';
+import type { Message, MessageType, SendMessageInput } from '../../src/types/task';
+
+/**
+ * Raw row shape coming from SQLite (approve and read stored as INTEGER)
+ */
+interface MessageRow {
+  id: string;
+  type: string;
+  from: string;
+  recipient: string;
+  content: string;
+  summary: string;
+  requestId: string | null;
+  approve: number | null;
+  timestamp: number;
+  read: number;
+}
+
+export class MessageBus extends EventEmitter {
+  private db: Database.Database;
+  private getActiveEmployeeIds: () => string[];
+
+  constructor(db: Database.Database, getActiveEmployeeIds: () => string[]) {
+    super();
+    this.db = db;
+    this.getActiveEmployeeIds = getActiveEmployeeIds;
+  }
+
+  // ── Initialization ──────────────────────────────────────────────────
+
+  /**
+   * Create the messages table and indexes if they don't exist.
+   */
+  init(): void {
+    logger.info('MessageBus initializing...');
+    try {
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS messages (
+          id TEXT PRIMARY KEY,
+          type TEXT NOT NULL DEFAULT 'message',
+          "from" TEXT NOT NULL,
+          recipient TEXT NOT NULL,
+          content TEXT NOT NULL,
+          summary TEXT NOT NULL DEFAULT '',
+          requestId TEXT,
+          approve INTEGER,
+          timestamp INTEGER NOT NULL,
+          read INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_messages_recipient ON messages(recipient);
+        CREATE INDEX IF NOT EXISTS idx_messages_unread ON messages(recipient, read);
+      `);
+      logger.info('MessageBus initialized');
+    } catch (err) {
+      logger.error(`MessageBus failed to initialize: ${err}`);
+      throw err;
+    }
+  }
+
+  // ── Send ────────────────────────────────────────────────────────────
+
+  /**
+   * Send a message. For broadcasts, inserts a copy per active employee (excluding sender).
+   */
+  send(input: SendMessageInput): void {
+    try {
+      if (input.type === 'broadcast') {
+        const recipients = this.getActiveEmployeeIds().filter((id) => id !== input.from);
+        if (recipients.length === 0) {
+          logger.warn(`MessageBus broadcast from ${input.from}: no active recipients`);
+          return;
+        }
+        for (const recipient of recipients) {
+          this.insertMessage({ ...input, recipient });
+        }
+        logger.debug(`MessageBus broadcast from ${input.from} to ${recipients.length} recipient(s)`);
+      } else {
+        this.insertMessage(input);
+      }
+    } catch (err) {
+      logger.error(`MessageBus send failed: ${err}`);
+    }
+  }
+
+  // ── Queries ─────────────────────────────────────────────────────────
+
+  /**
+   * Get unread messages for an employee, ordered by timestamp ASC.
+   */
+  getInbox(employeeId: string): Message[] {
+    try {
+      const stmt = this.db.prepare(
+        'SELECT * FROM messages WHERE recipient = ? AND read = 0 ORDER BY timestamp ASC'
+      );
+      const rows = stmt.all(employeeId) as MessageRow[];
+      return rows.map(this.rowToMessage);
+    } catch (err) {
+      logger.error(`MessageBus getInbox failed for ${employeeId}: ${err}`);
+      return [];
+    }
+  }
+
+  /**
+   * Get message history (sent + received) for an employee, ordered by timestamp DESC.
+   */
+  getHistory(employeeId: string, limit = 100): Message[] {
+    try {
+      const stmt = this.db.prepare(
+        'SELECT * FROM messages WHERE recipient = ? OR "from" = ? ORDER BY timestamp DESC LIMIT ?'
+      );
+      const rows = stmt.all(employeeId, employeeId, limit) as MessageRow[];
+      return rows.map(this.rowToMessage);
+    } catch (err) {
+      logger.error(`MessageBus getHistory failed for ${employeeId}: ${err}`);
+      return [];
+    }
+  }
+
+  /**
+   * Mark a single message as read.
+   */
+  markRead(messageId: string): void {
+    try {
+      this.db.prepare('UPDATE messages SET read = 1 WHERE id = ?').run(messageId);
+    } catch (err) {
+      logger.error(`MessageBus markRead failed for ${messageId}: ${err}`);
+    }
+  }
+
+  /**
+   * Mark all unread messages for an employee as read.
+   */
+  markAllRead(employeeId: string): void {
+    try {
+      this.db.prepare('UPDATE messages SET read = 1 WHERE recipient = ? AND read = 0').run(
+        employeeId
+      );
+    } catch (err) {
+      logger.error(`MessageBus markAllRead failed for ${employeeId}: ${err}`);
+    }
+  }
+
+  /**
+   * Get the count of unread messages for an employee.
+   */
+  getUnreadCount(employeeId: string): number {
+    try {
+      const row = this.db
+        .prepare('SELECT COUNT(*) AS count FROM messages WHERE recipient = ? AND read = 0')
+        .get(employeeId) as { count: number } | undefined;
+      return row?.count ?? 0;
+    } catch (err) {
+      logger.error(`MessageBus getUnreadCount failed for ${employeeId}: ${err}`);
+      return 0;
+    }
+  }
+
+  // ── Private helpers ─────────────────────────────────────────────────
+
+  /**
+   * Insert a single message row and emit the 'new-message' event.
+   */
+  private insertMessage(input: SendMessageInput): void {
+    const message: Message = {
+      id: randomUUID(),
+      type: input.type,
+      from: input.from,
+      recipient: input.recipient,
+      content: input.content,
+      summary: input.summary,
+      requestId: input.requestId,
+      approve: input.approve,
+      timestamp: Date.now(),
+      read: false,
+    };
+
+    this.db
+      .prepare(
+        `INSERT INTO messages (id, type, "from", recipient, content, summary, requestId, approve, timestamp, read)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        message.id,
+        message.type,
+        message.from,
+        message.recipient,
+        message.content,
+        message.summary,
+        message.requestId ?? null,
+        message.approve != null ? (message.approve ? 1 : 0) : null,
+        message.timestamp,
+        0
+      );
+
+    this.emit('new-message', message);
+  }
+
+  /**
+   * Convert a raw SQLite row to a typed Message object.
+   * - `approve`: INTEGER (0/1/null) → boolean | undefined
+   * - `read`: INTEGER (0/1) → boolean
+   */
+  private rowToMessage = (row: MessageRow): Message => {
+    return {
+      id: row.id,
+      type: row.type as MessageType,
+      from: row.from,
+      recipient: row.recipient,
+      content: row.content,
+      summary: row.summary,
+      requestId: row.requestId ?? undefined,
+      approve: row.approve != null ? row.approve === 1 : undefined,
+      timestamp: row.timestamp,
+      read: row.read === 1,
+    };
+  };
+}

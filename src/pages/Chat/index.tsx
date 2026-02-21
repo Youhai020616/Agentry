@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AlertCircle, Bot, MessageSquare, Sparkles } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import { useChatStore, type RawMessage } from '@/stores/chat';
 import { useGatewayStore } from '@/stores/gateway';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
@@ -16,7 +17,16 @@ import { ChatToolbar } from './ChatToolbar';
 import { extractImages, extractText, extractThinking, extractToolUse } from './message-utils';
 import { useTranslation } from 'react-i18next';
 
-export function Chat() {
+interface ChatProps {
+  /** When true, session is managed externally (e.g. by EmployeeChat). Skips loadSessions to avoid overwriting the bound session key. */
+  externalSession?: boolean;
+  /** Employee name — shown in welcome screen when in employee chat mode */
+  employeeName?: string;
+  /** Employee avatar emoji — shown in welcome screen when in employee chat mode */
+  employeeAvatar?: string;
+}
+
+export function Chat({ externalSession, employeeName, employeeAvatar }: ChatProps = {}) {
   const { t } = useTranslation('chat');
   const gatewayStatus = useGatewayStore((s) => s.status);
   const isGatewayRunning = gatewayStatus.state === 'running';
@@ -42,14 +52,18 @@ export function Chat() {
     if (!isGatewayRunning) return;
     let cancelled = false;
     (async () => {
-      await loadSessions();
+      // When session is externally managed (e.g. EmployeeChat), skip loadSessions
+      // to avoid overwriting the bound session key with the default session.
+      if (!externalSession) {
+        await loadSessions();
+      }
       if (cancelled) return;
       await loadHistory();
     })();
     return () => {
       cancelled = true;
     };
-  }, [isGatewayRunning, loadHistory, loadSessions]);
+  }, [isGatewayRunning, loadHistory, loadSessions, externalSession]);
 
   // Auto-scroll on new messages or streaming
   useEffect(() => {
@@ -69,21 +83,24 @@ export function Chat() {
   // Gateway not running
   if (!isGatewayRunning) {
     return (
-      <div className="flex h-[calc(100vh-8rem)] flex-col items-center justify-center text-center p-8">
+      <div className="flex h-full flex-col items-center justify-center text-center p-8">
         <AlertCircle className="h-12 w-12 text-yellow-500 mb-4" />
         <h2 className="text-xl font-semibold mb-2">{t('gatewayNotRunning')}</h2>
-        <p className="text-muted-foreground max-w-md">
-          {t('gatewayRequired')}
-        </p>
+        <p className="text-muted-foreground max-w-md">{t('gatewayRequired')}</p>
       </div>
     );
   }
 
   // Extract streaming text for display
-  const streamMsg = streamingMessage && typeof streamingMessage === 'object'
-    ? streamingMessage as unknown as { role?: string; content?: unknown; timestamp?: number }
-    : null;
-  const streamText = streamMsg ? extractText(streamMsg) : (typeof streamingMessage === 'string' ? streamingMessage : '');
+  const streamMsg =
+    streamingMessage && typeof streamingMessage === 'object'
+      ? (streamingMessage as unknown as { role?: string; content?: unknown; timestamp?: number })
+      : null;
+  const streamText = streamMsg
+    ? extractText(streamMsg)
+    : typeof streamingMessage === 'string'
+      ? streamingMessage
+      : '';
   const hasStreamText = streamText.trim().length > 0;
   const streamThinking = streamMsg ? extractThinking(streamMsg) : null;
   const hasStreamThinking = showThinking && !!streamThinking && streamThinking.trim().length > 0;
@@ -92,13 +109,19 @@ export function Chat() {
   const streamImages = streamMsg ? extractImages(streamMsg) : [];
   const hasStreamImages = streamImages.length > 0;
   const hasStreamToolStatus = showThinking && streamingTools.length > 0;
-  const shouldRenderStreaming = sending && (hasStreamText || hasStreamThinking || hasStreamTools || hasStreamImages || hasStreamToolStatus);
+  const shouldRenderStreaming =
+    sending &&
+    (hasStreamText ||
+      hasStreamThinking ||
+      hasStreamTools ||
+      hasStreamImages ||
+      hasStreamToolStatus);
 
   return (
-    <div className="flex flex-col -m-6" style={{ height: 'calc(100vh - 2.5rem)' }}>
+    <div className={cn('flex flex-col', externalSession ? 'h-full' : '-m-6 h-[calc(100%+3rem)]')}>
       {/* Toolbar */}
       <div className="flex shrink-0 items-center justify-end px-4 py-2">
-        <ChatToolbar />
+        <ChatToolbar hideSessionControls={externalSession} />
       </div>
 
       {/* Messages Area */}
@@ -109,7 +132,7 @@ export function Chat() {
               <LoadingSpinner size="lg" />
             </div>
           ) : messages.length === 0 && !sending ? (
-            <WelcomeScreen />
+            <WelcomeScreen employeeName={employeeName} employeeAvatar={employeeAvatar} />
           ) : (
             <>
               {messages.map((msg, idx) => (
@@ -123,18 +146,22 @@ export function Chat() {
               {/* Streaming message */}
               {shouldRenderStreaming && (
                 <ChatMessage
-                  message={(streamMsg
-                    ? {
-                        ...(streamMsg as Record<string, unknown>),
-                        role: (typeof streamMsg.role === 'string' ? streamMsg.role : 'assistant') as RawMessage['role'],
-                        content: streamMsg.content ?? streamText,
-                        timestamp: streamMsg.timestamp ?? streamingTimestamp,
-                      }
-                    : {
-                        role: 'assistant',
-                        content: streamText,
-                        timestamp: streamingTimestamp,
-                      }) as RawMessage}
+                  message={
+                    (streamMsg
+                      ? {
+                          ...(streamMsg as Record<string, unknown>),
+                          role: (typeof streamMsg.role === 'string'
+                            ? streamMsg.role
+                            : 'assistant') as RawMessage['role'],
+                          content: streamMsg.content ?? streamText,
+                          timestamp: streamMsg.timestamp ?? streamingTimestamp,
+                        }
+                      : {
+                          role: 'assistant',
+                          content: streamText,
+                          timestamp: streamingTimestamp,
+                        }) as RawMessage
+                  }
                   showThinking={showThinking}
                   isStreaming
                   streamingTools={streamingTools}
@@ -142,9 +169,12 @@ export function Chat() {
               )}
 
               {/* Typing indicator when sending but no stream yet */}
-              {sending && !hasStreamText && !hasStreamThinking && !hasStreamTools && !hasStreamImages && !hasStreamToolStatus && (
-                <TypingIndicator />
-              )}
+              {sending &&
+                !hasStreamText &&
+                !hasStreamThinking &&
+                !hasStreamTools &&
+                !hasStreamImages &&
+                !hasStreamToolStatus && <TypingIndicator />}
             </>
           )}
 
@@ -184,32 +214,58 @@ export function Chat() {
 
 // ── Welcome Screen ──────────────────────────────────────────────
 
-function WelcomeScreen() {
+function WelcomeScreen({
+  employeeName,
+  employeeAvatar,
+}: {
+  employeeName?: string;
+  employeeAvatar?: string;
+}) {
   const { t } = useTranslation('chat');
+  const isEmployee = !!employeeName;
+
   return (
     <div className="flex flex-col items-center justify-center text-center py-20">
-      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mb-6">
-        <Bot className="h-8 w-8 text-white" />
-      </div>
-      <h2 className="text-2xl font-bold mb-2">{t('welcome.title')}</h2>
+      {isEmployee ? (
+        <div className="w-16 h-16 rounded-2xl bg-card glass-border shadow-island flex items-center justify-center mb-6 text-4xl">
+          {employeeAvatar || '🤖'}
+        </div>
+      ) : (
+        <div className="w-16 h-16 rounded-2xl bg-card glass-border shadow-island flex items-center justify-center mb-6">
+          <Bot className="h-8 w-8 text-primary" />
+        </div>
+      )}
+      <h2 className="text-2xl font-bold mb-2">{isEmployee ? employeeName : t('welcome.title')}</h2>
       <p className="text-muted-foreground mb-8 max-w-md">
-        {t('welcome.subtitle')}
+        {isEmployee
+          ? t('welcome.employeeSubtitle', '随时向我提问，我会用专业技能为你服务。')
+          : t('welcome.subtitle')}
       </p>
 
-      <div className="grid grid-cols-2 gap-4 max-w-lg w-full">
-        {[
-          { icon: MessageSquare, title: t('welcome.askQuestions'), desc: t('welcome.askQuestionsDesc') },
-          { icon: Sparkles, title: t('welcome.creativeTasks'), desc: t('welcome.creativeTasksDesc') },
-        ].map((item, i) => (
-          <Card key={i} className="text-left">
-            <CardContent className="p-4">
-              <item.icon className="h-6 w-6 text-primary mb-2" />
-              <h3 className="font-medium">{item.title}</h3>
-              <p className="text-sm text-muted-foreground">{item.desc}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {!isEmployee && (
+        <div className="grid grid-cols-2 gap-4 max-w-lg w-full">
+          {[
+            {
+              icon: MessageSquare,
+              title: t('welcome.askQuestions'),
+              desc: t('welcome.askQuestionsDesc'),
+            },
+            {
+              icon: Sparkles,
+              title: t('welcome.creativeTasks'),
+              desc: t('welcome.creativeTasksDesc'),
+            },
+          ].map((item, i) => (
+            <Card key={i} className="text-left rounded-2xl glass-border shadow-island">
+              <CardContent className="p-4">
+                <item.icon className="h-6 w-6 text-primary mb-2" />
+                <h3 className="font-medium">{item.title}</h3>
+                <p className="text-sm text-muted-foreground">{item.desc}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -219,14 +275,23 @@ function WelcomeScreen() {
 function TypingIndicator() {
   return (
     <div className="flex gap-3">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
         <Sparkles className="h-4 w-4" />
       </div>
       <div className="bg-muted rounded-2xl px-4 py-3">
         <div className="flex gap-1">
-          <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-          <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-          <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+          <span
+            className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce"
+            style={{ animationDelay: '0ms' }}
+          />
+          <span
+            className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce"
+            style={{ animationDelay: '150ms' }}
+          />
+          <span
+            className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce"
+            style={{ animationDelay: '300ms' }}
+          />
         </div>
       </div>
     </div>

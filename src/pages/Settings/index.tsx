@@ -2,7 +2,7 @@
  * Settings Page
  * Application configuration
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   Sun,
   Moon,
@@ -14,6 +14,7 @@ import {
   Download,
   Copy,
   FileText,
+  Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -68,6 +69,8 @@ export function Settings() {
   const showCliTools = isMac || isWindows || isLinux;
   const [showLogs, setShowLogs] = useState(false);
   const [logContent, setLogContent] = useState('');
+  const [supervisorEnabled, setSupervisorEnabled] = useState(false);
+  const [supervisorLoading, setSupervisorLoading] = useState(false);
 
   const handleShowLogs = async () => {
     try {
@@ -169,6 +172,58 @@ export function Settings() {
       cancelled = true;
     };
   }, [devModeUnlocked, showCliTools]);
+
+  // Fetch supervisor status on mount
+  const fetchSupervisorStatus = useCallback(async () => {
+    try {
+      const result = (await window.electron.ipcRenderer.invoke('supervisor:status')) as {
+        success: boolean;
+        result?: { enabled: boolean; supervisorSlug: string | null };
+      };
+      if (result.success && result.result) {
+        setSupervisorEnabled(result.result.enabled);
+      }
+    } catch {
+      // Engine not initialized yet — keep disabled
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSupervisorStatus();
+  }, [fetchSupervisorStatus]);
+
+  const handleSupervisorToggle = async (enabled: boolean) => {
+    setSupervisorLoading(true);
+    try {
+      if (enabled) {
+        const result = (await window.electron.ipcRenderer.invoke('supervisor:enable')) as {
+          success: boolean;
+          error?: string;
+        };
+        if (result.success) {
+          setSupervisorEnabled(true);
+          toast.success(t('common:supervisor.enabled'));
+        } else {
+          toast.error(result.error ?? t('common:supervisor.enableFailed'));
+        }
+      } else {
+        const result = (await window.electron.ipcRenderer.invoke('supervisor:disable')) as {
+          success: boolean;
+          error?: string;
+        };
+        if (result.success) {
+          setSupervisorEnabled(false);
+          toast.success(t('common:supervisor.disabled'));
+        } else {
+          toast.error(result.error ?? t('common:supervisor.disableFailed'));
+        }
+      }
+    } catch (error) {
+      toast.error(String(error));
+    } finally {
+      setSupervisorLoading(false);
+    }
+  };
 
   const handleCopyCliCommand = async () => {
     if (!openclawCliCommand) return;
@@ -360,6 +415,32 @@ export function Settings() {
             <Switch
               checked={gatewayAutoStart}
               onCheckedChange={setGatewayAutoStart}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Supervisor Mode */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            {t('common:supervisor.title')}
+          </CardTitle>
+          <CardDescription>{t('common:supervisor.description')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>{t('common:supervisor.feishuMode')}</Label>
+              <p className="text-sm text-muted-foreground">
+                {t('common:supervisor.feishuModeDesc')}
+              </p>
+            </div>
+            <Switch
+              checked={supervisorEnabled}
+              onCheckedChange={handleSupervisorToggle}
+              disabled={supervisorLoading}
             />
           </div>
         </CardContent>

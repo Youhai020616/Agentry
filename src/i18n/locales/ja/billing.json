@@ -1,0 +1,76 @@
+{
+  "title": "請求とサブスクリプション",
+  "currentPlan": "現在のプラン",
+  "usage": "使用量",
+  "usageOf": "{{used}} / {{total}} クレジット使用済み",
+  "usagePercent": "{{percent}}% 使用済み",
+  "creditsRemaining": "残り {{remaining}} クレジット",
+  "tiers": {
+    "free": {
+      "name": "無料",
+      "price": "$0",
+      "period": "永久",
+      "features": [
+        "月 1,000 クレジット",
+        "AI 従業員 3 名",
+        "基本チャット",
+        "コミュニティサポート"
+      ]
+    },
+    "pro": {
+      "name": "プロ",
+      "price": "$29",
+      "period": "/月",
+      "features": [
+        "月 10,000 クレジット",
+        "無制限の従業員",
+        "ツール実行",
+        "優先サポート",
+        "BYOK 割引"
+      ]
+    },
+    "team": {
+      "name": "チーム",
+      "price": "$99",
+      "period": "/月",
+      "features": [
+        "月 50,000 クレジット",
+        "チームコラボレーション",
+        "API アクセス",
+        "カスタム従業員",
+        "専用サポート"
+      ]
+    }
+  },
+  "upgrade": "アップグレード",
+  "current": "現在",
+  "comingSoon": "近日公開",
+  "mostPopular": "人気",
+  "history": "クレジット履歴を表示",
+  "paywall": {
+    "title": "アップグレードが必要",
+    "description": "{{feature}} には {{tier}} プランが必要です",
+    "benefits": "{{tier}} でさらに機能を解放",
+    "upgrade": "今すぐアップグレード",
+    "later": "後で"
+  },
+  "byok": {
+    "title": "キー持ち込み",
+    "description": "独自の API キーを使用してクレジットコストを削減",
+    "enabled": "BYOK 有効",
+    "disabled": "BYOK 無効",
+    "discount": "BYOK で AI クレジット免除",
+    "configureKeys": "API キーを設定",
+    "keysConfigured": "{{count}} プロバイダー設定済み",
+    "noKeysConfigured": "API キー未設定",
+    "comparison": {
+      "title": "クレジット比較",
+      "normal": "通常",
+      "byok": "BYOK 使用時",
+      "chat": "チャット",
+      "tool": "ツール使用",
+      "execution": "実行",
+      "feature": "機能クレジットは引き続き適用"
+    }
+  }
+}

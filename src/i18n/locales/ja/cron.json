@@ -19,7 +19,8 @@
         "runNow": "今すぐ実行",
         "deleteConfirm": "このタスクを削除してもよろしいですか？",
         "last": "前回",
-        "next": "次回"
+        "next": "次回",
+        "assignedTo": "{{name}}に割り当て済み"
     },
     "dialog": {
         "createTitle": "タスク作成",
@@ -38,6 +39,9 @@
         "discordChannelId": "DiscordチャンネルID",
         "discordChannelIdPlaceholder": "例：1438452657525100686",
         "discordChannelIdDesc": "Discordチャンネルを右クリック → チャンネルIDをコピー",
+        "assignEmployee": "従業員を割り当て",
+        "assignEmployeePlaceholder": "従業員を選択（任意）",
+        "noEmployee": "なし（チャンネルに送信）",
         "enableImmediately": "すぐに有効化",
         "enableImmediatelyDesc": "作成後すぐにこのタスクを実行開始",
         "saveChanges": "変更を保存"

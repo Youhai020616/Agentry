@@ -6,8 +6,11 @@ import { app, BrowserWindow, nativeImage, session, shell } from 'electron';
 import { join } from 'path';
 import { GatewayManager } from '../gateway/manager';
 import { registerIpcHandlers } from './ipc-handlers';
-import { createTray } from './tray';
+import { createTray, updateTrayMenu } from './tray';
+import type { EmployeeTrayInfo } from './tray';
 import { createMenu } from './menu';
+import { bootstrapEngine } from '../engine/bootstrap';
+import type { EngineContext } from '../engine/bootstrap';
 
 import { appUpdater, registerUpdateHandlers } from './updater';
 import { logger } from '../utils/logger';
@@ -20,6 +23,7 @@ app.disableHardwareAcceleration();
 
 // Global references
 let mainWindow: BrowserWindow | null = null;
+let isQuitting = false;
 const gatewayManager = new GatewayManager();
 const clawHubService = new ClawHubService();
 
@@ -43,9 +47,7 @@ function getAppIcon(): Electron.NativeImage | undefined {
 
   const iconsDir = getIconsDir();
   const iconPath =
-    process.platform === 'win32'
-      ? join(iconsDir, 'icon.ico')
-      : join(iconsDir, 'icon.png');
+    process.platform === 'win32' ? join(iconsDir, 'icon.ico') : join(iconsDir, 'icon.png');
   const icon = nativeImage.createFromPath(iconPath);
   return icon.isEmpty() ? undefined : icon;
 }
@@ -127,12 +129,13 @@ async function initialize(): Promise<void> {
       details.requestHeaders['HTTP-Referer'] = 'https://claw-x.com';
       details.requestHeaders['X-Title'] = 'ClawX';
       callback({ requestHeaders: details.requestHeaders });
-    },
+    }
   );
 
   // Override security headers ONLY for the OpenClaw Gateway Control UI
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    const isGatewayUrl = details.url.includes('127.0.0.1:18789') || details.url.includes('localhost:18789');
+    const isGatewayUrl =
+      details.url.includes('127.0.0.1:18789') || details.url.includes('localhost:18789');
 
     if (!isGatewayUrl) {
       callback({ responseHeaders: details.responseHeaders });
@@ -143,33 +146,48 @@ async function initialize(): Promise<void> {
     delete headers['X-Frame-Options'];
     delete headers['x-frame-options'];
     if (headers['Content-Security-Policy']) {
-      headers['Content-Security-Policy'] = headers['Content-Security-Policy'].map(
-        (csp) => csp.replace(/frame-ancestors\s+'none'/g, "frame-ancestors 'self' *")
+      headers['Content-Security-Policy'] = headers['Content-Security-Policy'].map((csp) =>
+        csp.replace(/frame-ancestors\s+'none'/g, "frame-ancestors 'self' *")
       );
     }
     if (headers['content-security-policy']) {
-      headers['content-security-policy'] = headers['content-security-policy'].map(
-        (csp) => csp.replace(/frame-ancestors\s+'none'/g, "frame-ancestors 'self' *")
+      headers['content-security-policy'] = headers['content-security-policy'].map((csp) =>
+        csp.replace(/frame-ancestors\s+'none'/g, "frame-ancestors 'self' *")
       );
     }
     callback({ responseHeaders: headers });
   });
 
-  // Register IPC handlers
-  registerIpcHandlers(gatewayManager, clawHubService, mainWindow);
+  // Hide to tray instead of quitting when window is closed
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow?.hide();
+    }
+  });
 
-  // Register update handlers
-  registerUpdateHandlers(appUpdater, mainWindow);
-
-  // Note: Auto-check for updates is driven by the renderer (update store init)
-  // so it respects the user's "Auto-check for updates" setting.
-
-  // Handle window close
+  // Clean up reference when window is actually destroyed
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 
-  // Start Gateway automatically
+  // Bootstrap Skill Runtime Engine (non-blocking, before Gateway to avoid race condition)
+  let engine: EngineContext | null = null;
+  try {
+    engine = await bootstrapEngine();
+    logger.info('Skill Runtime Engine bootstrapped');
+  } catch (error) {
+    logger.error('Skill Runtime Engine bootstrap failed:', error);
+  }
+
+  // Register IPC handlers BEFORE Gateway starts — the renderer may call
+  // gateway:status as soon as it loads, so handlers must already exist.
+  registerIpcHandlers(gatewayManager, clawHubService, mainWindow, engine);
+
+  // Register update handlers
+  registerUpdateHandlers(appUpdater, mainWindow);
+
+  // Start Gateway automatically (after IPC handlers are registered)
   try {
     logger.debug('Auto-starting Gateway...');
     await gatewayManager.start();
@@ -177,6 +195,22 @@ async function initialize(): Promise<void> {
   } catch (error) {
     logger.error('Gateway auto-start failed:', error);
     mainWindow?.webContents.send('gateway:error', String(error));
+  }
+
+  // Bind employee status changes to system tray
+  if (engine) {
+    const refreshTray = () => {
+      if (!mainWindow || mainWindow.isDestroyed()) return;
+      const employees = engine!.employeeManager.list();
+      const trayInfos: EmployeeTrayInfo[] = employees.map((e) => ({
+        id: e.id,
+        name: e.name,
+        status: e.status,
+      }));
+      updateTrayMenu(mainWindow!, trayInfos);
+    };
+    engine.employeeManager.on('status', refreshTray);
+    refreshTray();
   }
 }
 
@@ -187,19 +221,21 @@ app.whenReady().then(() => {
   // Register activate handler AFTER app is ready to prevent
   // "Cannot create BrowserWindow before app is ready" on macOS.
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+    } else if (BrowserWindow.getAllWindows().length === 0) {
       mainWindow = createWindow();
     }
   });
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  // Don't quit — we hide to tray instead.
+  // The tray icon keeps the app process running on all platforms.
 });
 
 app.on('before-quit', async () => {
+  isQuitting = true;
   await gatewayManager.stop();
 });
 

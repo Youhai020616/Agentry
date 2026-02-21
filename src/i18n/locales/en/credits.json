@@ -1,0 +1,35 @@
+{
+    "title": "Credits",
+    "balance": {
+        "title": "Credit Balance",
+        "total": "Total Credits",
+        "used": "Used",
+        "remaining": "Remaining"
+    },
+    "history": {
+        "title": "Transaction History",
+        "empty": "No transactions yet",
+        "employee": "Employee",
+        "amount": "Credits",
+        "date": "Date",
+        "task": "Task"
+    },
+    "types": {
+        "chat": "Chat",
+        "tool": "Tool Usage",
+        "execution": "Script Execution",
+        "pm_orchestration": "PM Orchestration",
+        "memory": "Memory Access",
+        "topup": "Top-up",
+        "bonus": "Bonus"
+    },
+    "tier": {
+        "free": "Free",
+        "starter": "Starter",
+        "pro": "Pro",
+        "team": "Team"
+    },
+    "insufficient": "Insufficient credits",
+    "consumed": "{{amount}} credits consumed",
+    "dailySummary": "Daily Summary"
+}

@@ -1,0 +1,76 @@
+{
+  "title": "Billing & Subscription",
+  "currentPlan": "Current Plan",
+  "usage": "Usage",
+  "usageOf": "{{used}} of {{total}} credits",
+  "usagePercent": "{{percent}}% used",
+  "creditsRemaining": "{{remaining}} credits remaining",
+  "tiers": {
+    "free": {
+      "name": "Free",
+      "price": "$0",
+      "period": "forever",
+      "features": [
+        "1,000 credits/month",
+        "3 AI employees",
+        "Basic chat",
+        "Community support"
+      ]
+    },
+    "pro": {
+      "name": "Pro",
+      "price": "$29",
+      "period": "/month",
+      "features": [
+        "10,000 credits/month",
+        "Unlimited employees",
+        "Tool execution",
+        "Priority support",
+        "BYOK discount"
+      ]
+    },
+    "team": {
+      "name": "Team",
+      "price": "$99",
+      "period": "/month",
+      "features": [
+        "50,000 credits/month",
+        "Team collaboration",
+        "API access",
+        "Custom employees",
+        "Dedicated support"
+      ]
+    }
+  },
+  "upgrade": "Upgrade",
+  "current": "Current",
+  "comingSoon": "Coming soon",
+  "mostPopular": "Most Popular",
+  "history": "View Credits History",
+  "paywall": {
+    "title": "Upgrade Required",
+    "description": "{{feature}} requires a {{tier}} plan",
+    "benefits": "Unlock more with {{tier}}",
+    "upgrade": "Upgrade Now",
+    "later": "Maybe Later"
+  },
+  "byok": {
+    "title": "Bring Your Own Key",
+    "description": "Use your own API keys to reduce credit costs",
+    "enabled": "BYOK Enabled",
+    "disabled": "BYOK Disabled",
+    "discount": "AI credits waived with BYOK",
+    "configureKeys": "Configure API Keys",
+    "keysConfigured": "{{count}} provider(s) configured",
+    "noKeysConfigured": "No API keys configured",
+    "comparison": {
+      "title": "Credit Comparison",
+      "normal": "Normal",
+      "byok": "With BYOK",
+      "chat": "Chat",
+      "tool": "Tool Usage",
+      "execution": "Execution",
+      "feature": "Feature credits still apply"
+    }
+  }
+}

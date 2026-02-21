@@ -6,6 +6,16 @@ import { Tray, Menu, BrowserWindow, app, nativeImage } from 'electron';
 import { join } from 'path';
 
 let tray: Tray | null = null;
+let cachedMainWindow: BrowserWindow | null = null;
+
+/**
+ * Lightweight employee info for tray display
+ */
+export interface EmployeeTrayInfo {
+  id: string;
+  name: string;
+  status: string;
+}
 
 /**
  * Resolve the icons directory path (works in both dev and packaged mode)
@@ -21,6 +31,7 @@ function getIconsDir(): string {
  * Create system tray icon and menu
  */
 export function createTray(mainWindow: BrowserWindow): Tray {
+  cachedMainWindow = mainWindow;
   // Use platform-appropriate icon for system tray
   const iconsDir = getIconsDir();
   let iconPath: string;
@@ -149,6 +160,88 @@ export function createTray(mainWindow: BrowserWindow): Tray {
   });
   
   return tray;
+}
+
+/**
+ * Status icon mapping for employee states
+ */
+const STATUS_ICONS: Record<string, string> = {
+  idle: '⚪',
+  working: '🟢',
+  blocked: '🟡',
+  error: '🔴',
+  offline: '⚫',
+};
+
+/**
+ * Update tray context menu with dynamic employee status list
+ */
+export function updateTrayMenu(mainWindow: BrowserWindow, employees: EmployeeTrayInfo[]): void {
+  if (!tray) return;
+
+  const workingCount = employees.filter((e) => e.status === 'working').length;
+  const tooltip =
+    workingCount > 0
+      ? `ClawX - ${workingCount} employee${workingCount > 1 ? 's' : ''} working`
+      : 'ClawX - AI Employee Platform';
+  tray.setToolTip(tooltip);
+
+  const employeeMenuItems: Electron.MenuItemConstructorOptions[] =
+    employees.length > 0
+      ? employees.map((e) => ({
+          label: `${STATUS_ICONS[e.status] ?? '⚫'} ${e.name}`,
+          enabled: false,
+        }))
+      : [{ label: '  No employees', enabled: false }];
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Show ClawX',
+      click: () => {
+        mainWindow.show();
+        mainWindow.focus();
+      },
+    },
+    { type: 'separator' },
+    { label: 'Employees', enabled: false },
+    ...employeeMenuItems,
+    { type: 'separator' },
+    {
+      label: 'Quick Actions',
+      submenu: [
+        {
+          label: 'Employee Hub',
+          click: () => {
+            mainWindow.show();
+            mainWindow.webContents.send('navigate', '/employees');
+          },
+        },
+        {
+          label: 'Task Board',
+          click: () => {
+            mainWindow.show();
+            mainWindow.webContents.send('navigate', '/tasks');
+          },
+        },
+        {
+          label: 'Settings',
+          click: () => {
+            mainWindow.show();
+            mainWindow.webContents.send('navigate', '/settings');
+          },
+        },
+      ],
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit ClawX',
+      click: () => {
+        app.quit();
+      },
+    },
+  ]);
+
+  tray.setContextMenu(contextMenu);
 }
 
 /**

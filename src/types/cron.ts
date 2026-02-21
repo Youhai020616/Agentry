@@ -47,6 +47,7 @@ export interface CronJob {
   updatedAt: string;
   lastRun?: CronJobLastRun;
   nextRun?: string;
+  assignedEmployeeId?: string; // Employee to auto-assign when triggered
 }
 
 /**
@@ -58,6 +59,7 @@ export interface CronJobCreateInput {
   schedule: string;
   target: CronJobTarget;
   enabled?: boolean;
+  assignedEmployeeId?: string;
 }
 
 /**
@@ -69,6 +71,7 @@ export interface CronJobUpdateInput {
   schedule?: string;
   target?: CronJobTarget;
   enabled?: boolean;
+  assignedEmployeeId?: string;
 }
 
 /**

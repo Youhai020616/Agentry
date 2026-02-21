@@ -7,6 +7,33 @@ import type { GatewayStatus } from '../types/gateway';
 
 let gatewayInitPromise: Promise<void> | null = null;
 
+/**
+ * Dedup: The Gateway may deliver the same streaming event through both the
+ * `gateway:notification` (agent) and `gateway:chat-message` (protocol) channels.
+ * Track recently seen runId:seq pairs so handleChatEvent is only called once.
+ */
+const recentEventKeys = new Set<string>();
+let dedupTimer: ReturnType<typeof setTimeout> | null = null;
+
+function isDuplicateEvent(event: Record<string, unknown>): boolean {
+  const runId = event.runId;
+  const seq = event.seq;
+  if (!runId) return false; // no key to dedup on — let it through
+
+  const key = `${runId}:${seq ?? ''}`;
+  if (recentEventKeys.has(key)) return true;
+
+  recentEventKeys.add(key);
+  // Periodically clear to prevent memory leak
+  if (!dedupTimer) {
+    dedupTimer = setTimeout(() => {
+      recentEventKeys.clear();
+      dedupTimer = null;
+    }, 5000);
+  }
+  return false;
+}
+
 interface GatewayHealth {
   ok: boolean;
   error?: string;
@@ -87,6 +114,15 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
             message: p.message ?? data.message,
           };
 
+          // Skip agent events that carry no chat-relevant data (no state, no message).
+          // These would otherwise register in the dedup set and block the real
+          // chat-protocol events (which share the same seq) from being processed.
+          if (!normalizedEvent.state && !normalizedEvent.message) {
+            return;
+          }
+
+          if (isDuplicateEvent(normalizedEvent)) return;
+
           import('./chat')
             .then(({ useChatStore }) => {
               useChatStore.getState().handleChatEvent(normalizedEvent);
@@ -112,6 +148,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
 
               // If payload has a 'state' field, it's already a proper event wrapper
               if (payload.state) {
+                if (isDuplicateEvent(payload)) return;
                 useChatStore.getState().handleChatEvent(payload);
                 return;
               }
@@ -124,6 +161,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
                 message: payload,
                 runId: chatData.runId ?? payload.runId,
               };
+              if (isDuplicateEvent(syntheticEvent)) return;
               useChatStore.getState().handleChatEvent(syntheticEvent);
             });
           } catch (err) {

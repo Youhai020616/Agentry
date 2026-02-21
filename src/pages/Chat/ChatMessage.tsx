@@ -4,7 +4,7 @@
  * with markdown, thinking sections, images, and tool cards.
  */
 import { useState, useCallback, memo } from 'react';
-import { User, Sparkles, Copy, Check, ChevronDown, ChevronRight, Wrench, FileText, Film, Music, FileArchive, File } from 'lucide-react';
+import { User, Sparkles, Copy, Check, ChevronDown, ChevronRight, Wrench, FileText, Film, Music, FileArchive, File, AlertTriangle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Button } from '@/components/ui/button';
@@ -44,13 +44,15 @@ export const ChatMessage = memo(function ChatMessage({
   const visibleTools = showThinking ? tools : [];
 
   const attachedFiles = message._attachedFiles || [];
+  const errorMessage = message.errorMessage;
+  const isErrorResponse = !isUser && (message.stopReason === 'error' || !!errorMessage);
 
   // Never render tool result messages in chat UI
   if (isToolResult) return null;
 
-  // Don't render empty messages (also keep messages with streaming tool status)
+  // Don't render empty messages (also keep messages with streaming tool status or errors)
   const hasStreamingToolStatus = showThinking && isStreaming && streamingTools.length > 0;
-  if (!hasText && !visibleThinking && images.length === 0 && visibleTools.length === 0 && attachedFiles.length === 0 && !hasStreamingToolStatus) return null;
+  if (!hasText && !visibleThinking && images.length === 0 && visibleTools.length === 0 && attachedFiles.length === 0 && !hasStreamingToolStatus && !isErrorResponse) return null;
 
   return (
     <div
@@ -93,6 +95,16 @@ export const ChatMessage = memo(function ChatMessage({
             {visibleTools.map((tool, i) => (
               <ToolCard key={tool.id || i} name={tool.name} input={tool.input} />
             ))}
+          </div>
+        )}
+
+        {/* Error response from LLM provider */}
+        {isErrorResponse && !hasText && (
+          <div className="w-full rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>{errorMessage || 'An error occurred while generating the response.'}</span>
+            </div>
           </div>
         )}
 

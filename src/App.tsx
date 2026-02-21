@@ -10,15 +10,16 @@ import i18n from './i18n';
 import { MainLayout } from './components/layout/MainLayout';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Dashboard } from './pages/Dashboard';
-import { Chat } from './pages/Chat';
+import { Employees } from './pages/Employees';
+import { EmployeeChat } from './pages/Employees/EmployeeChat';
 import { Channels } from './pages/Channels';
 import { Skills } from './pages/Skills';
 import { Cron } from './pages/Cron';
 import { Settings } from './pages/Settings';
 import { Setup } from './pages/Setup';
+import { Supervisor } from './pages/Supervisor';
 import { useSettingsStore } from './stores/settings';
 import { useGatewayStore } from './stores/gateway';
-
 
 /**
  * Error Boundary to catch and display React rendering errors
@@ -43,28 +44,35 @@ class ErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{
-          padding: '40px',
-          color: '#f87171',
-          background: '#0f172a',
-          minHeight: '100vh',
-          fontFamily: 'monospace'
-        }}>
+        <div
+          style={{
+            padding: '40px',
+            color: '#f87171',
+            background: '#0f172a',
+            minHeight: '100vh',
+            fontFamily: 'monospace',
+          }}
+        >
           <h1 style={{ fontSize: '24px', marginBottom: '16px' }}>Something went wrong</h1>
-          <pre style={{
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-all',
-            background: '#1e293b',
-            padding: '16px',
-            borderRadius: '8px',
-            fontSize: '14px'
-          }}>
+          <pre
+            style={{
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all',
+              background: '#1e293b',
+              padding: '16px',
+              borderRadius: '8px',
+              fontSize: '14px',
+            }}
+          >
             {this.state.error?.message}
             {'\n\n'}
             {this.state.error?.stack}
           </pre>
           <button
-            onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}
+            onClick={() => {
+              this.setState({ hasError: false, error: null });
+              window.location.reload();
+            }}
             style={{
               marginTop: '16px',
               padding: '8px 16px',
@@ -72,7 +80,7 @@ class ErrorBoundary extends Component<
               color: 'white',
               border: 'none',
               borderRadius: '6px',
-              cursor: 'pointer'
+              cursor: 'pointer',
             }}
           >
             Reload
@@ -153,7 +161,9 @@ function App() {
 
           {/* Main application routes */}
           <Route element={<MainLayout />}>
-            <Route path="/" element={<Chat />} />
+            <Route path="/" element={<Supervisor />} />
+            <Route path="/employees" element={<Employees />} />
+            <Route path="/employees/:slug" element={<EmployeeChat />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/channels" element={<Channels />} />
             <Route path="/skills" element={<Skills />} />
@@ -163,11 +173,7 @@ function App() {
         </Routes>
 
         {/* Global toast notifications */}
-        <Toaster
-          position="bottom-right"
-          richColors
-          closeButton
-        />
+        <Toaster position="bottom-right" richColors closeButton />
       </TooltipProvider>
     </ErrorBoundary>
   );

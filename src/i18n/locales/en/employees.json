@@ -1,0 +1,140 @@
+{
+  "hub": {
+    "title": "My Employees",
+    "subtitle": "Manage your AI workforce",
+    "empty": "No employees yet. Hire your first AI employee from the Marketplace.",
+    "search": "Search employees...",
+    "filterAll": "All",
+    "filterActive": "Active",
+    "filterIdle": "Idle"
+  },
+  "card": {
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "chat": "Chat",
+    "settings": "Settings",
+    "delete": "Remove",
+    "viewTasks": "View Tasks"
+  },
+  "status": {
+    "idle": "Idle",
+    "working": "Working",
+    "blocked": "Blocked",
+    "error": "Error",
+    "offline": "Offline"
+  },
+  "create": {
+    "title": "Hire Employee",
+    "nameLabel": "Employee Name",
+    "namePlaceholder": "e.g., SEO Expert",
+    "skillLabel": "Based on Skill",
+    "confirm": "Hire",
+    "cancel": "Cancel"
+  },
+  "detail": {
+    "role": "Role",
+    "team": "Team",
+    "currentTask": "Current Task",
+    "completedTasks": "Completed Tasks",
+    "totalCredits": "Credits Used",
+    "since": "Hired Since",
+    "notFound": "Employee not found",
+    "backToHub": "Back to Employee Hub",
+    "activating": "Activating employee..."
+  },
+  "secrets": {
+    "title": "Tool Configuration",
+    "description": "Configure API keys and secrets for {{name}}'s tools",
+    "configured": "Configured",
+    "notConfigured": "Not configured",
+    "save": "Save",
+    "saved": "Secrets saved",
+    "getKey": "Get API Key",
+    "showSecret": "Show",
+    "hideSecret": "Hide"
+  },
+  "memory": {
+    "title": "Memory",
+    "episodic": "Past Experiences",
+    "noMemories": "No memories yet",
+    "count": "{{count}} memories",
+    "importance": "Importance",
+    "tags": "Tags",
+    "stored": "Memory stored",
+    "deleted": "Memory deleted",
+    "search": "Search memories..."
+  },
+  "onboarding": {
+    "title": "Set up {{name}}",
+    "back": "Back",
+    "next": "Continue",
+    "startLogin": "Start Setup",
+    "finish": "Complete Setup",
+    "cancel": "Cancel",
+    "steps": {
+      "welcome": {
+        "subtitle": "Let's get your employee ready",
+        "heading": "What this employee does",
+        "whatNeeded": "What we need from you",
+        "needLogin": "Log in to your account in a browser window",
+        "needCamofox": "Camofox browser running locally (for automation)",
+        "privacy": "Your credentials are never stored. Only session cookies are saved locally."
+      },
+      "camofox": {
+        "subtitle": "Browser engine",
+        "heading": "Set up Camofox",
+        "description": "Camofox is an anti-detection browser that performs actions on your behalf. It needs to be running locally.",
+        "checking": "Checking Camofox...",
+        "online": "Camofox is running",
+        "offline": "Camofox is not running",
+        "ready": "Camofox is connected and ready. You can proceed to the next step.",
+        "installTitle": "How to install and start",
+        "step1": "Download from GitHub",
+        "step2": "Install and start",
+        "skipNote": "You can skip this step and set up Camofox later. The employee won't be able to execute tasks until Camofox is running."
+      },
+      "login": {
+        "subtitle": "Account login",
+        "heading": "Sign in to your account",
+        "description": "A browser window will open. Log in normally — we'll capture the session cookies automatically.",
+        "openBrowser": "Open Login Page",
+        "waiting": "Waiting for you to log in...",
+        "waitingDesc": "Complete the login in the browser window. We'll detect it automatically.",
+        "success": "Login successful!",
+        "successDesc": "Session cookies captured. Your credentials are safe — only cookies are stored.",
+        "error": "Login failed",
+        "retry": "Try Again",
+        "cancelLogin": "Cancel",
+        "noOAuth": "Google/Apple sign-in is not supported in this window. Please use your username and password to log in directly."
+      },
+      "configure": {
+        "subtitle": "Configure settings",
+        "heading": "Fine-tune the behavior",
+        "username": "Username",
+        "usernamePlaceholder": "Your username",
+        "camofoxPort": "Camofox Port",
+        "camofoxApiKey": "Camofox API Key",
+        "advanced": "Advanced Settings",
+        "upvotes": "Upvotes per day",
+        "comments": "Comments per day"
+      },
+      "complete": {
+        "subtitle": "Ready to work",
+        "heading": "All set!",
+        "description": "Your employee is configured and ready to start working.",
+        "summary": "Configuration Summary",
+        "account": "Account",
+        "dailyTarget": "Daily Activity",
+        "upvotesComments": "{{upvotes}} upvotes, {{comments}} comments / day",
+        "captured": "captured"
+      }
+    }
+  },
+  "teams": {
+    "marketing": "Marketing",
+    "development": "Development",
+    "design": "Design",
+    "writing": "Writing",
+    "research": "Research"
+  }
+}

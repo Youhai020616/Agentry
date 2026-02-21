@@ -1,0 +1,52 @@
+{
+  "title": "従業員マーケットプレイス",
+  "subtitle": "チームにAI従業員を雇用",
+  "search": "従業員を検索...",
+  "hire": "雇用",
+  "hired": "雇用済み",
+  "details": "詳細",
+  "filters": {
+    "all": "すべて",
+    "knowledge": "ナレッジ",
+    "execution": "エグゼキューション",
+    "hybrid": "ハイブリッド",
+    "free": "無料",
+    "included": "プロ",
+    "premium": "プレミアム"
+  },
+  "categories": {
+    "all": "すべて",
+    "marketing": "マーケティングチーム",
+    "dev": "開発チーム",
+    "research": "リサーチチーム",
+    "general": "一般",
+    "development": "開発",
+    "design": "デザイン",
+    "writing": "ライティング",
+    "analytics": "アナリティクス"
+  },
+  "card": {
+    "install": "雇用",
+    "uninstall": "削除",
+    "installed": "雇用済み",
+    "details": "詳細を見る",
+    "by": "{{author}} 作",
+    "type": {
+      "knowledge": "ナレッジ",
+      "execution": "エグゼキューション",
+      "hybrid": "ハイブリッド"
+    },
+    "team": "チーム"
+  },
+  "empty": {
+    "title": "従業員が見つかりません",
+    "description": "検索条件やフィルターを調整してみてください"
+  },
+  "detail": {
+    "title": "従業員の詳細",
+    "skills": "スキル",
+    "capabilities": "能力",
+    "requirements": "要件",
+    "install": "この従業員を雇用"
+  }
+}

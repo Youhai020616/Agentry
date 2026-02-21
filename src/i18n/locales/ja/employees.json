@@ -1,0 +1,140 @@
+{
+  "hub": {
+    "title": "マイ従業員",
+    "subtitle": "AI チームを管理",
+    "empty": "従業員がまだいません。マーケットプレイスから最初の AI 従業員を雇いましょう。",
+    "search": "従業員を検索...",
+    "filterAll": "すべて",
+    "filterActive": "アクティブ",
+    "filterIdle": "待機中"
+  },
+  "card": {
+    "activate": "有効化",
+    "deactivate": "無効化",
+    "chat": "チャット",
+    "settings": "設定",
+    "delete": "削除",
+    "viewTasks": "タスクを表示"
+  },
+  "status": {
+    "idle": "待機中",
+    "working": "作業中",
+    "blocked": "ブロック",
+    "error": "エラー",
+    "offline": "オフライン"
+  },
+  "create": {
+    "title": "従業員を雇う",
+    "nameLabel": "従業員名",
+    "namePlaceholder": "例：SEO エキスパート",
+    "skillLabel": "ベーススキル",
+    "confirm": "雇用",
+    "cancel": "キャンセル"
+  },
+  "detail": {
+    "role": "役割",
+    "team": "チーム",
+    "currentTask": "現在のタスク",
+    "completedTasks": "完了タスク",
+    "totalCredits": "使用クレジット",
+    "since": "雇用開始日",
+    "notFound": "従業員が見つかりません",
+    "backToHub": "従業員一覧に戻る",
+    "activating": "従業員を起動中..."
+  },
+  "secrets": {
+    "title": "ツール設定",
+    "description": "{{name}} のツール用 API キーとシークレットを設定",
+    "configured": "設定済み",
+    "notConfigured": "未設定",
+    "save": "保存",
+    "saved": "シークレットを保存しました",
+    "getKey": "API キーを取得",
+    "showSecret": "表示",
+    "hideSecret": "非表示"
+  },
+  "memory": {
+    "title": "メモリー",
+    "episodic": "過去の経験",
+    "noMemories": "メモリーはまだありません",
+    "count": "{{count}} 件のメモリー",
+    "importance": "重要度",
+    "tags": "タグ",
+    "stored": "メモリーを保存しました",
+    "deleted": "メモリーを削除しました",
+    "search": "メモリーを検索..."
+  },
+  "onboarding": {
+    "title": "{{name}} をセットアップ",
+    "back": "戻る",
+    "next": "続行",
+    "startLogin": "セットアップ開始",
+    "finish": "セットアップ完了",
+    "cancel": "キャンセル",
+    "steps": {
+      "welcome": {
+        "subtitle": "従業員の準備をしましょう",
+        "heading": "この従業員ができること",
+        "whatNeeded": "必要なこと",
+        "needLogin": "ブラウザウィンドウでアカウントにログイン",
+        "needCamofox": "Camofox ブラウザをローカルで実行（自動化用）",
+        "privacy": "パスワードは保存されません。セッション Cookie のみローカルに保存されます。"
+      },
+      "camofox": {
+        "subtitle": "ブラウザエンジン",
+        "heading": "Camofox をセットアップ",
+        "description": "Camofox はアンチ検出ブラウザで、あなたに代わって自動操作を実行します。ローカルで実行する必要があります。",
+        "checking": "Camofox を確認中...",
+        "online": "Camofox は実行中です",
+        "offline": "Camofox が実行されていません",
+        "ready": "Camofox は接続済みで準備完了です。次のステップに進めます。",
+        "installTitle": "インストールと起動方法",
+        "step1": "GitHub からダウンロード",
+        "step2": "インストールして起動",
+        "skipNote": "このステップをスキップして、後で Camofox を設定できます。Camofox が実行されるまで、従業員はタスクを実行できません。"
+      },
+      "login": {
+        "subtitle": "アカウントログイン",
+        "heading": "アカウントにサインイン",
+        "description": "ブラウザウィンドウが開きます。通常通りログインしてください — セッション Cookie を自動的にキャプチャします。",
+        "openBrowser": "ログインページを開く",
+        "waiting": "ログインを待っています...",
+        "waitingDesc": "ブラウザウィンドウでログインを完了してください。自動的に検出します。",
+        "success": "ログイン成功！",
+        "successDesc": "セッション Cookie をキャプチャしました。パスワードは安全です — Cookie のみ保存されます。",
+        "error": "ログイン失敗",
+        "retry": "再試行",
+        "cancelLogin": "キャンセル",
+        "noOAuth": "このウィンドウでは Google/Apple サインインは使用できません。ユーザー名とパスワードで直接ログインしてください。"
+      },
+      "configure": {
+        "subtitle": "設定",
+        "heading": "動作を調整",
+        "username": "ユーザー名",
+        "usernamePlaceholder": "ユーザー名を入力",
+        "camofoxPort": "Camofox ポート",
+        "camofoxApiKey": "Camofox API キー",
+        "advanced": "詳細設定",
+        "upvotes": "1日のアップボート数",
+        "comments": "1日のコメント数"
+      },
+      "complete": {
+        "subtitle": "準備完了",
+        "heading": "セットアップ完了！",
+        "description": "従業員の設定が完了し、作業を開始する準備ができました。",
+        "summary": "設定概要",
+        "account": "アカウント",
+        "dailyTarget": "日次アクティビティ",
+        "upvotesComments": "1日 {{upvotes}} アップボート、{{comments}} コメント",
+        "captured": "キャプチャ済み"
+      }
+    }
+  },
+  "teams": {
+    "marketing": "マーケティング",
+    "development": "開発",
+    "design": "デザイン",
+    "writing": "ライティング",
+    "research": "リサーチ"
+  }
+}

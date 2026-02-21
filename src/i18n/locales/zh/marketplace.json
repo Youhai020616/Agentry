@@ -1,0 +1,52 @@
+{
+  "title": "员工市场",
+  "subtitle": "为您的团队雇佣 AI 员工",
+  "search": "搜索员工...",
+  "hire": "雇佣",
+  "hired": "已雇佣",
+  "details": "详情",
+  "filters": {
+    "all": "全部",
+    "knowledge": "知识型",
+    "execution": "执行型",
+    "hybrid": "混合型",
+    "free": "免费",
+    "included": "专业版",
+    "premium": "高级版"
+  },
+  "categories": {
+    "all": "全部",
+    "marketing": "市场营销团队",
+    "dev": "开发团队",
+    "research": "研究团队",
+    "general": "通用",
+    "development": "开发",
+    "design": "设计",
+    "writing": "写作",
+    "analytics": "数据分析"
+  },
+  "card": {
+    "install": "雇佣",
+    "uninstall": "移除",
+    "installed": "已雇佣",
+    "details": "查看详情",
+    "by": "作者 {{author}}",
+    "type": {
+      "knowledge": "知识型",
+      "execution": "执行型",
+      "hybrid": "混合型"
+    },
+    "team": "团队"
+  },
+  "empty": {
+    "title": "未找到员工",
+    "description": "请尝试调整搜索条件或筛选器"
+  },
+  "detail": {
+    "title": "员工详情",
+    "skills": "技能",
+    "capabilities": "能力",
+    "requirements": "要求",
+    "install": "雇佣此员工"
+  }
+}

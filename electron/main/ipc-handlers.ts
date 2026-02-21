@@ -3,12 +3,27 @@
  * Registers all IPC handlers for main-renderer communication
  */
 import { ipcMain, BrowserWindow, shell, dialog, app, nativeImage } from 'electron';
-import { existsSync, copyFileSync, statSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import {
+  existsSync,
+  copyFileSync,
+  statSync,
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  readdirSync,
+} from 'node:fs';
 import { homedir } from 'node:os';
 import { join, extname, basename } from 'node:path';
 import crypto from 'node:crypto';
 import { GatewayManager } from '../gateway/manager';
-import { ClawHubService, ClawHubSearchParams, ClawHubInstallParams, ClawHubUninstallParams } from '../gateway/clawhub';
+import { BrowserLoginManager } from '../engine/browser-login';
+import { CamofoxClient } from '../engine/camofox-client';
+import {
+  ClawHubService,
+  ClawHubSearchParams,
+  ClawHubInstallParams,
+  ClawHubUninstallParams,
+} from '../gateway/clawhub';
 import {
   storeApiKey,
   getApiKey,
@@ -22,7 +37,13 @@ import {
   getAllProvidersWithKeyInfo,
   type ProviderConfig,
 } from '../utils/secure-storage';
-import { getOpenClawStatus, getOpenClawDir, getOpenClawConfigDir, getOpenClawSkillsDir, ensureDir } from '../utils/paths';
+import {
+  getOpenClawStatus,
+  getOpenClawDir,
+  getOpenClawConfigDir,
+  getOpenClawSkillsDir,
+  ensureDir,
+} from '../utils/paths';
 import { getOpenClawCliCommand, installOpenClawCliMac } from '../utils/openclaw-cli';
 import { getSetting } from '../utils/store';
 import {
@@ -46,6 +67,14 @@ import { checkUvInstalled, installUv, setupManagedPython } from '../utils/uv-set
 import { updateSkillConfig, getSkillConfig, getAllSkillConfigs } from '../utils/skill-config';
 import { whatsAppLoginManager } from '../utils/whatsapp-login';
 import { getProviderConfig } from '../utils/provider-registry';
+import { EmployeeManager } from '../engine/employee-manager';
+import { UserManager } from '../engine/user-manager';
+import { ManifestParser } from '../engine/manifest-parser';
+import type { EngineContext } from '../engine/bootstrap';
+import type { ExecutionOptions } from '../engine/execution-worker';
+import { LicenseValidator } from '../utils/license-validator';
+import type { LicenseInfo } from '../utils/license-validator';
+import { ollamaManager } from '../utils/ollama-manager';
 
 /**
  * Register all IPC handlers
@@ -53,7 +82,8 @@ import { getProviderConfig } from '../utils/provider-registry';
 export function registerIpcHandlers(
   gatewayManager: GatewayManager,
   clawHubService: ClawHubService,
-  mainWindow: BrowserWindow
+  mainWindow: BrowserWindow,
+  engine: EngineContext | null
 ): void {
   // Gateway handlers
   registerGatewayHandlers(gatewayManager, mainWindow);
@@ -86,7 +116,7 @@ export function registerIpcHandlers(
   registerSkillConfigHandlers();
 
   // Cron task handlers (proxy to Gateway RPC)
-  registerCronHandlers(gatewayManager);
+  registerCronHandlers(gatewayManager, engine);
 
   // Window control handlers (for custom title bar on Windows/Linux)
   registerWindowHandlers(mainWindow);
@@ -96,6 +126,40 @@ export function registerIpcHandlers(
 
   // File staging handlers (upload/send separation)
   registerFileHandlers();
+
+  // Employee handlers (use engine context if available, fallback to standalone)
+  const employeeManager = engine?.employeeManager ?? new EmployeeManager();
+  if (!engine) {
+    // Fallback: init standalone (should not happen in normal startup)
+    logger.warn('Engine context not available, initializing standalone EmployeeManager');
+    void employeeManager.init();
+  }
+
+  // Forward employee status changes to renderer
+  employeeManager.on('status', (employeeId: string, status: string) => {
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('employee:status-changed', { employeeId, status });
+    }
+  });
+
+  registerEmployeeHandlers(employeeManager);
+  registerBuiltinSkillHandlers(employeeManager);
+  registerTaskHandlers(engine, gatewayManager);
+  registerProjectHandlers(engine, gatewayManager);
+  registerMessageHandlers(engine, gatewayManager);
+  registerCreditsHandlers(engine);
+  registerActivityHandlers(engine, gatewayManager, employeeManager);
+  registerExecutionHandlers(engine, gatewayManager);
+  registerMemoryHandlers(engine, gatewayManager);
+  registerProhibitionHandlers(engine, gatewayManager);
+  registerLicenseHandlers();
+  registerUserHandlers();
+  registerOllamaHandlers(mainWindow);
+  registerOnboardingHandlers(mainWindow, employeeManager);
+  registerSupervisorHandlers(engine, gatewayManager, mainWindow);
+
+  // Note: task:changed event forwarding happens lazily when Phase 1 initializes.
+  // The task-changed listener is set up inside registerTaskHandlers via getLazy().
 }
 
 /**
@@ -104,16 +168,22 @@ export function registerIpcHandlers(
  */
 function registerSkillConfigHandlers(): void {
   // Update skill config (apiKey and env)
-  ipcMain.handle('skill:updateConfig', async (_, params: {
-    skillKey: string;
-    apiKey?: string;
-    env?: Record<string, string>;
-  }) => {
-    return updateSkillConfig(params.skillKey, {
-      apiKey: params.apiKey,
-      env: params.env,
-    });
-  });
+  ipcMain.handle(
+    'skill:updateConfig',
+    async (
+      _,
+      params: {
+        skillKey: string;
+        apiKey?: string;
+        env?: Record<string, string>;
+      }
+    ) => {
+      return updateSkillConfig(params.skillKey, {
+        apiKey: params.apiKey,
+        env: params.env,
+      });
+    }
+  );
 
   // Get skill config
   ipcMain.handle('skill:getConfig', async (_, skillKey: string) => {
@@ -166,11 +236,11 @@ function transformCronJob(job: GatewayCronJob) {
   // Build lastRun from state
   const lastRun = job.state?.lastRunAtMs
     ? {
-      time: new Date(job.state.lastRunAtMs).toISOString(),
-      success: job.state.lastStatus === 'ok',
-      error: job.state.lastError,
-      duration: job.state.lastDurationMs,
-    }
+        time: new Date(job.state.lastRunAtMs).toISOString(),
+        success: job.state.lastStatus === 'ok',
+        error: job.state.lastError,
+        duration: job.state.lastDurationMs,
+      }
     : undefined;
 
   // Build nextRun from state
@@ -198,16 +268,50 @@ function transformCronJob(job: GatewayCronJob) {
  * The frontend works with plain cron expression strings, but the Gateway
  * expects CronSchedule objects ({ kind: "cron", expr: "..." }).
  * These handlers bridge the two formats.
+ *
+ * Employee assignment (assignedEmployeeId) is stored locally since the
+ * Gateway has no concept of ClawX employees. A lazily-initialized
+ * electron-store persists the cronJobId → employeeId mapping.
  */
-function registerCronHandlers(gatewayManager: GatewayManager): void {
+
+// Local store for cron → employee assignment mappings
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cronEmployeeStoreInstance: any = null;
+
+async function getCronEmployeeStore(): Promise<{
+  get: (key: string) => string | undefined;
+  set: (key: string, value: string | undefined) => void;
+  delete: (key: string) => void;
+  store: Record<string, string>;
+}> {
+  if (!cronEmployeeStoreInstance) {
+    const Store = (await import('electron-store')).default;
+    cronEmployeeStoreInstance = new Store({ name: 'cron-employee-assignments', defaults: {} });
+  }
+  return cronEmployeeStoreInstance;
+}
+
+function registerCronHandlers(
+  gatewayManager: GatewayManager,
+  engine: EngineContext | null,
+): void {
   // List all cron jobs — transforms Gateway CronJob format to frontend CronJob format
   ipcMain.handle('cron:list', async () => {
     try {
       const result = await gatewayManager.rpc('cron.list', { includeDisabled: true });
       const data = result as { jobs?: GatewayCronJob[] };
       const jobs = data?.jobs ?? [];
-      // Transform Gateway format to frontend format
-      return jobs.map(transformCronJob);
+      // Get local employee assignments
+      const assignmentStore = await getCronEmployeeStore();
+      // Transform Gateway format to frontend format and inject assignedEmployeeId
+      return jobs.map((job) => {
+        const transformed = transformCronJob(job);
+        const assignedEmployeeId = assignmentStore.get(job.id) as string | undefined;
+        if (assignedEmployeeId) {
+          (transformed as Record<string, unknown>).assignedEmployeeId = assignedEmployeeId;
+        }
+        return transformed;
+      });
     } catch (error) {
       console.error('Failed to list cron jobs:', error);
       throw error;
@@ -215,45 +319,64 @@ function registerCronHandlers(gatewayManager: GatewayManager): void {
   });
 
   // Create a new cron job
-  ipcMain.handle('cron:create', async (_, input: {
-    name: string;
-    message: string;
-    schedule: string;
-    target: { channelType: string; channelId: string; channelName: string };
-    enabled?: boolean;
-  }) => {
-    try {
-      // Transform frontend input to Gateway cron.add format
-      // For Discord, the recipient must be prefixed with "channel:" or "user:"
-      const recipientId = input.target.channelId;
-      const deliveryTo = input.target.channelType === 'discord' && recipientId
-        ? `channel:${recipientId}`
-        : recipientId;
-
-      const gatewayInput = {
-        name: input.name,
-        schedule: { kind: 'cron', expr: input.schedule },
-        payload: { kind: 'agentTurn', message: input.message },
-        enabled: input.enabled ?? true,
-        wakeMode: 'next-heartbeat',
-        sessionTarget: 'isolated',
-        delivery: {
-          mode: 'announce',
-          channel: input.target.channelType,
-          to: deliveryTo,
-        },
-      };
-      const result = await gatewayManager.rpc('cron.add', gatewayInput);
-      // Transform the returned job to frontend format
-      if (result && typeof result === 'object') {
-        return transformCronJob(result as GatewayCronJob);
+  ipcMain.handle(
+    'cron:create',
+    async (
+      _,
+      input: {
+        name: string;
+        message: string;
+        schedule: string;
+        target: { channelType: string; channelId: string; channelName: string };
+        enabled?: boolean;
+        assignedEmployeeId?: string;
       }
-      return result;
-    } catch (error) {
-      console.error('Failed to create cron job:', error);
-      throw error;
+    ) => {
+      try {
+        // Transform frontend input to Gateway cron.add format
+        // For Discord, the recipient must be prefixed with "channel:" or "user:"
+        const recipientId = input.target.channelId;
+        const deliveryTo =
+          input.target.channelType === 'discord' && recipientId
+            ? `channel:${recipientId}`
+            : recipientId;
+
+        const gatewayInput = {
+          name: input.name,
+          schedule: { kind: 'cron', expr: input.schedule },
+          payload: { kind: 'agentTurn', message: input.message },
+          enabled: input.enabled ?? true,
+          wakeMode: 'next-heartbeat',
+          sessionTarget: 'isolated',
+          delivery: {
+            mode: 'announce',
+            channel: input.target.channelType,
+            to: deliveryTo,
+          },
+        };
+        const result = await gatewayManager.rpc('cron.add', gatewayInput);
+        // Transform the returned job to frontend format
+        if (result && typeof result === 'object') {
+          const transformed = transformCronJob(result as GatewayCronJob);
+          // Persist employee assignment locally
+          if (input.assignedEmployeeId) {
+            const assignmentStore = await getCronEmployeeStore();
+            assignmentStore.set(
+              (result as GatewayCronJob).id,
+              input.assignedEmployeeId,
+            );
+            (transformed as Record<string, unknown>).assignedEmployeeId =
+              input.assignedEmployeeId;
+          }
+          return transformed;
+        }
+        return result;
+      } catch (error) {
+        console.error('Failed to create cron job:', error);
+        throw error;
+      }
     }
-  });
+  );
 
   // Update an existing cron job
   ipcMain.handle('cron:update', async (_, id: string, input: Record<string, unknown>) => {
@@ -268,7 +391,22 @@ function registerCronHandlers(gatewayManager: GatewayManager): void {
         patch.payload = { kind: 'agentTurn', message: patch.message };
         delete patch.message;
       }
+      // Handle assignedEmployeeId locally (not sent to Gateway)
+      const assignedEmployeeId = patch.assignedEmployeeId as string | undefined;
+      delete patch.assignedEmployeeId;
+
       const result = await gatewayManager.rpc('cron.update', { id, patch });
+
+      // Persist employee assignment locally
+      const assignmentStore = await getCronEmployeeStore();
+      if (assignedEmployeeId !== undefined) {
+        if (assignedEmployeeId) {
+          assignmentStore.set(id, assignedEmployeeId);
+        } else {
+          assignmentStore.delete(id);
+        }
+      }
+
       return result;
     } catch (error) {
       console.error('Failed to update cron job:', error);
@@ -280,6 +418,9 @@ function registerCronHandlers(gatewayManager: GatewayManager): void {
   ipcMain.handle('cron:delete', async (_, id: string) => {
     try {
       const result = await gatewayManager.rpc('cron.remove', { id });
+      // Clean up local employee assignment
+      const assignmentStore = await getCronEmployeeStore();
+      assignmentStore.delete(id);
       return result;
     } catch (error) {
       console.error('Failed to delete cron job:', error);
@@ -302,6 +443,43 @@ function registerCronHandlers(gatewayManager: GatewayManager): void {
   ipcMain.handle('cron:trigger', async (_, id: string) => {
     try {
       const result = await gatewayManager.rpc('cron.run', { id, mode: 'force' });
+
+      // If an employee is assigned, auto-create a Task for that employee
+      try {
+        const assignmentStore = await getCronEmployeeStore();
+        const assignedEmployeeId = assignmentStore.get(id) as string | undefined;
+        if (assignedEmployeeId && engine?.taskQueue) {
+          // Fetch the cron job name for the task subject
+          let cronName = `Cron Job ${id}`;
+          let cronMessage = '';
+          try {
+            const listResult = await gatewayManager.rpc('cron.list', { includeDisabled: true });
+            const data = listResult as { jobs?: GatewayCronJob[] };
+            const cronJob = data?.jobs?.find((j) => j.id === id);
+            if (cronJob) {
+              cronName = cronJob.name;
+              cronMessage = cronJob.payload?.message || cronJob.payload?.text || '';
+            }
+          } catch {
+            // Ignore; use fallback name
+          }
+
+          engine.taskQueue.create({
+            projectId: 'cron-auto',
+            subject: `Cron: ${cronName}`,
+            description: cronMessage || cronName,
+            owner: assignedEmployeeId,
+            assignedBy: 'user',
+            priority: 'medium',
+          });
+          logger.info(
+            `Cron trigger created task for employee ${assignedEmployeeId} (cron: ${id})`,
+          );
+        }
+      } catch (taskErr) {
+        logger.warn(`Failed to create task from cron trigger: ${taskErr}`);
+      }
+
       return result;
     } catch (error) {
       console.error('Failed to trigger cron job:', error);
@@ -370,10 +548,7 @@ function registerLogHandlers(): void {
 /**
  * Gateway-related IPC handlers
  */
-function registerGatewayHandlers(
-  gatewayManager: GatewayManager,
-  mainWindow: BrowserWindow
-): void {
+function registerGatewayHandlers(gatewayManager: GatewayManager, mainWindow: BrowserWindow): void {
   // Get Gateway status
   ipcMain.handle('gateway:status', () => {
     return gatewayManager.getStatus();
@@ -428,84 +603,92 @@ function registerGatewayHandlers(
   // Raster images (png/jpg/gif/webp) are inlined as base64 vision attachments.
   // All other files are referenced by path in the message text so the model
   // can access them via tools (the same format channels use).
-  const VISION_MIME_TYPES = new Set([
-    'image/png', 'image/jpeg', 'image/bmp', 'image/webp',
-  ]);
+  const VISION_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/bmp', 'image/webp']);
 
-  ipcMain.handle('chat:sendWithMedia', async (_, params: {
-    sessionKey: string;
-    message: string;
-    deliver?: boolean;
-    idempotencyKey: string;
-    media?: Array<{ filePath: string; mimeType: string; fileName: string }>;
-  }) => {
-    try {
-      let message = params.message;
-      // The Gateway processes image attachments through TWO parallel paths:
-      // Path A: `attachments` param → parsed via `parseMessageWithAttachments` →
-      //   injected as inline vision content when the model supports images.
-      //   Format: { content: base64, mimeType: string, fileName?: string }
-      // Path B: `[media attached: ...]` in message text → Gateway's native image
-      //   detection (`detectAndLoadPromptImages`) reads the file from disk and
-      //   injects it as inline vision content. Also works for history messages.
-      // We use BOTH paths for maximum reliability.
-      const imageAttachments: Array<Record<string, unknown>> = [];
-      const fileReferences: string[] = [];
+  ipcMain.handle(
+    'chat:sendWithMedia',
+    async (
+      _,
+      params: {
+        sessionKey: string;
+        message: string;
+        deliver?: boolean;
+        idempotencyKey: string;
+        media?: Array<{ filePath: string; mimeType: string; fileName: string }>;
+      }
+    ) => {
+      try {
+        let message = params.message;
+        // The Gateway processes image attachments through TWO parallel paths:
+        // Path A: `attachments` param → parsed via `parseMessageWithAttachments` →
+        //   injected as inline vision content when the model supports images.
+        //   Format: { content: base64, mimeType: string, fileName?: string }
+        // Path B: `[media attached: ...]` in message text → Gateway's native image
+        //   detection (`detectAndLoadPromptImages`) reads the file from disk and
+        //   injects it as inline vision content. Also works for history messages.
+        // We use BOTH paths for maximum reliability.
+        const imageAttachments: Array<Record<string, unknown>> = [];
+        const fileReferences: string[] = [];
 
-      if (params.media && params.media.length > 0) {
-        for (const m of params.media) {
-          logger.info(`[chat:sendWithMedia] Processing file: ${m.fileName} (${m.mimeType}), path: ${m.filePath}, exists: ${existsSync(m.filePath)}, isVision: ${VISION_MIME_TYPES.has(m.mimeType)}`);
+        if (params.media && params.media.length > 0) {
+          for (const m of params.media) {
+            logger.info(
+              `[chat:sendWithMedia] Processing file: ${m.fileName} (${m.mimeType}), path: ${m.filePath}, exists: ${existsSync(m.filePath)}, isVision: ${VISION_MIME_TYPES.has(m.mimeType)}`
+            );
 
-          // Always add file path reference so the model can access it via tools
-          fileReferences.push(
-            `[media attached: ${m.filePath} (${m.mimeType}) | ${m.filePath}]`,
-          );
+            // Always add file path reference so the model can access it via tools
+            fileReferences.push(`[media attached: ${m.filePath} (${m.mimeType}) | ${m.filePath}]`);
 
-          if (VISION_MIME_TYPES.has(m.mimeType)) {
-            // Send as base64 attachment in the format the Gateway expects:
-            // { content: base64String, mimeType: string, fileName?: string }
-            // The Gateway normalizer looks for `a.content` (NOT `a.source.data`).
-            const fileBuffer = readFileSync(m.filePath);
-            const base64Data = fileBuffer.toString('base64');
-            logger.info(`[chat:sendWithMedia] Read ${fileBuffer.length} bytes, base64 length: ${base64Data.length}`);
-            imageAttachments.push({
-              content: base64Data,
-              mimeType: m.mimeType,
-              fileName: m.fileName,
-            });
+            if (VISION_MIME_TYPES.has(m.mimeType)) {
+              // Send as base64 attachment in the format the Gateway expects:
+              // { content: base64String, mimeType: string, fileName?: string }
+              // The Gateway normalizer looks for `a.content` (NOT `a.source.data`).
+              const fileBuffer = readFileSync(m.filePath);
+              const base64Data = fileBuffer.toString('base64');
+              logger.info(
+                `[chat:sendWithMedia] Read ${fileBuffer.length} bytes, base64 length: ${base64Data.length}`
+              );
+              imageAttachments.push({
+                content: base64Data,
+                mimeType: m.mimeType,
+                fileName: m.fileName,
+              });
+            }
           }
         }
+
+        // Append file references to message text so the model knows about them
+        if (fileReferences.length > 0) {
+          const refs = fileReferences.join('\n');
+          message = message ? `${message}\n\n${refs}` : refs;
+        }
+
+        const rpcParams: Record<string, unknown> = {
+          sessionKey: params.sessionKey,
+          message,
+          deliver: params.deliver ?? false,
+          idempotencyKey: params.idempotencyKey,
+        };
+
+        if (imageAttachments.length > 0) {
+          rpcParams.attachments = imageAttachments;
+        }
+
+        logger.info(
+          `[chat:sendWithMedia] Sending: message="${message.substring(0, 100)}", attachments=${imageAttachments.length}, fileRefs=${fileReferences.length}`
+        );
+
+        // Use a longer timeout when images are present (120s vs default 30s)
+        const timeoutMs = imageAttachments.length > 0 ? 120000 : 30000;
+        const result = await gatewayManager.rpc('chat.send', rpcParams, timeoutMs);
+        logger.info(`[chat:sendWithMedia] RPC result: ${JSON.stringify(result)}`);
+        return { success: true, result };
+      } catch (error) {
+        logger.error(`[chat:sendWithMedia] Error: ${String(error)}`);
+        return { success: false, error: String(error) };
       }
-
-      // Append file references to message text so the model knows about them
-      if (fileReferences.length > 0) {
-        const refs = fileReferences.join('\n');
-        message = message ? `${message}\n\n${refs}` : refs;
-      }
-
-      const rpcParams: Record<string, unknown> = {
-        sessionKey: params.sessionKey,
-        message,
-        deliver: params.deliver ?? false,
-        idempotencyKey: params.idempotencyKey,
-      };
-
-      if (imageAttachments.length > 0) {
-        rpcParams.attachments = imageAttachments;
-      }
-
-      logger.info(`[chat:sendWithMedia] Sending: message="${message.substring(0, 100)}", attachments=${imageAttachments.length}, fileRefs=${fileReferences.length}`);
-
-      // Use a longer timeout when images are present (120s vs default 30s)
-      const timeoutMs = imageAttachments.length > 0 ? 120000 : 30000;
-      const result = await gatewayManager.rpc('chat.send', rpcParams, timeoutMs);
-      logger.info(`[chat:sendWithMedia] RPC result: ${JSON.stringify(result)}`);
-      return { success: true, result };
-    } catch (error) {
-      logger.error(`[chat:sendWithMedia] Error: ${String(error)}`);
-      return { success: false, error: String(error) };
     }
-  });
+  );
 
   // Get the Control UI URL with token for embedding
   ipcMain.handle('gateway:getControlUiUrl', async () => {
@@ -580,7 +763,6 @@ function registerGatewayHandlers(
  * For checking package status and channel configuration
  */
 function registerOpenClawHandlers(): void {
-
   // Get OpenClaw package status
   ipcMain.handle('openclaw:status', () => {
     const status = getOpenClawStatus();
@@ -635,16 +817,19 @@ function registerOpenClawHandlers(): void {
   // ==================== Channel Configuration Handlers ====================
 
   // Save channel configuration
-  ipcMain.handle('channel:saveConfig', async (_, channelType: string, config: Record<string, unknown>) => {
-    try {
-      logger.info('channel:saveConfig', { channelType, keys: Object.keys(config || {}) });
-      saveChannelConfig(channelType, config);
-      return { success: true };
-    } catch (error) {
-      console.error('Failed to save channel config:', error);
-      return { success: false, error: String(error) };
+  ipcMain.handle(
+    'channel:saveConfig',
+    async (_, channelType: string, config: Record<string, unknown>) => {
+      try {
+        logger.info('channel:saveConfig', { channelType, keys: Object.keys(config || {}) });
+        saveChannelConfig(channelType, config);
+        return { success: true };
+      } catch (error) {
+        console.error('Failed to save channel config:', error);
+        return { success: false, error: String(error) };
+      }
     }
-  });
+  );
 
   // Get channel configuration
   ipcMain.handle('channel:getConfig', async (_, channelType: string) => {
@@ -713,15 +898,18 @@ function registerOpenClawHandlers(): void {
   });
 
   // Validate channel credentials by calling actual service APIs (before saving)
-  ipcMain.handle('channel:validateCredentials', async (_, channelType: string, config: Record<string, string>) => {
-    try {
-      const result = await validateChannelCredentials(channelType, config);
-      return { success: true, ...result };
-    } catch (error) {
-      console.error('Failed to validate channel credentials:', error);
-      return { success: false, valid: false, errors: [String(error)], warnings: [] };
+  ipcMain.handle(
+    'channel:validateCredentials',
+    async (_, channelType: string, config: Record<string, string>) => {
+      try {
+        const result = await validateChannelCredentials(channelType, config);
+        return { success: true, ...result };
+      } catch (error) {
+        console.error('Failed to validate channel credentials:', error);
+        return { success: false, valid: false, errors: [String(error)], warnings: [] };
+      }
     }
-  });
+  );
 }
 
 /**
@@ -775,7 +963,6 @@ function registerWhatsAppHandlers(mainWindow: BrowserWindow): void {
     }
   });
 }
-
 
 /**
  * Provider-related IPC handlers
@@ -860,12 +1047,7 @@ function registerProviderHandlers(): void {
   // Atomically update provider config and API key
   ipcMain.handle(
     'provider:updateWithKey',
-    async (
-      _,
-      providerId: string,
-      updates: Partial<ProviderConfig>,
-      apiKey?: string
-    ) => {
+    async (_, providerId: string, updates: Partial<ProviderConfig>, apiKey?: string) => {
       const existing = await getProvider(providerId);
       if (!existing) {
         return { success: false, error: 'Provider not found' };
@@ -956,9 +1138,7 @@ function registerProviderHandlers(): void {
         try {
           // If the provider has a user-specified model (e.g. siliconflow),
           // build the full model string: "providerType/modelId"
-          const modelOverride = provider.model
-            ? `${provider.type}/${provider.model}`
-            : undefined;
+          const modelOverride = provider.model ? `${provider.type}/${provider.model}` : undefined;
 
           if (provider.type === 'custom' || provider.type === 'ollama') {
             // For runtime-configured providers, use user-entered base URL/api.
@@ -996,12 +1176,7 @@ function registerProviderHandlers(): void {
   // providerId can be either a stored provider ID or a provider type.
   ipcMain.handle(
     'provider:validateKey',
-    async (
-      _,
-      providerId: string,
-      apiKey: string,
-      options?: { baseUrl?: string }
-    ) => {
+    async (_, providerId: string, apiKey: string, options?: { baseUrl?: string }) => {
       try {
         // First try to get existing provider
         const provider = await getProvider(providerId);
@@ -1024,7 +1199,12 @@ function registerProviderHandlers(): void {
   );
 }
 
-type ValidationProfile = 'openai-compatible' | 'google-query-key' | 'anthropic-header' | 'openrouter' | 'none';
+type ValidationProfile =
+  | 'openai-compatible'
+  | 'google-query-key'
+  | 'anthropic-header'
+  | 'openrouter'
+  | 'none';
 
 /**
  * Validate API key using lightweight model-listing endpoints (zero token cost).
@@ -1059,7 +1239,10 @@ async function validateApiKeyWithProvider(
       case 'openrouter':
         return await validateOpenRouterKey(providerType, trimmedKey);
       default:
-        return { valid: false, error: `Unsupported validation profile for provider: ${providerType}` };
+        return {
+          valid: false,
+          error: `Unsupported validation profile for provider: ${providerType}`,
+        };
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -1159,10 +1342,7 @@ async function performProviderValidationRequest(
  * 401 / 403 → invalid.
  * Everything else → return the API error message.
  */
-function classifyAuthResponse(
-  status: number,
-  data: unknown
-): { valid: boolean; error?: string } {
+function classifyAuthResponse(status: number, data: unknown): { valid: boolean; error?: string } {
   if (status >= 200 && status < 300) return { valid: true };
   if (status === 429) return { valid: true }; // rate-limited but key is valid
   if (status === 401 || status === 403) return { valid: false, error: 'Invalid API key' };
@@ -1180,7 +1360,10 @@ async function validateOpenAiCompatibleKey(
 ): Promise<{ valid: boolean; error?: string }> {
   const trimmedBaseUrl = baseUrl?.trim();
   if (!trimmedBaseUrl) {
-    return { valid: false, error: `Base URL is required for provider "${providerType}" validation` };
+    return {
+      valid: false,
+      error: `Base URL is required for provider "${providerType}" validation`,
+    };
   }
 
   const headers = { Authorization: `Bearer ${apiKey}` };
@@ -1256,7 +1439,10 @@ async function validateGoogleQueryKey(
 ): Promise<{ valid: boolean; error?: string }> {
   const trimmedBaseUrl = baseUrl?.trim();
   if (!trimmedBaseUrl) {
-    return { valid: false, error: `Base URL is required for provider "${providerType}" validation` };
+    return {
+      valid: false,
+      error: `Base URL is required for provider "${providerType}" validation`,
+    };
   }
 
   const base = normalizeBaseUrl(trimmedBaseUrl);
@@ -1518,9 +1704,10 @@ function generateImagePreview(filePath: string, mimeType: string): string | null
     const maxDim = 512; // keep enough resolution for crisp display on Retina
     // Only resize if larger than threshold — specify ONE dimension to keep ratio
     if (size.width > maxDim || size.height > maxDim) {
-      const resized = size.width >= size.height
-        ? img.resize({ width: maxDim })   // landscape / square → constrain width
-        : img.resize({ height: maxDim }); // portrait → constrain height
+      const resized =
+        size.width >= size.height
+          ? img.resize({ width: maxDim }) // landscape / square → constrain width
+          : img.resize({ height: maxDim }); // portrait → constrain height
       return `data:image/png;base64,${resized.toPNG().toString('base64')}`;
     }
     // Small image — use original
@@ -1563,50 +1750,1317 @@ function registerFileHandlers(): void {
   });
 
   // Stage file from buffer (used for clipboard paste / drag-drop)
-  ipcMain.handle('file:stageBuffer', async (_, payload: {
-    base64: string;
-    fileName: string;
-    mimeType: string;
-  }) => {
-    mkdirSync(OUTBOUND_DIR, { recursive: true });
+  ipcMain.handle(
+    'file:stageBuffer',
+    async (
+      _,
+      payload: {
+        base64: string;
+        fileName: string;
+        mimeType: string;
+      }
+    ) => {
+      mkdirSync(OUTBOUND_DIR, { recursive: true });
 
-    const id = crypto.randomUUID();
-    const ext = extname(payload.fileName) || mimeToExt(payload.mimeType);
-    const stagedPath = join(OUTBOUND_DIR, `${id}${ext}`);
-    const buffer = Buffer.from(payload.base64, 'base64');
-    writeFileSync(stagedPath, buffer);
+      const id = crypto.randomUUID();
+      const ext = extname(payload.fileName) || mimeToExt(payload.mimeType);
+      const stagedPath = join(OUTBOUND_DIR, `${id}${ext}`);
+      const buffer = Buffer.from(payload.base64, 'base64');
+      writeFileSync(stagedPath, buffer);
 
-    const mimeType = payload.mimeType || getMimeType(ext);
-    const fileSize = buffer.length;
+      const mimeType = payload.mimeType || getMimeType(ext);
+      const fileSize = buffer.length;
 
-    // Generate preview for images
-    let preview: string | null = null;
-    if (mimeType.startsWith('image/')) {
-      preview = generateImagePreview(stagedPath, mimeType);
+      // Generate preview for images
+      let preview: string | null = null;
+      if (mimeType.startsWith('image/')) {
+        preview = generateImagePreview(stagedPath, mimeType);
+      }
+
+      return { id, fileName: payload.fileName, mimeType, fileSize, stagedPath, preview };
     }
-
-    return { id, fileName: payload.fileName, mimeType, fileSize, stagedPath, preview };
-  });
+  );
 
   // Load thumbnails for file paths on disk (used to restore previews in history)
-  ipcMain.handle('media:getThumbnails', async (_, paths: Array<{ filePath: string; mimeType: string }>) => {
-    const results: Record<string, { preview: string | null; fileSize: number }> = {};
-    for (const { filePath, mimeType } of paths) {
-      try {
-        if (!existsSync(filePath)) {
+  ipcMain.handle(
+    'media:getThumbnails',
+    async (_, paths: Array<{ filePath: string; mimeType: string }>) => {
+      const results: Record<string, { preview: string | null; fileSize: number }> = {};
+      for (const { filePath, mimeType } of paths) {
+        try {
+          if (!existsSync(filePath)) {
+            results[filePath] = { preview: null, fileSize: 0 };
+            continue;
+          }
+          const stat = statSync(filePath);
+          let preview: string | null = null;
+          if (mimeType.startsWith('image/')) {
+            preview = generateImagePreview(filePath, mimeType);
+          }
+          results[filePath] = { preview, fileSize: stat.size };
+        } catch {
           results[filePath] = { preview: null, fileSize: 0 };
-          continue;
         }
-        const stat = statSync(filePath);
-        let preview: string | null = null;
-        if (mimeType.startsWith('image/')) {
-          preview = generateImagePreview(filePath, mimeType);
-        }
-        results[filePath] = { preview, fileSize: stat.size };
-      } catch {
-        results[filePath] = { preview: null, fileSize: 0 };
+      }
+      return results;
+    }
+  );
+}
+
+// ── Employee Handlers ──────────────────────────────────────────────
+
+function registerEmployeeHandlers(employeeManager: EmployeeManager): void {
+  ipcMain.handle('employee:list', async (_event, params?: { status?: string }) => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const employees = employeeManager.list(params?.status as any);
+      return { success: true, result: employees };
+    } catch (error) {
+      logger.error('employee:list failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('employee:get', async (_event, id: string) => {
+    try {
+      const employee = employeeManager.get(id);
+      if (!employee) {
+        return { success: false, error: `Employee not found: ${id}` };
+      }
+      return { success: true, result: employee };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('employee:activate', async (_event, id: string) => {
+    try {
+      const employee = await employeeManager.activate(id);
+      return { success: true, result: employee };
+    } catch (error) {
+      logger.error('employee:activate failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('employee:deactivate', async (_event, id: string) => {
+    try {
+      const employee = employeeManager.deactivate(id);
+      return { success: true, result: employee };
+    } catch (error) {
+      logger.error('employee:deactivate failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('employee:status', async (_event, id: string) => {
+    try {
+      const status = employeeManager.getStatus(id);
+      return { success: true, result: status };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // employee:scan — Re-scan skill directories, returns refreshed employee list
+  ipcMain.handle('employee:scan', async () => {
+    try {
+      const employees = await employeeManager.scan();
+      return { success: true, result: employees };
+    } catch (error) {
+      logger.error('employee:scan failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('employee:getManifest', async (_event, id: string) => {
+    try {
+      const manifest = employeeManager.getManifest(id);
+      return { success: true, result: manifest };
+    } catch (error) {
+      logger.error('employee:getManifest failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle(
+    'employee:setSecret',
+    async (_event, employeeId: string, key: string, value: string) => {
+      try {
+        const store = await getEmployeeSecretsStore();
+        const secretKey = `employee-secrets.${employeeId}.${key}`;
+        store.set(secretKey, value);
+        return { success: true };
+      } catch (error) {
+        logger.error('employee:setSecret failed:', error);
+        return { success: false, error: String(error) };
       }
     }
-    return results;
+  );
+
+  ipcMain.handle('employee:getSecrets', async (_event, employeeId: string) => {
+    try {
+      const store = await getEmployeeSecretsStore();
+      const secrets = (store.get(`employee-secrets.${employeeId}`) ?? {}) as Record<string, string>;
+      return { success: true, result: secrets };
+    } catch (error) {
+      logger.error('employee:getSecrets failed:', error);
+      return { success: false, error: String(error) };
+    }
   });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _employeeSecretsStore: any = null;
+
+async function getEmployeeSecretsStore(): Promise<{
+  get: (key: string) => unknown;
+  set: (key: string, value: unknown) => void;
+}> {
+  if (!_employeeSecretsStore) {
+    const ElectronStore = (await import('electron-store')).default;
+    _employeeSecretsStore = new ElectronStore({ name: 'employee-secrets' });
+  }
+  return _employeeSecretsStore;
+}
+
+// ── Built-in Skill Handlers ────────────────────────────────────────
+
+function registerBuiltinSkillHandlers(employeeManager: EmployeeManager): void {
+  const parser = new ManifestParser();
+
+  ipcMain.handle('skill:listBuiltin', async () => {
+    try {
+      const builtinDir = employeeManager.getBuiltinDirPath();
+
+      if (!existsSync(builtinDir)) {
+        return { success: true, result: [] };
+      }
+
+      const entries = readdirSync(builtinDir, { withFileTypes: true }).filter((d) =>
+        d.isDirectory()
+      );
+
+      const manifests = [];
+      for (const entry of entries) {
+        const skillDir = join(builtinDir, entry.name);
+        try {
+          const manifest = parser.parseFromPath(skillDir);
+          manifests.push({ ...manifest, _skillDir: skillDir });
+        } catch {
+          // Skip invalid packages
+        }
+      }
+      return { success: true, result: manifests };
+    } catch (error) {
+      logger.error('skill:listBuiltin failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+}
+
+// ── Task Handlers ──────────────────────────────────────────────────
+
+function registerTaskHandlers(engine: EngineContext | null, gatewayManager: GatewayManager): void {
+  const getLazy = async () => {
+    if (!engine) throw new Error('Engine not initialized');
+    return engine.getLazy(gatewayManager);
+  };
+
+  ipcMain.handle('task:create', async (_, input: unknown) => {
+    try {
+      const lazy = await getLazy();
+      const task = lazy.taskQueue.create(input as Parameters<typeof lazy.taskQueue.create>[0]);
+      return { success: true, result: task };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('task:list', async (_, projectId?: string) => {
+    try {
+      const lazy = await getLazy();
+      const tasks = lazy.taskQueue.list(projectId);
+      return { success: true, result: tasks };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('task:get', async (_, id: string) => {
+    try {
+      const lazy = await getLazy();
+      const task = lazy.taskQueue.get(id);
+      return { success: true, result: task ?? null };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('task:update', async (_, id: string, changes: unknown) => {
+    try {
+      const lazy = await getLazy();
+      const task = lazy.taskQueue.update(id, changes as Parameters<typeof lazy.taskQueue.update>[1]);
+      return { success: true, result: task };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('task:claim', async (_, taskId: string, employeeId: string) => {
+    try {
+      const lazy = await getLazy();
+      const task = lazy.taskQueue.claim(taskId, employeeId);
+      return { success: true, result: task };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('task:complete', async (_, taskId: string, output: string, outputFiles?: string[]) => {
+    try {
+      const lazy = await getLazy();
+      const task = lazy.taskQueue.complete(taskId, output, outputFiles);
+      return { success: true, result: task };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('task:cancel', async (_, taskId: string) => {
+    try {
+      const lazy = await getLazy();
+      const task = lazy.taskQueue.cancel(taskId);
+      return { success: true, result: task };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('task:available', async (_, projectId: string) => {
+    try {
+      const lazy = await getLazy();
+      const tasks = lazy.taskQueue.listAvailable(projectId);
+      return { success: true, result: tasks };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('task:rate', async (_event, taskId: string, rating: number, feedback?: string) => {
+    try {
+      const lazy = await getLazy();
+      lazy.taskQueue.rate(taskId, rating, feedback);
+      return { success: true };
+    } catch (error) {
+      logger.error('task:rate failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+}
+
+// ── Project Handlers ──────────────────────────────────────────────
+
+function registerProjectHandlers(engine: EngineContext | null, gatewayManager: GatewayManager): void {
+  const getLazy = async () => {
+    if (!engine) throw new Error('Engine not initialized');
+    return engine.getLazy(gatewayManager);
+  };
+
+  ipcMain.handle('project:create', async (_, input: unknown) => {
+    try {
+      const lazy = await getLazy();
+      const project = lazy.taskQueue.createProject(
+        input as Parameters<typeof lazy.taskQueue.createProject>[0],
+      );
+      return { success: true, result: project };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('project:list', async () => {
+    try {
+      const lazy = await getLazy();
+      const projects = lazy.taskQueue.listProjects();
+      return { success: true, result: projects };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('project:get', async (_, id: string) => {
+    try {
+      const lazy = await getLazy();
+      const project = lazy.taskQueue.getProject(id);
+      return { success: true, result: project ?? null };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('project:execute', async (_, projectId: string) => {
+    try {
+      const lazy = await getLazy();
+      await lazy.supervisor.executeProject(projectId);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
+}
+
+// ── Message Handlers ──────────────────────────────────────────────
+
+function registerMessageHandlers(engine: EngineContext | null, gatewayManager: GatewayManager): void {
+  const getLazy = async () => {
+    if (!engine) throw new Error('Engine not initialized');
+    return engine.getLazy(gatewayManager);
+  };
+
+  ipcMain.handle('message:send', async (_, input: unknown) => {
+    try {
+      const lazy = await getLazy();
+      lazy.messageBus.send(input as Parameters<typeof lazy.messageBus.send>[0]);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('message:inbox', async (_, employeeId: string) => {
+    try {
+      const lazy = await getLazy();
+      const messages = lazy.messageBus.getInbox(employeeId);
+      return { success: true, result: messages };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('message:markRead', async (_, messageId: string) => {
+    try {
+      const lazy = await getLazy();
+      lazy.messageBus.markRead(messageId);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
+}
+
+// ── Execution Handlers ──────────────────────────────────────────────
+
+function registerExecutionHandlers(engine: EngineContext | null, gatewayManager: GatewayManager): void {
+  const getLazy = async () => {
+    if (!engine) throw new Error('Engine not initialized');
+    return engine.getLazy(gatewayManager);
+  };
+
+  ipcMain.handle('execution:run', async (_, id: string, options: ExecutionOptions) => {
+    try {
+      const lazy = await getLazy();
+      const result = await lazy.executionWorker.run(id, options);
+      return { success: true, result };
+    } catch (error) {
+      logger.error('execution:run failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('execution:cancel', async (_, id: string) => {
+    try {
+      const lazy = await getLazy();
+      lazy.executionWorker.cancel(id);
+      return { success: true };
+    } catch (error) {
+      logger.error('execution:cancel failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('execution:status', async (_, id: string) => {
+    try {
+      const lazy = await getLazy();
+      const status = lazy.executionWorker.getStatus(id);
+      return { success: true, result: status };
+    } catch (error) {
+      logger.error('execution:status failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+}
+
+// ── Credits Handlers ────────────────────────────────────────────────
+
+function registerCreditsHandlers(engine: EngineContext | null): void {
+  ipcMain.handle('credits:balance', async () => {
+    try {
+      if (!engine?.creditsEngine) {
+        return { success: true, result: { total: 0, used: 0, remaining: 0 } };
+      }
+      const balance = engine.creditsEngine.getBalance();
+      return { success: true, result: balance };
+    } catch (error) {
+      logger.error('credits:balance failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('credits:history', async (_event, limit?: number, offset?: number) => {
+    try {
+      if (!engine?.creditsEngine) {
+        return { success: true, result: { transactions: [], total: 0 } };
+      }
+      const history = engine.creditsEngine.getHistory(limit, offset);
+      return { success: true, result: history };
+    } catch (error) {
+      logger.error('credits:history failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle(
+    'credits:consume',
+    async (
+      _event,
+      params: {
+        type: string;
+        amount: number;
+        description: string;
+        employeeId?: string;
+        taskId?: string;
+      },
+    ) => {
+      try {
+        if (!engine?.creditsEngine) {
+          return { success: false, error: 'Credits engine not initialized' };
+        }
+        const ok = engine.creditsEngine.consume(
+          params.type as Parameters<typeof engine.creditsEngine.consume>[0],
+          params.amount,
+          params.description,
+          params.employeeId,
+          params.taskId,
+        );
+        if (!ok) {
+          return { success: false, error: 'Insufficient credits' };
+        }
+        return { success: true };
+      } catch (error) {
+        logger.error('credits:consume failed:', error);
+        return { success: false, error: String(error) };
+      }
+    },
+  );
+
+  ipcMain.handle(
+    'credits:topup',
+    async (_event, params: { amount: number; description?: string }) => {
+      try {
+        if (!engine?.creditsEngine) {
+          return { success: false, error: 'Credits engine not initialized' };
+        }
+        engine.creditsEngine.topup(params.amount, params.description);
+        return { success: true };
+      } catch (error) {
+        logger.error('credits:topup failed:', error);
+        return { success: false, error: String(error) };
+      }
+    },
+  );
+
+  ipcMain.handle('credits:dailySummary', async (_event, days?: number) => {
+    try {
+      if (!engine?.creditsEngine) {
+        return { success: true, result: [] };
+      }
+      const summary = engine.creditsEngine.getDailySummary(days);
+      return { success: true, result: summary };
+    } catch (error) {
+      logger.error('credits:dailySummary failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('credits:byEmployee', async (_event, employeeId: string, limit?: number) => {
+    try {
+      if (!engine?.creditsEngine) {
+        return { success: true, result: [] };
+      }
+      const transactions = engine.creditsEngine.getHistoryByEmployee(employeeId, limit);
+      return { success: true, result: transactions };
+    } catch (error) {
+      logger.error('credits:byEmployee failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('credits:byType', async (_event, type: string, limit?: number) => {
+    try {
+      if (!engine?.creditsEngine) {
+        return { success: true, result: [] };
+      }
+      const transactions = engine.creditsEngine.getHistoryByType(
+        type as Parameters<typeof engine.creditsEngine.getHistoryByType>[0],
+        limit,
+      );
+      return { success: true, result: transactions };
+    } catch (error) {
+      logger.error('credits:byType failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+}
+
+// ── Activity Handlers ────────────────────────────────────────────────
+
+function registerActivityHandlers(
+  engine: EngineContext | null,
+  gatewayManager: GatewayManager,
+  employeeManager: EmployeeManager
+): void {
+  // Lazily create the aggregator on first call
+  let _aggregator: import('../engine/activity-aggregator').ActivityAggregator | null = null;
+
+  const getAggregator = async () => {
+    if (_aggregator) return _aggregator;
+    if (!engine) throw new Error('Engine not initialized');
+
+    const lazy = await engine.getLazy(gatewayManager);
+    const { ActivityAggregator } = await import('../engine/activity-aggregator');
+    _aggregator = new ActivityAggregator(lazy.taskQueue, engine.creditsEngine);
+
+    // Populate employee names
+    const names = new Map<string, string>();
+    for (const emp of employeeManager.list()) {
+      names.set(emp.id, emp.name);
+    }
+    _aggregator.setEmployeeNames(names);
+
+    return _aggregator;
+  };
+
+  ipcMain.handle(
+    'activity:list',
+    async (_event, params?: { limit?: number; before?: number }) => {
+      try {
+        const aggregator = await getAggregator();
+        const events = aggregator.list(params?.limit ?? 50, params?.before);
+        return { success: true, result: events };
+      } catch (error) {
+        logger.error('activity:list failed:', error);
+        return { success: false, error: String(error) };
+      }
+    }
+  );
+}
+
+// ── Memory Handlers ─────────────────────────────────────────────────
+
+function registerMemoryHandlers(engine: EngineContext | null, gatewayManager: GatewayManager): void {
+  const getLazy = async () => {
+    if (!engine) throw new Error('Engine not initialized');
+    return engine.getLazy(gatewayManager);
+  };
+
+  ipcMain.handle(
+    'memory:store',
+    async (
+      _event,
+      employeeId: string,
+      content: string,
+      tags?: string[],
+      importance?: number,
+      taskId?: string
+    ) => {
+      try {
+        const lazy = await getLazy();
+        const id = lazy.memoryEngine.storeEpisodic(
+          employeeId,
+          content,
+          tags ?? [],
+          importance ?? 3,
+          taskId
+        );
+        return { success: true, result: id };
+      } catch (error) {
+        logger.error('memory:store failed:', error);
+        return { success: false, error: String(error) };
+      }
+    }
+  );
+
+  ipcMain.handle('memory:recall', async (_event, employeeId: string, limit?: number) => {
+    try {
+      const lazy = await getLazy();
+      const memories = lazy.memoryEngine.recall(employeeId, limit ?? 10);
+      return { success: true, result: memories };
+    } catch (error) {
+      logger.error('memory:recall failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle(
+    'memory:search',
+    async (_event, employeeId: string, query: string, limit?: number) => {
+      try {
+        const lazy = await getLazy();
+        const memories = lazy.memoryEngine.search(employeeId, query, limit ?? 10);
+        return { success: true, result: memories };
+      } catch (error) {
+        logger.error('memory:search failed:', error);
+        return { success: false, error: String(error) };
+      }
+    }
+  );
+
+  ipcMain.handle('memory:delete', async (_event, id: string) => {
+    try {
+      const lazy = await getLazy();
+      lazy.memoryEngine.deleteEpisodic(id);
+      return { success: true };
+    } catch (error) {
+      logger.error('memory:delete failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('memory:count', async (_event, employeeId: string) => {
+    try {
+      const lazy = await getLazy();
+      const count = lazy.memoryEngine.getEpisodicCount(employeeId);
+      return { success: true, result: count };
+    } catch (error) {
+      logger.error('memory:count failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // ── Semantic Memory Handlers ────────────────────────────────────
+
+  ipcMain.handle(
+    'memory:setSemantic',
+    async (_event, category: string, key: string, value: string) => {
+      try {
+        const lazy = await getLazy();
+        lazy.memoryEngine.setSemantic(category, key, value);
+        return { success: true };
+      } catch (error) {
+        logger.error('memory:setSemantic failed:', error);
+        return { success: false, error: String(error) };
+      }
+    }
+  );
+
+  ipcMain.handle('memory:getSemantic', async (_event, category: string, key: string) => {
+    try {
+      const lazy = await getLazy();
+      const value = lazy.memoryEngine.getSemantic(category, key);
+      return { success: true, result: value };
+    } catch (error) {
+      logger.error('memory:getSemantic failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('memory:getSemanticByCategory', async (_event, category: string) => {
+    try {
+      const lazy = await getLazy();
+      const data = lazy.memoryEngine.getSemanticByCategory(category);
+      return { success: true, result: data };
+    } catch (error) {
+      logger.error('memory:getSemanticByCategory failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('memory:getAllSemantic', async () => {
+    try {
+      const lazy = await getLazy();
+      const data = lazy.memoryEngine.getAllSemantic();
+      return { success: true, result: data };
+    } catch (error) {
+      logger.error('memory:getAllSemantic failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('memory:deleteSemantic', async (_event, category: string, key: string) => {
+    try {
+      const lazy = await getLazy();
+      lazy.memoryEngine.deleteSemantic(category, key);
+      return { success: true };
+    } catch (error) {
+      logger.error('memory:deleteSemantic failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+}
+
+// ── Prohibition Handlers ────────────────────────────────────────────
+
+function registerProhibitionHandlers(engine: EngineContext | null, gatewayManager: GatewayManager): void {
+  const getLazy = async () => {
+    if (!engine) throw new Error('Engine not initialized');
+    return engine.getLazy(gatewayManager);
+  };
+
+  ipcMain.handle('prohibition:list', async (_event, employeeId?: string) => {
+    try {
+      const lazy = await getLazy();
+      const prohibitions = employeeId
+        ? lazy.prohibitionEngine.list(employeeId)
+        : lazy.prohibitionEngine.listAll();
+      return { success: true, result: prohibitions };
+    } catch (error) {
+      logger.error('prohibition:list failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle(
+    'prohibition:create',
+    async (
+      _event,
+      params: {
+        level: string;
+        rule: string;
+        description?: string;
+        employeeId?: string;
+      }
+    ) => {
+      try {
+        const lazy = await getLazy();
+        const id = lazy.prohibitionEngine.create(
+          params.level as 'hard' | 'soft',
+          params.rule,
+          params.description ?? '',
+          params.employeeId
+        );
+        return { success: true, result: id };
+      } catch (error) {
+        logger.error('prohibition:create failed:', error);
+        return { success: false, error: String(error) };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'prohibition:update',
+    async (
+      _event,
+      id: string,
+      updates: {
+        level?: string;
+        rule?: string;
+        description?: string;
+        enabled?: boolean;
+      }
+    ) => {
+      try {
+        const lazy = await getLazy();
+        lazy.prohibitionEngine.update(id, updates as Parameters<typeof lazy.prohibitionEngine.update>[1]);
+        return { success: true };
+      } catch (error) {
+        logger.error('prohibition:update failed:', error);
+        return { success: false, error: String(error) };
+      }
+    }
+  );
+
+  ipcMain.handle('prohibition:delete', async (_event, id: string) => {
+    try {
+      const lazy = await getLazy();
+      lazy.prohibitionEngine.delete(id);
+      return { success: true };
+    } catch (error) {
+      logger.error('prohibition:delete failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('prohibition:toggle', async (_event, id: string, enabled: boolean) => {
+    try {
+      const lazy = await getLazy();
+      lazy.prohibitionEngine.update(id, { enabled });
+      return { success: true };
+    } catch (error) {
+      logger.error('prohibition:toggle failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+}
+
+// ── License Handlers ────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _licenseStoreInstance: any = null;
+
+async function getLicenseStore(): Promise<{
+  get: (key: string, defaultValue?: unknown) => unknown;
+  set: (key: string, value: unknown) => void;
+  delete: (key: string) => void;
+}> {
+  if (!_licenseStoreInstance) {
+    const ElectronStore = (await import('electron-store')).default;
+    _licenseStoreInstance = new ElectronStore({ name: 'clawx-license' });
+  }
+  return _licenseStoreInstance;
+}
+
+function registerLicenseHandlers(): void {
+  const validator = new LicenseValidator();
+
+  // license:validate — validate and store a license key
+  ipcMain.handle('license:validate', async (_event, key: string) => {
+    try {
+      const info = validator.validate(key);
+      if (info && info.isValid) {
+        const store = await getLicenseStore();
+        store.set('license', info);
+        logger.info('License activated:', info.tier);
+        return { success: true, result: info };
+      }
+      return { success: false, error: 'Invalid license key' };
+    } catch (error) {
+      logger.error('license:validate failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // license:status — get current license status
+  ipcMain.handle('license:status', async () => {
+    try {
+      const store = await getLicenseStore();
+      const info = store.get('license', null) as LicenseInfo | null;
+      const status = validator.getStatus(info);
+      return { success: true, result: { info, status } };
+    } catch (error) {
+      logger.error('license:status failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // license:deactivate — remove license
+  ipcMain.handle('license:deactivate', async () => {
+    try {
+      const store = await getLicenseStore();
+      store.delete('license');
+      logger.info('License deactivated');
+      return { success: true };
+    } catch (error) {
+      logger.error('license:deactivate failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Ollama Local Model Handlers
+// ---------------------------------------------------------------------------
+function registerOllamaHandlers(mainWindow: BrowserWindow): void {
+  // ollama:status — get installation & running status + models
+  ipcMain.handle('ollama:status', async () => {
+    try {
+      const status = await ollamaManager.getStatus();
+      return { success: true, result: status };
+    } catch (error) {
+      logger.error('ollama:status failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // ollama:listModels — list locally installed models
+  ipcMain.handle('ollama:listModels', async () => {
+    try {
+      const models = await ollamaManager.listModels();
+      return { success: true, result: models };
+    } catch (error) {
+      logger.error('ollama:listModels failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // ollama:pullModel — pull a model (streaming progress via events)
+  let pullAbortController: AbortController | null = null;
+
+  ipcMain.handle('ollama:pullModel', async (_event, name: string) => {
+    try {
+      // Abort any existing pull
+      if (pullAbortController) {
+        pullAbortController.abort();
+      }
+      pullAbortController = new AbortController();
+      const { signal } = pullAbortController;
+
+      await ollamaManager.pullModel(
+        name,
+        (progress) => {
+          if (!mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('ollama:pull-progress', { name, ...progress });
+          }
+        },
+        signal
+      );
+
+      pullAbortController = null;
+      return { success: true };
+    } catch (error) {
+      pullAbortController = null;
+      const msg = String(error);
+      if (msg.includes('cancelled') || msg.includes('aborted')) {
+        return { success: false, error: 'Pull cancelled' };
+      }
+      logger.error('ollama:pullModel failed:', error);
+      return { success: false, error: msg };
+    }
+  });
+
+  // ollama:deleteModel — delete a locally installed model
+  ipcMain.handle('ollama:deleteModel', async (_event, name: string) => {
+    try {
+      const deleted = await ollamaManager.deleteModel(name);
+      if (deleted) {
+        return { success: true };
+      }
+      return { success: false, error: 'Failed to delete model' };
+    } catch (error) {
+      logger.error('ollama:deleteModel failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+}
+
+// ── User Handlers ──────────────────────────────────────────────────
+
+const userManager = new UserManager();
+
+function registerUserHandlers(): void {
+  // Initialize the user manager database
+  userManager.init();
+
+  // user:list — list all users
+  ipcMain.handle('user:list', async () => {
+    try {
+      const users = userManager.list();
+      return { success: true, result: users };
+    } catch (error) {
+      logger.error('user:list failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // user:get — get a single user by ID
+  ipcMain.handle('user:get', async (_event, id: string) => {
+    try {
+      const user = userManager.get(id);
+      if (!user) {
+        return { success: false, error: `User not found: ${id}` };
+      }
+      return { success: true, result: user };
+    } catch (error) {
+      logger.error('user:get failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // user:create — create a new user
+  ipcMain.handle(
+    'user:create',
+    async (
+      _event,
+      input: { name: string; email?: string; role?: string; avatar?: string }
+    ) => {
+      try {
+        const user = userManager.create(input as Parameters<typeof userManager.create>[0]);
+        return { success: true, result: user };
+      } catch (error) {
+        logger.error('user:create failed:', error);
+        return { success: false, error: String(error) };
+      }
+    }
+  );
+
+  // user:update — update a user
+  ipcMain.handle(
+    'user:update',
+    async (
+      _event,
+      params: {
+        id: string;
+        updates: { name?: string; email?: string; role?: string; avatar?: string };
+      }
+    ) => {
+      try {
+        const user = userManager.update(
+          params.id,
+          params.updates as Parameters<typeof userManager.update>[1]
+        );
+        return { success: true, result: user };
+      } catch (error) {
+        logger.error('user:update failed:', error);
+        return { success: false, error: String(error) };
+      }
+    }
+  );
+
+  // user:delete — delete a user
+  ipcMain.handle('user:delete', async (_event, id: string) => {
+    try {
+      userManager.delete(id);
+      return { success: true };
+    } catch (error) {
+      logger.error('user:delete failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // user:current — get the current active user
+  ipcMain.handle('user:current', async () => {
+    try {
+      const user = await userManager.getCurrentUser();
+      return { success: true, result: user };
+    } catch (error) {
+      logger.error('user:current failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // user:switch — set the current active user
+  ipcMain.handle('user:switch', async (_event, id: string) => {
+    try {
+      await userManager.setCurrentUser(id);
+      const user = await userManager.getCurrentUser();
+      return { success: true, result: user };
+    } catch (error) {
+      logger.error('user:switch failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+}
+
+// ── Onboarding Handlers (Browser Login + Camofox) ─────────────────
+
+const browserLoginManager = new BrowserLoginManager();
+
+function registerOnboardingHandlers(mainWindow: BrowserWindow, employeeManager: EmployeeManager): void {
+  // onboarding:browserLogin — Open a BrowserWindow for the user to log in
+  ipcMain.handle(
+    'onboarding:browserLogin',
+    async (
+      _event,
+      params: {
+        loginUrl: string;
+        successIndicator: string;
+        cookieDomains: string[];
+      }
+    ) => {
+      try {
+        const cookies = await browserLoginManager.openLoginWindow({
+          loginUrl: params.loginUrl,
+          successIndicator: params.successIndicator,
+          cookieDomains: params.cookieDomains,
+          parentWindow: mainWindow,
+        });
+        return { success: true, result: { cookies } };
+      } catch (error) {
+        logger.error('onboarding:browserLogin failed:', error);
+        return { success: false, error: String(error) };
+      }
+    }
+  );
+
+  // onboarding:cancelLogin — Close the browser login window
+  ipcMain.handle('onboarding:cancelLogin', async () => {
+    try {
+      browserLoginManager.close();
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // onboarding:saveData — Save onboarding data (cookies, config) for an employee
+  ipcMain.handle(
+    'onboarding:saveData',
+    async (
+      _event,
+      employeeId: string,
+      data: { cookies: unknown[]; username?: string; config?: Record<string, unknown> }
+    ) => {
+      try {
+        const store = await getEmployeeSecretsStore();
+        store.set(`onboarding-data.${employeeId}`, {
+          ...data,
+          completedAt: Date.now(),
+        });
+        // Mark onboarding as completed on the employee record
+        await employeeManager.markOnboardingComplete(employeeId);
+        return { success: true };
+      } catch (error) {
+        logger.error('onboarding:saveData failed:', error);
+        return { success: false, error: String(error) };
+      }
+    }
+  );
+
+  // onboarding:getData — Retrieve stored onboarding data
+  ipcMain.handle('onboarding:getData', async (_event, employeeId: string) => {
+    try {
+      const store = await getEmployeeSecretsStore();
+      const data = store.get(`onboarding-data.${employeeId}`);
+      return { success: true, result: data ?? null };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // camofox:health — Check if Camofox is running
+  ipcMain.handle(
+    'camofox:health',
+    async (_event, params?: { port?: number; apiKey?: string }) => {
+      try {
+        const client = new CamofoxClient({
+          port: params?.port ?? 9377,
+          apiKey: params?.apiKey ?? 'pocketai',
+        });
+        const healthy = await client.health();
+        return { success: true, result: healthy };
+      } catch (error) {
+        return { success: false, error: String(error) };
+      }
+    }
+  );
+
+  // camofox:pushCookies — Push cookies to a Camofox session
+  ipcMain.handle(
+    'camofox:pushCookies',
+    async (
+      _event,
+      params: { userId: string; cookies: unknown[]; port?: number; apiKey?: string }
+    ) => {
+      try {
+        const client = new CamofoxClient({
+          port: params.port ?? 9377,
+          apiKey: params.apiKey ?? 'pocketai',
+        });
+        const result = await client.pushCookies(params.userId, params.cookies);
+        return { success: true, result };
+      } catch (error) {
+        logger.error('camofox:pushCookies failed:', error);
+        return { success: false, error: String(error) };
+      }
+    }
+  );
+}
+
+// ── Supervisor Handlers ──────────────────────────────────────────────
+
+function registerSupervisorHandlers(
+  engine: EngineContext | null,
+  gatewayManager: GatewayManager,
+  mainWindow: BrowserWindow
+): void {
+  const getLazy = async () => {
+    if (!engine) throw new Error('Engine not initialized');
+    return engine.getLazy(gatewayManager);
+  };
+
+  // supervisor:enable — Activate the Supervisor employee and enable Feishu delegation
+  ipcMain.handle('supervisor:enable', async (_, supervisorSlug?: string) => {
+    try {
+      const slug = supervisorSlug ?? 'supervisor';
+      const lazy = await getLazy();
+
+      // Activate the supervisor employee if not already active
+      const employee = engine!.employeeManager.get(slug);
+      if (!employee || employee.status === 'offline') {
+        await engine!.employeeManager.activate(slug);
+      }
+
+      // Enable delegation detection on Gateway events
+      lazy.supervisor.enableFeishuDelegation(slug);
+
+      // Forward delegation events to renderer
+      lazy.supervisor.on('delegation-started', (data: unknown) => {
+        if (!mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('supervisor:delegation-started', data);
+        }
+      });
+      lazy.supervisor.on('delegation-completed', (data: unknown) => {
+        if (!mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('supervisor:delegation-completed', data);
+        }
+      });
+      lazy.supervisor.on('delegation-failed', (data: unknown) => {
+        if (!mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('supervisor:delegation-failed', data);
+        }
+      });
+
+      logger.info(`Supervisor mode enabled: ${slug}`);
+      return { success: true, result: { slug, enabled: true } };
+    } catch (error) {
+      logger.error('supervisor:enable failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // supervisor:disable — Disable Feishu delegation mode
+  ipcMain.handle('supervisor:disable', async () => {
+    try {
+      const lazy = await getLazy();
+      lazy.supervisor.disableFeishuDelegation();
+      lazy.supervisor.removeAllListeners('delegation-started');
+      lazy.supervisor.removeAllListeners('delegation-completed');
+      lazy.supervisor.removeAllListeners('delegation-failed');
+
+      logger.info('Supervisor mode disabled');
+      return { success: true };
+    } catch (error) {
+      logger.error('supervisor:disable failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // supervisor:status — Get current Supervisor delegation status
+  ipcMain.handle('supervisor:status', async () => {
+    try {
+      const lazy = await getLazy();
+      return {
+        success: true,
+        result: {
+          enabled: lazy.supervisor.isFeishuDelegationEnabled(),
+          supervisorSlug: lazy.supervisor.getSupervisorSlug(),
+        },
+      };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // supervisor:dispatch — Manually dispatch a task to an employee (for testing)
+  ipcMain.handle(
+    'supervisor:dispatch',
+    async (
+      _,
+      params: { employeeId: string; task: string; context?: string; timeoutMs?: number }
+    ) => {
+      try {
+        const lazy = await getLazy();
+        const result = await lazy.supervisor.dispatchToEmployee(
+          params.employeeId,
+          params.task,
+          params.context,
+          params.timeoutMs
+        );
+        return { success: true, result };
+      } catch (error) {
+        logger.error('supervisor:dispatch failed:', error);
+        return { success: false, error: String(error) };
+      }
+    }
+  );
 }

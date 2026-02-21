@@ -6,7 +6,8 @@ import { app } from 'electron';
 import path from 'path';
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
-import { existsSync } from 'fs';
+import os from 'os';
+import { existsSync, readdirSync, readFileSync, unlinkSync } from 'fs';
 import WebSocket from 'ws';
 import { PORTS } from '../utils/config';
 import { 
@@ -115,6 +116,7 @@ export class GatewayManager extends EventEmitter {
   private shouldReconnect = true;
   private startLock = false;
   private lastSpawnSummary: string | null = null;
+  private _pendingSendConnect: (() => void) | null = null;
   private pendingRequests: Map<string, {
     resolve: (value: unknown) => void;
     reject: (error: Error) => void;
@@ -157,6 +159,57 @@ export class GatewayManager extends EventEmitter {
     return { level: 'warn', normalized: msg };
   }
   
+  /**
+   * Clean stale Gateway lock files left behind by crashed or externally started processes.
+   * If the pid recorded in the lock is still alive, kill it first (it shares our configPath).
+   */
+  private async cleanStaleLock(): Promise<void> {
+    const tmpDir = os.tmpdir();
+    const uid = process.getuid?.();
+    const suffix = uid != null ? `openclaw-${uid}` : 'openclaw';
+    const lockDir = path.join(tmpDir, suffix);
+
+    if (!existsSync(lockDir)) return;
+
+    let files: string[];
+    try {
+      files = readdirSync(lockDir).filter((f) => f.startsWith('gateway.') && f.endsWith('.lock'));
+    } catch {
+      return;
+    }
+
+    for (const file of files) {
+      const lockPath = path.join(lockDir, file);
+      try {
+        const content = JSON.parse(readFileSync(lockPath, 'utf-8'));
+        if (content.pid) {
+          try {
+            process.kill(content.pid, 0); // signal 0 = existence check only
+            // Process still alive — kill it since it occupies our Gateway port / configPath
+            logger.info(`Killing stale Gateway process (pid=${content.pid})`);
+            process.kill(content.pid, 'SIGTERM');
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          } catch {
+            // Process no longer exists — just clean up
+          }
+          try {
+            unlinkSync(lockPath);
+          } catch {
+            // Already removed or permission issue
+          }
+          logger.info(`Removed stale gateway lock: ${lockPath}`);
+        }
+      } catch {
+        // Malformed lock file — remove it
+        try {
+          unlinkSync(lockPath);
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }
+
   /**
    * Get current Gateway status
    */
@@ -211,6 +264,9 @@ export class GatewayManager extends EventEmitter {
           logger.error('Background Python repair failed:', err);
         });
       }
+
+      // Clean stale lock files before attempting to find or start a Gateway
+      await this.cleanStaleLock();
 
       // Check if Gateway is already running
       logger.debug('Checking for existing Gateway...');
@@ -753,10 +809,10 @@ export class GatewayManager extends EventEmitter {
       };
       
       this.ws.on('open', async () => {
-        logger.debug('Gateway WebSocket opened, sending connect handshake');
-        
-        // Send proper connect handshake as required by OpenClaw Gateway protocol
-        // The Gateway expects: { type: "req", id: "...", method: "connect", params: ConnectParams }
+        logger.debug('Gateway WebSocket opened, waiting for connect.challenge');
+
+        // Build the connect frame once — we'll send it either when the Gateway
+        // sends connect.challenge or after a fallback timeout for older versions.
         connectId = `connect-${Date.now()}`;
         const connectFrame = {
           type: 'req',
@@ -780,22 +836,43 @@ export class GatewayManager extends EventEmitter {
             scopes: [],
           },
         };
-        
-        this.ws?.send(JSON.stringify(connectFrame));
-        
-        // Store pending connect request
+
+        let connectSent = false;
+        const doSendConnect = () => {
+          if (connectSent) return;
+          connectSent = true;
+          this._pendingSendConnect = null;
+          logger.debug('Sending connect handshake to Gateway');
+          this.ws?.send(JSON.stringify(connectFrame));
+        };
+
+        // Register callback so handleProtocolEvent('connect.challenge') can trigger it
+        this._pendingSendConnect = doSendConnect;
+
+        // Fallback: if Gateway doesn't send connect.challenge within 750ms,
+        // send the connect frame anyway (backward compat with older Gateways)
+        const fallbackTimer = setTimeout(() => {
+          if (!connectSent) {
+            logger.debug('No connect.challenge received, sending connect (fallback)');
+            doSendConnect();
+          }
+        }, 750);
+
+        // Overall handshake timeout
         const requestTimeout = setTimeout(() => {
           if (!handshakeComplete) {
+            clearTimeout(fallbackTimer);
             logger.error('Gateway connect handshake timed out');
             this.ws?.close();
             rejectOnce(new Error('Connect handshake timeout'));
           }
         }, 10000);
         handshakeTimeout = requestTimeout;
-        
+
         this.pendingRequests.set(connectId, {
           resolve: (_result) => {
             handshakeComplete = true;
+            clearTimeout(fallbackTimer);
             logger.debug('Gateway connect handshake completed');
             this.setStatus({
               state: 'running',
@@ -806,6 +883,7 @@ export class GatewayManager extends EventEmitter {
             resolveOnce();
           },
           reject: (error) => {
+            clearTimeout(fallbackTimer);
             logger.error('Gateway connect handshake failed:', error);
             rejectOnce(error);
           },
@@ -913,6 +991,13 @@ export class GatewayManager extends EventEmitter {
   private handleProtocolEvent(event: string, payload: unknown): void {
     // Map OpenClaw events to our internal event types
     switch (event) {
+      case 'connect.challenge':
+        logger.debug('Received connect.challenge from Gateway');
+        if (this._pendingSendConnect) {
+          this._pendingSendConnect();
+          this._pendingSendConnect = null;
+        }
+        break;
       case 'tick':
         // Heartbeat tick, ignore
         break;
@@ -933,7 +1018,7 @@ export class GatewayManager extends EventEmitter {
    */
   private handleNotification(notification: JsonRpcNotification): void {
     this.emit('notification', notification);
-    
+
     // Route specific events
     switch (notification.method) {
       case GatewayEventType.CHANNEL_STATUS_CHANGED:

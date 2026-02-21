@@ -1,28 +1,39 @@
 {
-    "gateway": "Gateway",
-    "channels": "Channels",
-    "skills": "Skills",
-    "uptime": "Uptime",
-    "port": "Port: {{port}}",
-    "pid": "PID: {{pid}}",
-    "connectedOf": "{{connected}} of {{total}} connected",
-    "enabledOf": "{{enabled}} of {{total}} enabled",
-    "sinceRestart": "Since last restart",
-    "gatewayNotRunning": "Gateway not running",
-    "quickActions": {
-        "title": "Quick Actions",
-        "description": "Common tasks and shortcuts",
-        "addChannel": "Add Channel",
-        "browseSkills": "Browse Skills",
-        "openChat": "Open Chat",
-        "settings": "Settings",
-        "devConsole": "Dev Console"
-    },
-    "connectedChannels": "Connected Channels",
-    "noChannels": "No channels configured",
-    "addFirst": "Add your first channel",
-    "activeSkills": "Active Skills",
-    "noSkills": "No skills enabled",
-    "enableSome": "Enable some skills",
-    "more": "+{{count}} more"
+  "title": "Activity",
+  "subtitle": "Real-time updates from your AI team",
+  "statusBar": {
+    "online": "{{count}} online",
+    "activeTasks": "{{count}} tasks active",
+    "credits": "Balance {{count}}"
+  },
+  "events": {
+    "task_created": "Created task \"{{subject}}\"",
+    "task_claimed": "Claimed task \"{{subject}}\"",
+    "task_completed": "Completed task \"{{subject}}\"",
+    "task_cancelled": "Cancelled task \"{{subject}}\"",
+    "employee_activated": "{{name}} came online",
+    "employee_deactivated": "{{name}} went offline",
+    "employee_working": "{{name}} started working",
+    "employee_idle": "{{name}} is idle",
+    "employee_error": "{{name}} encountered an error",
+    "credits_consumed": "Consumed {{amount}} credits",
+    "gateway_running": "Gateway started",
+    "gateway_stopped": "Gateway stopped",
+    "gateway_error": "Gateway error",
+    "delegation_started": "Supervisor delegated task to {{name}}",
+    "delegation_completed": "Delegated task completed",
+    "delegation_failed": "Delegated task failed"
+  },
+  "empty": "No activity yet",
+  "emptyHint": "Activity will appear here once your AI employees start working.",
+  "loadMore": "Load more",
+  "today": "Today",
+  "yesterday": "Yesterday",
+  "earlier": "Earlier",
+  "timeAgo": {
+    "justNow": "just now",
+    "minutesAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago",
+    "daysAgo": "{{count}}d ago"
+  }
 }

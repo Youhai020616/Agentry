@@ -1,51 +1,63 @@
+/* Geist Pixel Font */
+@font-face {
+  font-family: 'Geist Pixel Square';
+  src: url('./fonts/GeistPixel-Square.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --font-pixel: 'Geist Pixel Square', monospace;
+    --background: 220 14% 94%; /* #edf0f4 - light gray canvas */
     --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
+    --card: 0 0% 100%; /* pure white - floating islands */
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
     --primary: 221.2 83.2% 53.3%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
+    --secondary: 220 14% 96%;
     --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
+    --muted: 220 14% 96%;
     --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
+    --accent: 220 14% 96%;
     --accent-foreground: 222.2 47.4% 11.2%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+    --border: 220 13% 90%;
+    --input: 220 13% 90%;
     --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    --radius: 0.75rem;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    /* Dark Islands palette */
+    --background: 240 8% 6%; /* #121216 - canvas */
+    --foreground: 222 6% 75%; /* #bcbec4 - primary text */
+    --card: 225 7% 11%; /* #1e1f22 - surface */
+    --card-foreground: 222 6% 75%;
+    --popover: 228 6% 18%; /* #2b2d30 - elevated */
+    --popover-foreground: 222 6% 75%;
+    --primary: 222 91% 65%; /* #548af7 - accent blue */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 228 5% 15%; /* #25262a - selection */
+    --secondary-foreground: 222 6% 75%;
+    --muted: 225 7% 11%; /* #1e1f22 */
+    --muted-foreground: 220 4% 50%; /* #7a7e85 */
+    --accent: 228 5% 15%; /* #25262a */
+    --accent-foreground: 222 6% 75%;
+    --destructive: 355 93% 65%; /* #f75464 */
+    --destructive-foreground: 0 0% 100%;
+    --border: 228 6% 18%; /* #2b2d30 */
+    --input: 220 4% 25%; /* #3c3f41 */
+    --ring: 222 91% 65%; /* #548af7 */
+    --radius: 0.75rem; /* 12px */
   }
 }
 
@@ -55,7 +67,9 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
   }
 }
 
@@ -75,6 +89,42 @@
 
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-muted-foreground/30;
+}
+
+/* Dark Islands scrollbar */
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(60, 63, 65, 0.4);
+  border-radius: 9999px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(80, 83, 87, 0.7);
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Glass border — directional light effect */
+.glass-border {
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-top-color: rgba(255, 255, 255, 0.8);
+  border-left-color: rgba(255, 255, 255, 0.6);
+}
+
+.dark .glass-border {
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-top-color: rgba(255, 255, 255, 0.08);
+  border-left-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Dark mode needs stronger shadows */
+.dark .shadow-island {
+  box-shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.3);
+}
+
+.dark .shadow-island-lg {
+  box-shadow: 0 8px 24px 0 rgba(0, 0, 0, 0.5);
 }
 
 /* macOS traffic light spacing */
@@ -151,10 +201,275 @@
 
 /* Typing indicator animation */
 @keyframes bounce {
-  0%, 60%, 100% {
+  0%,
+  60%,
+  100% {
     transform: translateY(0);
   }
   30% {
     transform: translateY(-4px);
   }
 }
+
+/* Pixel Office Theme */
+.pixel-text {
+  font-family: var(--font-pixel);
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: auto;
+}
+
+@keyframes pixel-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes pixel-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+  }
+}
+
+.pixel-working {
+  animation: pixel-blink 1.5s ease-in-out infinite;
+}
+
+.pixel-pulse {
+  animation: pixel-pulse 2s ease-in-out infinite;
+}
+
+/* Speech bubble for workstation */
+@keyframes speech-fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.speech-bubble {
+  position: relative;
+  background: hsl(var(--popover));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  max-width: 10rem;
+  animation: speech-fade-in 0.3s ease-out;
+}
+
+.speech-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid hsl(var(--border));
+}
+
+.speech-bubble::before {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 4px solid hsl(var(--popover));
+  z-index: 1;
+}
+
+/* Red pulse for blocked status */
+@keyframes pixel-red-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+  }
+}
+
+.pixel-blocked {
+  animation: pixel-red-pulse 1.5s ease-in-out infinite;
+}
+
+/* Drag-and-drop task assignment */
+.workstation-drop-target {
+  position: relative;
+}
+
+/* ── Isometric Office ─────────────────────────────────────── */
+
+/* Perspective wrapper for the isometric scene */
+.iso-perspective {
+  perspective: 800px;
+  perspective-origin: 50% 40%;
+}
+
+/* Isometric floor transform — rotates the flat plane into 2.5D */
+.iso-floor {
+  transform: rotateX(60deg) rotateZ(-45deg);
+  transform-style: preserve-3d;
+  transform-origin: center center;
+}
+
+/* Counter-rotation for overlays (name tags, speech bubbles) to keep them flat & readable */
+.iso-flat {
+  transform: rotateZ(45deg) rotateX(-60deg);
+  transform-style: flat;
+  pointer-events: auto;
+}
+
+/* Isometric tile pattern */
+.iso-tile-pattern {
+  background-image:
+    linear-gradient(45deg, transparent 48%, rgba(255, 255, 255, 0.03) 48%, rgba(255, 255, 255, 0.03) 52%, transparent 52%),
+    linear-gradient(-45deg, transparent 48%, rgba(255, 255, 255, 0.03) 48%, rgba(255, 255, 255, 0.03) 52%, transparent 52%);
+  background-size: 60px 60px;
+}
+
+.dark .iso-tile-pattern {
+  background-image:
+    linear-gradient(45deg, transparent 48%, rgba(255, 255, 255, 0.04) 48%, rgba(255, 255, 255, 0.04) 52%, transparent 52%),
+    linear-gradient(-45deg, transparent 48%, rgba(255, 255, 255, 0.04) 48%, rgba(255, 255, 255, 0.04) 52%, transparent 52%);
+  background-size: 60px 60px;
+}
+
+/* Desk glow animations */
+@keyframes iso-working-glow {
+  0%, 100% { box-shadow: 0 0 8px 2px rgba(34, 197, 94, 0.3); }
+  50% { box-shadow: 0 0 18px 6px rgba(34, 197, 94, 0.5); }
+}
+
+@keyframes iso-blocked-glow {
+  0%, 100% { box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.3); }
+  50% { box-shadow: 0 0 14px 4px rgba(239, 68, 68, 0.5); }
+}
+
+@keyframes iso-error-glow {
+  0%, 100% { box-shadow: 0 0 6px 2px rgba(234, 179, 8, 0.3); }
+  50% { box-shadow: 0 0 12px 4px rgba(234, 179, 8, 0.5); }
+}
+
+/* Character idle bob */
+@keyframes iso-char-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+/* Character typing motion */
+@keyframes iso-char-type {
+  0%, 100% { transform: translateX(0) translateY(0); }
+  25% { transform: translateX(-1px) translateY(-1px); }
+  75% { transform: translateX(1px) translateY(0); }
+}
+
+/* Typing dots for speech bubble */
+@keyframes iso-typing-dot {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-2px); }
+}
+
+.iso-working-desk { animation: iso-working-glow 2s ease-in-out infinite; }
+.iso-blocked-desk { animation: iso-blocked-glow 1.5s ease-in-out infinite; }
+.iso-error-desk { animation: iso-error-glow 1.8s ease-in-out infinite; }
+.iso-char-idle { animation: iso-char-bob 3s ease-in-out infinite; }
+.iso-char-working { animation: iso-char-type 0.8s ease-in-out infinite; }
+
+.iso-typing-dot:nth-child(1) { animation: iso-typing-dot 1.4s ease-in-out infinite; }
+.iso-typing-dot:nth-child(2) { animation: iso-typing-dot 1.4s ease-in-out 0.2s infinite; }
+.iso-typing-dot:nth-child(3) { animation: iso-typing-dot 1.4s ease-in-out 0.4s infinite; }
+
+/* Arm typing animations — left and right arms alternate */
+@keyframes iso-arm-type-left {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  30% { transform: rotate(-4deg) translateY(-2px); }
+  70% { transform: rotate(2deg) translateY(0); }
+}
+
+@keyframes iso-arm-type-right {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  20% { transform: rotate(2deg) translateY(0); }
+  50% { transform: rotate(-4deg) translateY(-2px); }
+  80% { transform: rotate(1deg) translateY(0); }
+}
+
+.iso-arm-type-left { animation: iso-arm-type-left 0.6s ease-in-out infinite; }
+.iso-arm-type-right { animation: iso-arm-type-right 0.6s ease-in-out 0.15s infinite; }
+
+/* Monitor screen glow pulse when working */
+@keyframes iso-monitor-glow {
+  0%, 100% { box-shadow: 0 0 12px 2px rgba(59, 130, 246, 0.15); }
+  50% { box-shadow: 0 0 24px 6px rgba(59, 130, 246, 0.25); }
+}
+
+.iso-monitor-glow { animation: iso-monitor-glow 3s ease-in-out infinite; }
+
+/* Screen code lines scroll up */
+@keyframes iso-screen-scroll {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-8px); }
+}
+
+.iso-screen-scroll {
+  animation: iso-screen-scroll 4s linear infinite;
+}
+
+/* Cursor blink */
+@keyframes iso-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.iso-cursor-blink {
+  animation: iso-cursor-blink 1s steps(1) infinite;
+}
+
+/* Floor edge shadow for depth */
+.iso-floor-shadow {
+  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.3));
+}
+
+.dark .iso-floor-shadow {
+  filter: drop-shadow(0 20px 50px rgba(0, 0, 0, 0.6));
+}
+
+/* ── Employee Card Status Effects ──────────────────── */
+
+@keyframes emp-working-border {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1); }
+  50% { box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.3), 0 0 12px 2px rgba(34, 197, 94, 0.1); }
+}
+
+@keyframes emp-blocked-border {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1); }
+  50% { box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.3), 0 0 10px 2px rgba(239, 68, 68, 0.08); }
+}
+
+@keyframes emp-error-border {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1); }
+  50% { box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.3), 0 0 10px 2px rgba(234, 179, 8, 0.08); }
+}
+
+.emp-card-working { animation: emp-working-border 2.5s ease-in-out infinite; }
+.emp-card-blocked { animation: emp-blocked-border 2s ease-in-out infinite; }
+.emp-card-error { animation: emp-error-border 2s ease-in-out infinite; }

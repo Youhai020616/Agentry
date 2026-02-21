@@ -1,0 +1,87 @@
+{
+    "board": {
+        "title": "任务看板",
+        "empty": "还没有任务。给员工分配一个任务来开始吧。",
+        "search": "搜索任务...",
+        "newProject": "新建项目",
+        "allProjects": "全部项目",
+        "selectProject": "选择项目"
+    },
+    "status": {
+        "pending": "待处理",
+        "in_progress": "进行中",
+        "in_review": "审核中",
+        "completed": "已完成",
+        "blocked": "已阻塞"
+    },
+    "create": {
+        "title": "新建任务",
+        "subjectLabel": "任务标题",
+        "subjectPlaceholder": "简短的任务标题...",
+        "descriptionLabel": "任务描述",
+        "descriptionPlaceholder": "为员工提供详细的任务说明...",
+        "assignLabel": "分配给员工",
+        "priorityLabel": "优先级",
+        "submit": "创建任务",
+        "cancel": "取消"
+    },
+    "detail": {
+        "title": "任务详情",
+        "description": "描述",
+        "assignedTo": "分配给",
+        "createdAt": "创建时间",
+        "startedAt": "开始时间",
+        "completedAt": "完成时间",
+        "duration": "耗时",
+        "result": "结果",
+        "error": "错误",
+        "output": "输出",
+        "outputFiles": "输出文件",
+        "plan": "计划",
+        "planStatus": "计划状态",
+        "wave": "执行波次",
+        "priority": "优先级",
+        "dependencies": "依赖任务",
+        "tokens": "Token 用量",
+        "credits": "积分消耗",
+        "noOutput": "暂无输出",
+        "noFiles": "无输出文件",
+        "openFile": "在访达中显示",
+        "downloadFile": "下载"
+    },
+    "card": {
+        "unassigned": "未分配",
+        "dependencies": "{{count}} 个依赖",
+        "priority": {
+            "low": "低",
+            "medium": "中",
+            "high": "高",
+            "urgent": "紧急"
+        }
+    },
+    "actions": {
+        "cancel": "取消任务",
+        "retry": "重试",
+        "claim": "认领任务",
+        "complete": "完成",
+        "approve": "批准",
+        "reject": "拒绝",
+        "viewResult": "查看结果"
+    },
+    "rating": {
+        "title": "评价此任务",
+        "placeholder": "可选反馈...",
+        "submitted": "评分已提交",
+        "stars": "{{count}} 星"
+    },
+    "project": {
+        "title": "项目",
+        "goal": "目标",
+        "status": "状态",
+        "employees": "参与员工",
+        "tasks": "任务",
+        "create": "创建项目",
+        "goalPlaceholder": "描述你的目标...",
+        "selectPM": "选择项目经理"
+    }
+}

@@ -19,7 +19,8 @@
         "runNow": "立即运行",
         "deleteConfirm": "确定要删除此任务吗？",
         "last": "上次运行",
-        "next": "下次运行"
+        "next": "下次运行",
+        "assignedTo": "分配给 {{name}}"
     },
     "dialog": {
         "createTitle": "创建任务",
@@ -38,6 +39,9 @@
         "discordChannelId": "Discord 频道 ID",
         "discordChannelIdPlaceholder": "例如：1438452657525100686",
         "discordChannelIdDesc": "右键点击 Discord 频道 → 复制频道 ID",
+        "assignEmployee": "分配员工",
+        "assignEmployeePlaceholder": "选择员工（可选）",
+        "noEmployee": "无（发送到频道）",
         "enableImmediately": "立即启用",
         "enableImmediatelyDesc": "创建后立即开始运行此任务",
         "saveChanges": "保存更改"

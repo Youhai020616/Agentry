@@ -10,7 +10,12 @@ import { useChatStore } from '@/stores/chat';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 
-export function ChatToolbar() {
+interface ChatToolbarProps {
+  /** Hide session selector and new session button (used in employee chat mode) */
+  hideSessionControls?: boolean;
+}
+
+export function ChatToolbar({ hideSessionControls }: ChatToolbarProps = {}) {
   const sessions = useChatStore((s) => s.sessions);
   const currentSessionKey = useChatStore((s) => s.currentSessionKey);
   const switchSession = useChatStore((s) => s.switchSession);
@@ -27,48 +32,44 @@ export function ChatToolbar() {
 
   return (
     <div className="flex items-center gap-2">
-      {/* Session Selector */}
-      <div className="relative">
-        <select
-          value={currentSessionKey}
-          onChange={handleSessionChange}
-          className={cn(
-            'appearance-none rounded-md border border-border bg-background px-3 py-1.5 pr-8',
-            'text-sm text-foreground cursor-pointer',
-            'focus:outline-none focus:ring-2 focus:ring-ring',
-          )}
-        >
-          {/* Render all sessions; if currentSessionKey is not in the list, add it */}
-          {!sessions.some((s) => s.key === currentSessionKey) && (
-            <option value={currentSessionKey}>
-              {currentSessionKey}
-            </option>
-          )}
-          {sessions.map((s) => (
-            <option key={s.key} value={s.key}>
-              {s.key}
-            </option>
-          ))}
-        </select>
-        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-      </div>
+      {/* Session Selector — hidden in employee chat mode */}
+      {!hideSessionControls && (
+        <>
+          <div className="relative">
+            <select
+              value={currentSessionKey}
+              onChange={handleSessionChange}
+              className={cn(
+                'appearance-none rounded-md border border-border bg-background px-3 py-1.5 pr-8',
+                'text-sm text-foreground cursor-pointer',
+                'focus:outline-none focus:ring-2 focus:ring-ring'
+              )}
+            >
+              {!sessions.some((s) => s.key === currentSessionKey) && (
+                <option value={currentSessionKey}>{currentSessionKey}</option>
+              )}
+              {sessions.map((s) => (
+                <option key={s.key} value={s.key}>
+                  {s.key}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          </div>
 
-      {/* New Session */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={newSession}
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>{t('toolbar.newSession')}</p>
-        </TooltipContent>
-      </Tooltip>
+          {/* New Session */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={newSession}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t('toolbar.newSession')}</p>
+            </TooltipContent>
+          </Tooltip>
+        </>
+      )}
 
       {/* Refresh */}
       <Tooltip>
@@ -94,10 +95,7 @@ export function ChatToolbar() {
           <Button
             variant="ghost"
             size="icon"
-            className={cn(
-              'h-8 w-8',
-              showThinking && 'bg-primary/10 text-primary',
-            )}
+            className={cn('h-8 w-8', showThinking && 'bg-primary/10 text-primary')}
             onClick={toggleThinking}
           >
             <Brain className="h-4 w-4" />

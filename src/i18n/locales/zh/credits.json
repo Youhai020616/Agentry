@@ -1,0 +1,35 @@
+{
+    "title": "积分",
+    "balance": {
+        "title": "积分余额",
+        "total": "总积分",
+        "used": "已使用",
+        "remaining": "剩余"
+    },
+    "history": {
+        "title": "交易记录",
+        "empty": "暂无交易记录",
+        "employee": "员工",
+        "amount": "积分",
+        "date": "日期",
+        "task": "任务"
+    },
+    "types": {
+        "chat": "对话",
+        "tool": "工具调用",
+        "execution": "脚本执行",
+        "pm_orchestration": "项目编排",
+        "memory": "记忆访问",
+        "topup": "充值",
+        "bonus": "奖励"
+    },
+    "tier": {
+        "free": "免费版",
+        "starter": "入门版",
+        "pro": "专业版",
+        "team": "团队版"
+    },
+    "insufficient": "积分不足",
+    "consumed": "已消耗 {{amount}} 积分",
+    "dailySummary": "每日汇总"
+}

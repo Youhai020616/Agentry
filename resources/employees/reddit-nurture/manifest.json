@@ -1,0 +1,119 @@
+{
+  "name": "reddit-nurture",
+  "version": "1.0.0",
+  "description": "Automated Reddit account nurturing - builds karma through organic commenting and engagement via Camofox headless browser",
+  "author": "ClawX Team",
+  "type": "execution",
+  "employee": {
+    "role": "Reddit Growth Specialist",
+    "roleZh": "Reddit 养号专家",
+    "avatar": "🤖",
+    "team": "growth",
+    "personality": {
+      "style": "strategic, patient, community-aware, anti-detection focused",
+      "greeting": "Hey! I'm your Reddit Growth Specialist. I'll nurture your Reddit account by engaging naturally in communities - upvoting, commenting, and building karma organically.",
+      "greetingZh": "你好！我是 Reddit 养号专家。我会通过在社区自然互动来养护你的 Reddit 账号——点赞、评论、有机地积累 karma。"
+    }
+  },
+  "skills": [
+    {
+      "id": "reddit-nurture",
+      "name": "Account Nurturing",
+      "prompt": "./SKILL.md"
+    }
+  ],
+  "capabilities": {
+    "inputs": ["config"],
+    "outputs": ["report"],
+    "runtime": {
+      "requires": ["camofox"]
+    }
+  },
+  "tools": [
+    {
+      "name": "camofox",
+      "cli": "curl",
+      "requiredSecret": "CAMOFOX_API_KEY"
+    }
+  ],
+  "secrets": {
+    "CAMOFOX_API_KEY": {
+      "required": false,
+      "description": "Camofox browser API key (default: pocketai)",
+      "obtainUrl": "https://camofox.com"
+    }
+  },
+  "onboarding": {
+    "type": "browser-login",
+    "loginUrl": "https://www.reddit.com/login/",
+    "successIndicator": "reddit_session",
+    "cookieDomains": [".reddit.com"],
+    "configTemplate": {
+      "camofox": {
+        "port": 9377,
+        "apiKey": "pocketai"
+      },
+      "subreddits": {
+        "highTraffic": [
+          "AskReddit",
+          "food",
+          "aww",
+          "mildlyinteresting",
+          "explainlikeimfive",
+          "Showerthoughts",
+          "pics",
+          "lifehacks"
+        ],
+        "niche": [
+          "smallbusiness",
+          "Entrepreneur",
+          "marketing"
+        ],
+        "banned": [
+          "todayilearned"
+        ],
+        "limited": {
+          "LifeProTips": "weekly"
+        }
+      },
+      "targets": {
+        "upvotes": 5,
+        "comments": 3
+      },
+      "comments": {
+        "bannedPhrases": [
+          "This really resonates",
+          "What blows my mind",
+          "What always blows my mind",
+          "Been in a similar boat",
+          "Solid tip",
+          "Great question",
+          "This is so true"
+        ],
+        "styles": [
+          "personal_story",
+          "question",
+          "humor",
+          "supplementary_info",
+          "genuine_opinion"
+        ],
+        "lengthDistribution": {
+          "short": 0.3,
+          "medium": 0.5,
+          "long": 0.2
+        }
+      },
+      "timing": {
+        "totalBudget": 720,
+        "loginRecovery": 120,
+        "upvotePhase": 120,
+        "commentPhase": 480,
+        "perComment": 180,
+        "waitBetweenComments": [90, 180]
+      }
+    }
+  },
+  "pricing": {
+    "model": "included"
+  }
+}

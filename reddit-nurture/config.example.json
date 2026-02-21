@@ -1,0 +1,70 @@
+{
+  "account": {
+    "username": "YourRedditUsername",
+    "password": "YourPassword",
+    "camofoxUserId": "test1"
+  },
+  "camofox": {
+    "port": 9377,
+    "apiKey": "pocketai",
+    "extensionPath": "~/.openclaw/extensions/camofox-browser"
+  },
+  "subreddits": {
+    "highTraffic": [
+      "AskReddit",
+      "food",
+      "aww",
+      "mildlyinteresting",
+      "explainlikeimfive",
+      "Showerthoughts",
+      "pics",
+      "lifehacks"
+    ],
+    "niche": [
+      "smallbusiness",
+      "Entrepreneur",
+      "marketing"
+    ],
+    "banned": [
+      "todayilearned"
+    ],
+    "limited": {
+      "LifeProTips": "weekly"
+    }
+  },
+  "targets": {
+    "upvotes": 5,
+    "comments": 3
+  },
+  "comments": {
+    "bannedPhrases": [
+      "This really resonates",
+      "What blows my mind",
+      "What always blows my mind",
+      "Been in a similar boat",
+      "Solid tip",
+      "Great question",
+      "This is so true"
+    ],
+    "styles": [
+      "personal_story",
+      "question",
+      "humor",
+      "supplementary_info",
+      "genuine_opinion"
+    ],
+    "lengthDistribution": {
+      "short": 0.3,
+      "medium": 0.5,
+      "long": 0.2
+    }
+  },
+  "timing": {
+    "totalBudget": 720,
+    "loginRecovery": 120,
+    "upvotePhase": 120,
+    "commentPhase": 480,
+    "perComment": 180,
+    "waitBetweenComments": [90, 180]
+  }
+}
