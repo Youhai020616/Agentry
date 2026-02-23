@@ -37,9 +37,9 @@ function NavItem({ to, icon, label, badge, collapsed }: NavItemProps) {
       to={to}
       className={({ isActive }) =>
         cn(
-          'flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors',
+          'flex items-center gap-2.5 rounded-xl px-2 py-2 text-sm font-medium transition-colors',
           'hover:bg-accent hover:text-accent-foreground',
-          isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground',
+          isActive ? 'bg-violet-100 text-violet-500 dark:bg-violet-500/15 dark:text-violet-400' : 'text-muted-foreground',
           collapsed && 'justify-center px-2'
         )
       }
@@ -97,19 +97,19 @@ export function Sidebar() {
     <aside
       className={cn(
         'flex shrink-0 flex-col transition-all duration-300',
-        sidebarCollapsed ? 'w-16' : 'w-56'
+        sidebarCollapsed ? 'w-14' : 'w-44'
       )}
     >
-      <div className="flex flex-1 flex-col m-1.5 rounded-2xl bg-card glass-border shadow-island overflow-hidden">
+      <div className="flex flex-1 flex-col my-1.5 ml-1 mr-0.5 rounded-2xl bg-card glass-border shadow-island overflow-hidden">
         {/* Navigation */}
-        <nav className="flex-1 space-y-1 overflow-auto p-2">
+        <nav className="flex-1 space-y-1 overflow-auto px-1.5 py-2">
           {navItems.map((item) => (
             <NavItem key={item.to} {...item} collapsed={sidebarCollapsed} />
           ))}
         </nav>
 
         {/* Footer */}
-        <div className="p-2 space-y-2">
+        <div className="px-1.5 py-2 space-y-2">
           {devModeUnlocked && !sidebarCollapsed && (
             <Button
               variant="ghost"

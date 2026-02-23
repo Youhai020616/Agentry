@@ -74,107 +74,93 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
     }
 
     gatewayInitPromise = (async () => {
+      // Register event listeners UNCONDITIONALLY before any async work.
+      // This ensures we receive status updates even if the initial status
+      // fetch fails (e.g. due to IPC handlers not yet registered during
+      // the main-process bootstrap race window).
+      window.electron.ipcRenderer.on('gateway:status-changed', (newStatus) => {
+        set({ status: newStatus as GatewayStatus, isInitialized: true });
+      });
+
+      window.electron.ipcRenderer.on('gateway:error', (error) => {
+        set({ lastError: String(error) });
+      });
+
+      // Forward agent notification events to the chat store.
+      window.electron.ipcRenderer.on('gateway:notification', (notification) => {
+        const payload = notification as { method?: string; params?: Record<string, unknown> } | undefined;
+        if (!payload || payload.method !== 'agent' || !payload.params || typeof payload.params !== 'object') {
+          return;
+        }
+
+        const p = payload.params;
+        const data = (p.data && typeof p.data === 'object') ? (p.data as Record<string, unknown>) : {};
+        const normalizedEvent: Record<string, unknown> = {
+          ...data,
+          runId: p.runId ?? data.runId,
+          sessionKey: p.sessionKey ?? data.sessionKey,
+          stream: p.stream ?? data.stream,
+          seq: p.seq ?? data.seq,
+          state: p.state ?? data.state,
+          message: p.message ?? data.message,
+        };
+
+        if (!normalizedEvent.state && !normalizedEvent.message) {
+          return;
+        }
+
+        if (isDuplicateEvent(normalizedEvent)) return;
+
+        import('./chat')
+          .then(({ useChatStore }) => {
+            useChatStore.getState().handleChatEvent(normalizedEvent);
+          })
+          .catch((err) => {
+            console.warn('Failed to forward gateway notification event:', err);
+          });
+      });
+
+      // Forward chat protocol events to the chat store.
+      window.electron.ipcRenderer.on('gateway:chat-message', (data) => {
+        try {
+          import('./chat').then(({ useChatStore }) => {
+            const chatData = data as Record<string, unknown>;
+            const payload = ('message' in chatData && typeof chatData.message === 'object')
+              ? chatData.message as Record<string, unknown>
+              : chatData;
+
+            if (payload.state) {
+              if (isDuplicateEvent(payload)) return;
+              useChatStore.getState().handleChatEvent(payload);
+              return;
+            }
+
+            const syntheticEvent: Record<string, unknown> = {
+              state: 'final',
+              message: payload,
+              runId: chatData.runId ?? payload.runId,
+            };
+            if (isDuplicateEvent(syntheticEvent)) return;
+            useChatStore.getState().handleChatEvent(syntheticEvent);
+          });
+        } catch (err) {
+          console.warn('Failed to forward chat event:', err);
+        }
+      });
+
+      // Fetch initial gateway status. This may fail if the main process
+      // hasn't registered IPC handlers yet (race condition during startup).
+      // In that case we rely on the status-changed event listener above.
       try {
-        // Get initial status first
         const status = await window.electron.ipcRenderer.invoke('gateway:status') as GatewayStatus;
         set({ status, isInitialized: true });
-
-        // Listen for status changes
-        window.electron.ipcRenderer.on('gateway:status-changed', (newStatus) => {
-          set({ status: newStatus as GatewayStatus });
-        });
-
-        // Listen for errors
-        window.electron.ipcRenderer.on('gateway:error', (error) => {
-          set({ lastError: String(error) });
-        });
-
-        // Some Gateway builds stream chat events via generic "agent" notifications.
-        // Normalize and forward them to the chat store.
-        // The Gateway may put event fields (state, message, etc.) either inside
-        // params.data or directly on params — we must handle both layouts.
-        window.electron.ipcRenderer.on('gateway:notification', (notification) => {
-          const payload = notification as { method?: string; params?: Record<string, unknown> } | undefined;
-          if (!payload || payload.method !== 'agent' || !payload.params || typeof payload.params !== 'object') {
-            return;
-          }
-
-          const p = payload.params;
-          const data = (p.data && typeof p.data === 'object') ? (p.data as Record<string, unknown>) : {};
-          const normalizedEvent: Record<string, unknown> = {
-            // Spread data sub-object first (nested layout)
-            ...data,
-            // Then override with top-level params fields (flat layout takes precedence)
-            runId: p.runId ?? data.runId,
-            sessionKey: p.sessionKey ?? data.sessionKey,
-            stream: p.stream ?? data.stream,
-            seq: p.seq ?? data.seq,
-            // Critical: also pick up state and message from params (flat layout)
-            state: p.state ?? data.state,
-            message: p.message ?? data.message,
-          };
-
-          // Skip agent events that carry no chat-relevant data (no state, no message).
-          // These would otherwise register in the dedup set and block the real
-          // chat-protocol events (which share the same seq) from being processed.
-          if (!normalizedEvent.state && !normalizedEvent.message) {
-            return;
-          }
-
-          if (isDuplicateEvent(normalizedEvent)) return;
-
-          import('./chat')
-            .then(({ useChatStore }) => {
-              useChatStore.getState().handleChatEvent(normalizedEvent);
-            })
-            .catch((err) => {
-              console.warn('Failed to forward gateway notification event:', err);
-            });
-        });
-
-        // Listen for chat events from the gateway and forward to chat store.
-        // The data arrives as { message: payload } from handleProtocolEvent.
-        // The payload may be a full event wrapper ({ state, runId, message })
-        // or the raw chat message itself. We need to handle both.
-        window.electron.ipcRenderer.on('gateway:chat-message', (data) => {
-          try {
-            // Dynamic import to avoid circular dependency
-            import('./chat').then(({ useChatStore }) => {
-              const chatData = data as Record<string, unknown>;
-              // Unwrap the { message: payload } wrapper from handleProtocolEvent
-              const payload = ('message' in chatData && typeof chatData.message === 'object')
-                ? chatData.message as Record<string, unknown>
-                : chatData;
-
-              // If payload has a 'state' field, it's already a proper event wrapper
-              if (payload.state) {
-                if (isDuplicateEvent(payload)) return;
-                useChatStore.getState().handleChatEvent(payload);
-                return;
-              }
-
-              // Otherwise, payload is the raw message — wrap it as a 'final' event
-              // so handleChatEvent can process it (this happens when the Gateway
-              // sends protocol events with the message directly as payload).
-              const syntheticEvent: Record<string, unknown> = {
-                state: 'final',
-                message: payload,
-                runId: chatData.runId ?? payload.runId,
-              };
-              if (isDuplicateEvent(syntheticEvent)) return;
-              useChatStore.getState().handleChatEvent(syntheticEvent);
-            });
-          } catch (err) {
-            console.warn('Failed to forward chat event:', err);
-          }
-        });
-
       } catch (error) {
-        console.error('Failed to initialize Gateway:', error);
-        set({ lastError: String(error) });
-      } finally {
-        gatewayInitPromise = null;
+        console.warn('Initial gateway status fetch failed (will update via events):', error);
       }
+
+      // Mark initialized even if initial fetch failed — listeners are active.
+      set({ isInitialized: true });
+      gatewayInitPromise = null;
     })();
 
     await gatewayInitPromise;

@@ -121,7 +121,7 @@ export function Chat({ externalSession, employeeName, employeeAvatar }: ChatProp
     <div className={cn('flex flex-col', externalSession ? 'h-full' : '-m-6 h-[calc(100%+3rem)]')}>
       {/* Toolbar */}
       <div className="flex shrink-0 items-center justify-end px-4 py-2">
-        <ChatToolbar hideSessionControls={externalSession} />
+        <ChatToolbar hideSessionSelector={externalSession} />
       </div>
 
       {/* Messages Area */}

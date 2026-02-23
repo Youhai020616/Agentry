@@ -620,35 +620,6 @@ export function Settings() {
         </Card>
       )}
 
-      {/* About */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('about.title')}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm text-muted-foreground">
-          <p>
-            <strong>{t('about.appName')}</strong> - {t('about.tagline')}
-          </p>
-          <p>{t('about.basedOn')}</p>
-          <p>{t('about.version', { version: currentVersion })}</p>
-          <div className="flex gap-4 pt-2">
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() => window.electron.openExternal('https://claw-x.com')}
-            >
-              {t('about.docs')}
-            </Button>
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() => window.electron.openExternal('https://github.com/ValueCell-ai/ClawX')}
-            >
-              {t('about.github')}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

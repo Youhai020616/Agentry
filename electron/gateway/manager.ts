@@ -117,6 +117,8 @@ export class GatewayManager extends EventEmitter {
   private startLock = false;
   private lastSpawnSummary: string | null = null;
   private _pendingSendConnect: (() => void) | null = null;
+  private processExitedDuringStart = false;
+  private _lastConfigError = false;
   private pendingRequests: Map<string, {
     resolve: (value: unknown) => void;
     reject: (error: Error) => void;
@@ -211,6 +213,52 @@ export class GatewayManager extends EventEmitter {
   }
 
   /**
+   * Run `openclaw doctor --fix --non-interactive` to auto-repair invalid config.
+   * Returns true if the repair command exited successfully, false otherwise.
+   */
+  private async repairConfigIfNeeded(): Promise<boolean> {
+    const entryScript = getOpenClawEntryPath();
+    if (!existsSync(entryScript)) return false;
+
+    const command = app.isPackaged ? getNodeExecutablePath() : 'node';
+    const args = [entryScript, 'doctor', '--fix', '--non-interactive'];
+    const cwd = getOpenClawDir();
+
+    logger.info('Attempting auto-repair of OpenClaw config (doctor --fix)');
+
+    return new Promise((resolve) => {
+      const env: Record<string, string | undefined> = { ...process.env };
+      if (app.isPackaged) {
+        env['ELECTRON_RUN_AS_NODE'] = '1';
+      }
+
+      const child = spawn(command, args, { cwd, env, timeout: 15000 });
+
+      child.on('exit', (code) => {
+        if (code === 0) {
+          logger.info('OpenClaw config auto-repair succeeded');
+          resolve(true);
+        } else {
+          logger.warn(`OpenClaw config auto-repair exited with code=${code}`);
+          resolve(false);
+        }
+      });
+
+      child.on('error', (err) => {
+        logger.warn('OpenClaw config auto-repair failed:', err);
+        resolve(false);
+      });
+
+      child.stderr?.on('data', (data: Buffer) => {
+        logger.debug(`[doctor stderr] ${data.toString().trim()}`);
+      });
+      child.stdout?.on('data', (data: Buffer) => {
+        logger.debug(`[doctor stdout] ${data.toString().trim()}`);
+      });
+    });
+  }
+
+  /**
    * Get current Gateway status
    */
   getStatus(): GatewayStatus {
@@ -281,13 +329,32 @@ export class GatewayManager extends EventEmitter {
       }
       
       logger.debug('No existing Gateway found, starting new process...');
-      
+
       // Start new Gateway process
+      this._lastConfigError = false;
       await this.startProcess();
-      
-      // Wait for Gateway to be ready
-      await this.waitForReady();
-      
+
+      // Wait for Gateway to be ready — if it fails due to config validation,
+      // attempt auto-repair with `doctor --fix` and retry once.
+      try {
+        await this.waitForReady();
+      } catch (error) {
+        if (this._lastConfigError) {
+          logger.warn('Gateway failed due to invalid config, attempting auto-repair...');
+          const repaired = await this.repairConfigIfNeeded();
+          if (repaired) {
+            this._lastConfigError = false;
+            this.processExitedDuringStart = false;
+            await this.startProcess();
+            await this.waitForReady();
+          } else {
+            throw error;
+          }
+        } else {
+          throw error;
+        }
+      }
+
       // Connect WebSocket
       await this.connect(this.status.port);
       
@@ -516,6 +583,7 @@ export class GatewayManager extends EventEmitter {
    * Uses OpenClaw npm package from node_modules (dev) or resources (production)
    */
   private async startProcess(): Promise<void> {
+    this.processExitedDuringStart = false;
     const openclawDir = getOpenClawDir();
     const entryScript = getOpenClawEntryPath();
     
@@ -671,6 +739,11 @@ export class GatewayManager extends EventEmitter {
         if (this.process === child) {
           this.process = null;
         }
+        // Flag early exit so waitForReady() can detect it even after
+        // this.process has been nullified above.
+        if (this.status.state !== 'running') {
+          this.processExitedDuringStart = true;
+        }
         this.emit('exit', code);
         
         if (this.status.state === 'running') {
@@ -689,6 +762,10 @@ export class GatewayManager extends EventEmitter {
         for (const line of raw.split(/\r?\n/)) {
           const classified = this.classifyStderrMessage(line);
           if (classified.level === 'drop') continue;
+          // Detect config validation failures so start() can trigger auto-repair
+          if (line.includes('Config invalid')) {
+            this._lastConfigError = true;
+          }
           if (classified.level === 'debug') {
             logger.debug(`[Gateway stderr] ${classified.normalized}`);
             continue;
@@ -714,7 +791,14 @@ export class GatewayManager extends EventEmitter {
    */
   private async waitForReady(retries = 600, interval = 1000): Promise<void> {
     for (let i = 0; i < retries; i++) {
-      // Early exit if the gateway process has already exited
+      // Early exit if the gateway process has already exited.
+      // Check processExitedDuringStart first because the exit handler
+      // nullifies this.process, making the old this.process-based check
+      // always evaluate to false.
+      if (this.processExitedDuringStart) {
+        logger.error('Gateway process exited before ready (detected via exit flag)');
+        throw new Error('Gateway process exited before becoming ready');
+      }
       if (this.process && (this.process.exitCode !== null || this.process.signalCode !== null)) {
         const code = this.process.exitCode;
         const signal = this.process.signalCode;

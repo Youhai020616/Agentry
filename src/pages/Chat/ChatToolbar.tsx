@@ -11,11 +11,14 @@ import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 
 interface ChatToolbarProps {
-  /** Hide session selector and new session button (used in employee chat mode) */
+  /** Hide session selector dropdown (used in employee chat mode) */
+  hideSessionSelector?: boolean;
+  /** @deprecated Use hideSessionSelector instead */
   hideSessionControls?: boolean;
 }
 
-export function ChatToolbar({ hideSessionControls }: ChatToolbarProps = {}) {
+export function ChatToolbar({ hideSessionSelector, hideSessionControls }: ChatToolbarProps = {}) {
+  const hideSelector = hideSessionSelector ?? hideSessionControls ?? false;
   const sessions = useChatStore((s) => s.sessions);
   const currentSessionKey = useChatStore((s) => s.currentSessionKey);
   const switchSession = useChatStore((s) => s.switchSession);
@@ -33,43 +36,41 @@ export function ChatToolbar({ hideSessionControls }: ChatToolbarProps = {}) {
   return (
     <div className="flex items-center gap-2">
       {/* Session Selector — hidden in employee chat mode */}
-      {!hideSessionControls && (
-        <>
-          <div className="relative">
-            <select
-              value={currentSessionKey}
-              onChange={handleSessionChange}
-              className={cn(
-                'appearance-none rounded-md border border-border bg-background px-3 py-1.5 pr-8',
-                'text-sm text-foreground cursor-pointer',
-                'focus:outline-none focus:ring-2 focus:ring-ring'
-              )}
-            >
-              {!sessions.some((s) => s.key === currentSessionKey) && (
-                <option value={currentSessionKey}>{currentSessionKey}</option>
-              )}
-              {sessions.map((s) => (
-                <option key={s.key} value={s.key}>
-                  {s.key}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-          </div>
-
-          {/* New Session */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={newSession}>
-                <Plus className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{t('toolbar.newSession')}</p>
-            </TooltipContent>
-          </Tooltip>
-        </>
+      {!hideSelector && (
+        <div className="relative">
+          <select
+            value={currentSessionKey}
+            onChange={handleSessionChange}
+            className={cn(
+              'appearance-none rounded-md border border-border bg-background px-3 py-1.5 pr-8',
+              'text-sm text-foreground cursor-pointer',
+              'focus:outline-none focus:ring-2 focus:ring-ring'
+            )}
+          >
+            {!sessions.some((s) => s.key === currentSessionKey) && (
+              <option value={currentSessionKey}>{currentSessionKey}</option>
+            )}
+            {sessions.map((s) => (
+              <option key={s.key} value={s.key}>
+                {s.key}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+        </div>
       )}
+
+      {/* New Session — always visible so users can reset context */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={newSession}>
+            <Plus className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{t('toolbar.newSession')}</p>
+        </TooltipContent>
+      </Tooltip>
 
       {/* Refresh */}
       <Tooltip>

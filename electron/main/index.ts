@@ -171,7 +171,16 @@ async function initialize(): Promise<void> {
     mainWindow = null;
   });
 
-  // Bootstrap Skill Runtime Engine (non-blocking, before Gateway to avoid race condition)
+  // Register IPC handlers IMMEDIATELY — the renderer starts loading as soon as
+  // createWindow() returns, and may invoke IPC channels before async bootstrap
+  // work completes.  Registering handlers first eliminates the startup race.
+  // Engine is null here; engine-dependent handlers fail gracefully until it's set.
+  registerIpcHandlers(gatewayManager, clawHubService, mainWindow, null);
+
+  // Register update handlers
+  registerUpdateHandlers(appUpdater, mainWindow);
+
+  // Bootstrap Skill Runtime Engine (after IPC handlers are registered)
   let engine: EngineContext | null = null;
   try {
     engine = await bootstrapEngine();
@@ -179,13 +188,6 @@ async function initialize(): Promise<void> {
   } catch (error) {
     logger.error('Skill Runtime Engine bootstrap failed:', error);
   }
-
-  // Register IPC handlers BEFORE Gateway starts — the renderer may call
-  // gateway:status as soon as it loads, so handlers must already exist.
-  registerIpcHandlers(gatewayManager, clawHubService, mainWindow, engine);
-
-  // Register update handlers
-  registerUpdateHandlers(appUpdater, mainWindow);
 
   // Start Gateway automatically (after IPC handlers are registered)
   try {
