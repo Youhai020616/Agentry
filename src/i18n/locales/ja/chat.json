@@ -1,19 +1,41 @@
 {
-    "gatewayNotRunning": "ゲートウェイが停止中",
-    "gatewayRequired": "チャットを使用するには OpenClaw ゲートウェイが実行されている必要があります。自動的に起動するか、設定から起動できます。",
-    "welcome": {
-        "title": "ClawX チャット",
-        "subtitle": "AI アシスタントの準備ができました。下の入力欄から会話を始めましょう。",
-        "askQuestions": "質問する",
-        "askQuestionsDesc": "あらゆるトピックについて回答を得る",
-        "creativeTasks": "クリエイティブタスク",
-        "creativeTasksDesc": "ライティング、ブレスト、アイデア"
-    },
-    "noLogs": "（ログはまだありません）",
-    "toolbar": {
-        "newSession": "新しいセッション",
-        "refresh": "チャットを更新",
-        "showThinking": "思考を表示",
-        "hideThinking": "思考を非表示"
-    }
+  "gatewayNotRunning": "ゲートウェイが停止中",
+  "gatewayRequired": "チャットを使用するには OpenClaw ゲートウェイが実行されている必要があります。自動的に起動するか、設定から起動できます。",
+  "welcome": {
+    "title": "PocketCrow チャット",
+    "subtitle": "AI アシスタントの準備ができました。下の入力欄から会話を始めましょう。",
+    "employeeSubtitle": "いつでもご質問ください。専門スキルでお手伝いします。",
+    "askQuestions": "質問する",
+    "askQuestionsDesc": "あらゆるトピックについて回答を得る",
+    "creativeTasks": "クリエイティブタスク",
+    "creativeTasksDesc": "ライティング、ブレスト、アイデア"
+  },
+  "noLogs": "（ログはまだありません）",
+  "toolbar": {
+    "newSession": "新しい会話",
+    "refresh": "チャットを更新",
+    "showThinking": "思考を表示",
+    "hideThinking": "思考を非表示"
+  },
+  "history": {
+    "title": "履歴",
+    "search": "会話を検索...",
+    "empty": "まだ会話がありません",
+    "noResults": "一致する会話がありません",
+    "startNew": "チャットを始める",
+    "today": "今日",
+    "yesterday": "昨日",
+    "thisWeek": "今週",
+    "thisMonth": "今月",
+    "older": "それ以前",
+    "rename": "名前を変更",
+    "pin": "ピン留め",
+    "unpin": "ピン留め解除",
+    "archive": "アーカイブ",
+    "unarchive": "アーカイブ解除",
+    "delete": "削除",
+    "deleteConfirm": "この会話を削除してもよろしいですか？",
+    "conversations": "件の会話",
+    "conversation": "件の会話"
+  }
 }

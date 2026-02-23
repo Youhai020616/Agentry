@@ -20,8 +20,10 @@ import {
   ChevronDown,
   AlertTriangle,
   RefreshCw,
-  Terminal,
-  ExternalLink,
+  Download,
+  FolderSearch,
+  Play,
+  Package,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,24 +57,24 @@ export function OnboardingWizard({
   const [camofoxPort, setCamofoxPort] = useState(
     String(
       (onboarding.configTemplate as Record<string, unknown>)?.camofox
-        ? (
+        ? ((
             (onboarding.configTemplate as Record<string, unknown>).camofox as Record<
               string,
               unknown
             >
-          )?.port ?? 9377
+          )?.port ?? 9377)
         : 9377
     )
   );
   const [camofoxApiKey, setCamofoxApiKey] = useState(
     String(
       (onboarding.configTemplate as Record<string, unknown>)?.camofox
-        ? (
+        ? ((
             (onboarding.configTemplate as Record<string, unknown>).camofox as Record<
               string,
               unknown
             >
-          )?.apiKey ?? 'pocketai'
+          )?.apiKey ?? 'pocketai')
         : 'pocketai'
     )
   );
@@ -83,6 +85,19 @@ export function OnboardingWizard({
   // Camofox health state
   const [camofoxStatus, setCamofoxStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   const [camofoxChecking, setCamofoxChecking] = useState(false);
+
+  // Camofox launcher state
+  const [camofoxDetected, setCamofoxDetected] = useState<{
+    installed: boolean;
+    path?: string;
+    depsInstalled?: boolean;
+    hasEntryPoint?: boolean;
+    message: string;
+  } | null>(null);
+  const [camofoxDetecting, setCamofoxDetecting] = useState(false);
+  const [camofoxInstalling, setCamofoxInstalling] = useState(false);
+  const [camofoxStarting, setCamofoxStarting] = useState(false);
+  const [camofoxError, setCamofoxError] = useState<string | null>(null);
 
   const stepIndex = STEPS.indexOf(step);
 
@@ -102,12 +117,112 @@ export function OnboardingWizard({
     }
   }, [camofoxPort, camofoxApiKey]);
 
-  // Auto-check when entering camofox step
+  // Detect Camofox installation
+  const detectCamofox = useCallback(async () => {
+    setCamofoxDetecting(true);
+    setCamofoxError(null);
+    try {
+      const res = (await window.electron.ipcRenderer.invoke('camofox:detect')) as {
+        success: boolean;
+        result?: {
+          installed: boolean;
+          path?: string;
+          depsInstalled?: boolean;
+          hasEntryPoint?: boolean;
+          message: string;
+        };
+        error?: string;
+      };
+      if (res.success && res.result) {
+        setCamofoxDetected(res.result);
+      } else {
+        setCamofoxDetected({ installed: false, message: res.error ?? 'Detection failed' });
+      }
+    } catch (err) {
+      setCamofoxDetected({ installed: false, message: String(err) });
+    } finally {
+      setCamofoxDetecting(false);
+    }
+  }, []);
+
+  // Install Camofox dependencies
+  const installCamofoxDeps = useCallback(async () => {
+    if (!camofoxDetected?.path) return;
+    setCamofoxInstalling(true);
+    setCamofoxError(null);
+    try {
+      const res = (await window.electron.ipcRenderer.invoke('camofox:installDeps', {
+        path: camofoxDetected.path,
+      })) as {
+        success: boolean;
+        result?: { success: boolean; error?: string };
+        error?: string;
+      };
+      if (res.success && res.result?.success) {
+        // Re-detect to update state
+        await detectCamofox();
+      } else {
+        setCamofoxError(res.result?.error ?? res.error ?? 'Install failed');
+      }
+    } catch (err) {
+      setCamofoxError(String(err));
+    } finally {
+      setCamofoxInstalling(false);
+    }
+  }, [camofoxDetected?.path, detectCamofox]);
+
+  // Start Camofox server
+  const startCamofox = useCallback(async () => {
+    setCamofoxStarting(true);
+    setCamofoxError(null);
+    try {
+      const res = (await window.electron.ipcRenderer.invoke('camofox:start', {
+        port: Number(camofoxPort),
+        apiKey: camofoxApiKey,
+        path: camofoxDetected?.path,
+      })) as {
+        success: boolean;
+        result?: { success: boolean; pid?: number; error?: string };
+        error?: string;
+      };
+      if (res.success && res.result?.success) {
+        setCamofoxStatus('online');
+      } else {
+        setCamofoxError(res.result?.error ?? res.error ?? 'Start failed');
+      }
+    } catch (err) {
+      setCamofoxError(String(err));
+    } finally {
+      setCamofoxStarting(false);
+    }
+  }, [camofoxPort, camofoxApiKey, camofoxDetected?.path]);
+
+  // Auto-check when entering camofox step: health first, then detect if offline
   useEffect(() => {
     if (step === 'camofox') {
-      checkCamofox();
+      (async () => {
+        setCamofoxChecking(true);
+        try {
+          const result = (await window.electron.ipcRenderer.invoke('camofox:health', {
+            port: Number(camofoxPort),
+            apiKey: camofoxApiKey,
+          })) as { success: boolean; result?: boolean };
+          if (result.success && result.result) {
+            setCamofoxStatus('online');
+          } else {
+            setCamofoxStatus('offline');
+            // Auto-detect installation when offline
+            await detectCamofox();
+          }
+        } catch {
+          setCamofoxStatus('offline');
+          await detectCamofox();
+        } finally {
+          setCamofoxChecking(false);
+        }
+      })();
     }
-  }, [step, checkCamofox]);
+  }, [step, camofoxPort, camofoxApiKey, detectCamofox]);
 
   // Open browser login window
   const handleStartLogin = useCallback(async () => {
@@ -120,7 +235,11 @@ export function OnboardingWizard({
         cookieDomains: onboarding.cookieDomains,
       });
 
-      const { success, result: data, error: err } = result as {
+      const {
+        success,
+        result: data,
+        error: err,
+      } = result as {
         success: boolean;
         result?: { cookies: unknown[] };
         error?: string;
@@ -245,9 +364,7 @@ export function OnboardingWizard({
               {/* ── Welcome Step ── */}
               {step === 'welcome' && (
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">
-                    {t('onboarding.steps.welcome.heading')}
-                  </h3>
+                  <h3 className="text-lg font-semibold">{t('onboarding.steps.welcome.heading')}</h3>
                   <p className="text-sm text-muted-foreground">{manifest.description}</p>
 
                   <div className="space-y-2 pt-2">
@@ -257,15 +374,11 @@ export function OnboardingWizard({
                     <div className="space-y-2">
                       <div className="flex items-start gap-2 rounded-lg border p-3">
                         <Globe className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                        <span className="text-sm">
-                          {t('onboarding.steps.welcome.needLogin')}
-                        </span>
+                        <span className="text-sm">{t('onboarding.steps.welcome.needLogin')}</span>
                       </div>
                       <div className="flex items-start gap-2 rounded-lg border p-3">
                         <Settings2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                        <span className="text-sm">
-                          {t('onboarding.steps.welcome.needCamofox')}
-                        </span>
+                        <span className="text-sm">{t('onboarding.steps.welcome.needCamofox')}</span>
                       </div>
                     </div>
                   </div>
@@ -282,9 +395,7 @@ export function OnboardingWizard({
               {/* ── Camofox Step ── */}
               {step === 'camofox' && (
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">
-                    {t('onboarding.steps.camofox.heading')}
-                  </h3>
+                  <h3 className="text-lg font-semibold">{t('onboarding.steps.camofox.heading')}</h3>
                   <p className="text-sm text-muted-foreground">
                     {t('onboarding.steps.camofox.description')}
                   </p>
@@ -313,9 +424,7 @@ export function OnboardingWizard({
                             ? t('onboarding.steps.camofox.online')
                             : t('onboarding.steps.camofox.offline')}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        localhost:{camofoxPort}
-                      </p>
+                      <p className="text-xs text-muted-foreground">localhost:{camofoxPort}</p>
                     </div>
                     {camofoxStatus !== 'checking' && (
                       <Button
@@ -331,14 +440,10 @@ export function OnboardingWizard({
                     )}
                   </div>
 
-                  {/* Install instructions (shown when offline) */}
+                  {/* ── Offline: Smart detect → install → start flow ── */}
                   {camofoxStatus === 'offline' && (
                     <div className="space-y-3">
-                      <p className="text-xs font-medium text-muted-foreground">
-                        {t('onboarding.steps.camofox.installTitle')}
-                      </p>
-
-                      {/* Step 1: Download */}
+                      {/* Step 1: Download from GitHub */}
                       <div className="rounded-lg border p-3 space-y-2">
                         <div className="flex items-center gap-2">
                           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
@@ -354,34 +459,178 @@ export function OnboardingWizard({
                           className="w-full"
                           onClick={handleOpenCamofoxRepo}
                         >
-                          <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                          <Download className="mr-1.5 h-3.5 w-3.5" />
                           GitHub: jo-inc/camofox-browser
                         </Button>
                       </div>
 
-                      {/* Step 2: Install & Start */}
-                      <div className="rounded-lg border p-3 space-y-2">
+                      {/* Step 2: Detect installation */}
+                      <div
+                        className={cn(
+                          'rounded-lg border p-3 space-y-2',
+                          camofoxDetected?.installed && 'border-green-500/20 bg-green-500/5'
+                        )}
+                      >
                         <div className="flex items-center gap-2">
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
-                            2
+                          <span
+                            className={cn(
+                              'flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold',
+                              camofoxDetected?.installed
+                                ? 'bg-green-500/10 text-green-600'
+                                : 'bg-primary/10 text-primary'
+                            )}
+                          >
+                            {camofoxDetected?.installed ? (
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                            ) : (
+                              '2'
+                            )}
                           </span>
-                          <span className="text-sm font-medium">
-                            {t('onboarding.steps.camofox.step2')}
+                          <span className="text-sm font-medium flex-1">
+                            {t('onboarding.steps.camofox.detectBtn')}
                           </span>
                         </div>
-                        <div className="rounded-md bg-muted/70 p-2.5 font-mono text-xs leading-relaxed">
-                          <div className="flex items-center gap-1.5 text-muted-foreground">
-                            <Terminal className="h-3 w-3" />
-                            <span>terminal</span>
+
+                        {camofoxDetected?.installed ? (
+                          <div className="flex items-center gap-2">
+                            <FolderSearch className="h-3.5 w-3.5 shrink-0 text-green-600" />
+                            <span className="text-xs text-green-700 dark:text-green-400 truncate">
+                              {camofoxDetected.path}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="ml-auto h-6 px-2 text-xs"
+                              onClick={detectCamofox}
+                              disabled={camofoxDetecting}
+                            >
+                              <RefreshCw
+                                className={cn('h-3 w-3', camofoxDetecting && 'animate-spin')}
+                              />
+                            </Button>
                           </div>
-                          <div className="mt-1.5 space-y-0.5">
-                            <p>cd camofox-browser-*</p>
-                            <p>npm install</p>
-                            <p>CAMOFOX_PORT={camofoxPort} npm start</p>
+                        ) : (
+                          <div className="space-y-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full"
+                              onClick={detectCamofox}
+                              disabled={camofoxDetecting}
+                            >
+                              {camofoxDetecting ? (
+                                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <FolderSearch className="mr-1.5 h-3.5 w-3.5" />
+                              )}
+                              {camofoxDetecting
+                                ? t('onboarding.steps.camofox.detecting')
+                                : camofoxDetected === null
+                                  ? t('onboarding.steps.camofox.detectBtn')
+                                  : t('onboarding.steps.camofox.redetectBtn')}
+                            </Button>
+                            {camofoxDetected && !camofoxDetected.installed && (
+                              <p className="text-xs text-muted-foreground">
+                                {t('onboarding.steps.camofox.downloadFirst')}
+                              </p>
+                            )}
                           </div>
-                        </div>
+                        )}
                       </div>
 
+                      {/* Step 3: Install dependencies (shown when detected but deps missing) */}
+                      {camofoxDetected?.installed && (
+                        <div
+                          className={cn(
+                            'rounded-lg border p-3 space-y-2',
+                            camofoxDetected.depsInstalled && 'border-green-500/20 bg-green-500/5'
+                          )}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={cn(
+                                'flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold',
+                                camofoxDetected.depsInstalled
+                                  ? 'bg-green-500/10 text-green-600'
+                                  : 'bg-primary/10 text-primary'
+                              )}
+                            >
+                              {camofoxDetected.depsInstalled ? (
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                              ) : (
+                                '3'
+                              )}
+                            </span>
+                            <span className="text-sm font-medium">
+                              {camofoxDetected.depsInstalled
+                                ? t('onboarding.steps.camofox.depsInstalled')
+                                : t('onboarding.steps.camofox.depsNeeded')}
+                            </span>
+                          </div>
+
+                          {!camofoxDetected.depsInstalled && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full"
+                              onClick={installCamofoxDeps}
+                              disabled={camofoxInstalling}
+                            >
+                              {camofoxInstalling ? (
+                                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Package className="mr-1.5 h-3.5 w-3.5" />
+                              )}
+                              {camofoxInstalling
+                                ? t('onboarding.steps.camofox.installingDeps')
+                                : t('onboarding.steps.camofox.installDepsBtn')}
+                            </Button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Step 4: One-click start (shown when installed + deps ready) */}
+                      {camofoxDetected?.installed &&
+                        camofoxDetected.depsInstalled &&
+                        camofoxDetected.hasEntryPoint && (
+                          <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+                                4
+                              </span>
+                              <span className="text-sm font-medium">
+                                {t('onboarding.steps.camofox.startBtn')}
+                              </span>
+                            </div>
+                            <Button
+                              size="sm"
+                              className="w-full"
+                              onClick={startCamofox}
+                              disabled={camofoxStarting}
+                            >
+                              {camofoxStarting ? (
+                                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Play className="mr-1.5 h-3.5 w-3.5" />
+                              )}
+                              {camofoxStarting
+                                ? t('onboarding.steps.camofox.starting')
+                                : t('onboarding.steps.camofox.startBtn')}
+                            </Button>
+                          </div>
+                        )}
+
+                      {/* Error message */}
+                      {camofoxError && (
+                        <div className="flex items-start gap-2 rounded-lg bg-red-500/10 border border-red-500/20 p-3">
+                          <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" />
+                          <span className="text-xs text-red-700 dark:text-red-400">
+                            {camofoxError}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Skip note */}
                       <div className="flex items-start gap-2 rounded-lg bg-muted/50 p-3">
                         <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
                         <span className="text-xs text-muted-foreground">
@@ -510,10 +759,7 @@ export function OnboardingWizard({
                     onClick={() => setShowAdvanced(!showAdvanced)}
                   >
                     <ChevronDown
-                      className={cn(
-                        'h-4 w-4 transition-transform',
-                        showAdvanced && 'rotate-180'
-                      )}
+                      className={cn('h-4 w-4 transition-transform', showAdvanced && 'rotate-180')}
                     />
                     {t('onboarding.steps.configure.advanced')}
                   </button>

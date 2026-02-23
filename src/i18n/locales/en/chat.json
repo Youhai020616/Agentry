@@ -1,19 +1,41 @@
 {
-    "gatewayNotRunning": "Gateway Not Running",
-    "gatewayRequired": "The OpenClaw Gateway needs to be running to use chat. It will start automatically, or you can start it from Settings.",
-    "welcome": {
-        "title": "ClawX Chat",
-        "subtitle": "Your AI assistant is ready. Start a conversation below.",
-        "askQuestions": "Ask Questions",
-        "askQuestionsDesc": "Get answers on any topic",
-        "creativeTasks": "Creative Tasks",
-        "creativeTasksDesc": "Writing, brainstorming, ideas"
-    },
-    "noLogs": "(No logs available yet)",
-    "toolbar": {
-        "newSession": "New session",
-        "refresh": "Refresh chat",
-        "showThinking": "Show thinking",
-        "hideThinking": "Hide thinking"
-    }
+  "gatewayNotRunning": "Gateway Not Running",
+  "gatewayRequired": "The OpenClaw Gateway needs to be running to use chat. It will start automatically, or you can start it from Settings.",
+  "welcome": {
+    "title": "PocketCrow Chat",
+    "subtitle": "Your AI assistant is ready. Start a conversation below.",
+    "employeeSubtitle": "Feel free to ask me anything, I'll serve you with my professional skills.",
+    "askQuestions": "Ask Questions",
+    "askQuestionsDesc": "Get answers on any topic",
+    "creativeTasks": "Creative Tasks",
+    "creativeTasksDesc": "Writing, brainstorming, ideas"
+  },
+  "noLogs": "(No logs available yet)",
+  "toolbar": {
+    "newSession": "New Chat",
+    "refresh": "Refresh chat",
+    "showThinking": "Show thinking",
+    "hideThinking": "Hide thinking"
+  },
+  "history": {
+    "title": "History",
+    "search": "Search chats...",
+    "empty": "No conversations yet",
+    "noResults": "No matching conversations",
+    "startNew": "Start a chat",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "thisWeek": "This Week",
+    "thisMonth": "This Month",
+    "older": "Older",
+    "rename": "Rename",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "delete": "Delete",
+    "deleteConfirm": "Are you sure you want to delete this conversation?",
+    "conversations": "conversations",
+    "conversation": "conversation"
+  }
 }

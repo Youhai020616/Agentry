@@ -1,6 +1,6 @@
 /**
  * Message Bus
- * SQLite-backed cross-employee messaging system for the ClawX AI Employee Platform.
+ * SQLite-backed cross-employee messaging system for the PocketCrow AI Employee Platform.
  *
  * Events:
  *  - 'new-message' (message: Message) — emitted when a message is inserted
@@ -84,7 +84,9 @@ export class MessageBus extends EventEmitter {
         for (const recipient of recipients) {
           this.insertMessage({ ...input, recipient });
         }
-        logger.debug(`MessageBus broadcast from ${input.from} to ${recipients.length} recipient(s)`);
+        logger.debug(
+          `MessageBus broadcast from ${input.from} to ${recipients.length} recipient(s)`
+        );
       } else {
         this.insertMessage(input);
       }
@@ -143,9 +145,9 @@ export class MessageBus extends EventEmitter {
    */
   markAllRead(employeeId: string): void {
     try {
-      this.db.prepare('UPDATE messages SET read = 1 WHERE recipient = ? AND read = 0').run(
-        employeeId
-      );
+      this.db
+        .prepare('UPDATE messages SET read = 1 WHERE recipient = ? AND read = 0')
+        .run(employeeId);
     } catch (err) {
       logger.error(`MessageBus markAllRead failed for ${employeeId}: ${err}`);
     }

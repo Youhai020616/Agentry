@@ -42,6 +42,18 @@
     "backToHub": "返回员工列表",
     "activating": "正在激活员工..."
   },
+  "settings": {
+    "title": "{{name}} 设置",
+    "modelTab": "AI 模型",
+    "modelDescription": "选择驱动该员工的 AI 模型。需要工具调用能力的员工（如自动化操作）请选择支持「工具」标记的模型。不选择则使用全局默认模型。",
+    "currentModel": "当前模型：",
+    "usingDefault": "使用全局默认模型",
+    "useDefault": "清除选择（使用默认模型）",
+    "modelsCount": "个模型",
+    "saveModel": "保存模型",
+    "modelSaved": "模型已保存",
+    "restartHint": "切换模型后建议重新激活员工以生效。"
+  },
   "secrets": {
     "title": "工具配置",
     "description": "配置 {{name}} 的工具 API 密钥和秘钥",
@@ -91,7 +103,23 @@
         "installTitle": "安装和启动方法",
         "step1": "从 GitHub 下载",
         "step2": "安装并启动",
-        "skipNote": "你可以跳过此步骤，稍后再配置 Camofox。在 Camofox 运行之前，员工无法执行任务。"
+        "skipNote": "你可以跳过此步骤，稍后再配置 Camofox。在 Camofox 运行之前，员工无法执行任务。",
+        "detecting": "正在检测 Camofox 安装...",
+        "detected": "已找到 Camofox：{{path}}",
+        "notDetected": "未在系统中检测到 Camofox",
+        "detectBtn": "检测安装",
+        "redetectBtn": "重新检测",
+        "installingDeps": "正在安装依赖...",
+        "installDepsBtn": "安装依赖",
+        "depsInstalled": "依赖已安装",
+        "depsNeeded": "需要安装依赖",
+        "depsFailed": "依赖安装失败：{{error}}",
+        "starting": "正在启动 Camofox...",
+        "startBtn": "启动 Camofox",
+        "startSuccess": "Camofox 启动成功",
+        "startFailed": "Camofox 启动失败：{{error}}",
+        "downloadFirst": "请先下载 Camofox，然后点击「检测安装」。",
+        "autoDetected": "自动检测"
       },
       "login": {
         "subtitle": "账号登录",

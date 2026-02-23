@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * create-skill-package -- Scaffold a new ClawX skill package
+ * create-skill-package -- Scaffold a new PocketCrow skill package
  * Usage: npx tsx scripts/create-skill-package.ts <name>
  */
 import { mkdirSync, writeFileSync, existsSync } from 'fs';
@@ -92,4 +92,4 @@ console.log(`  ${targetDir}/SKILL.md`);
 console.log(`\nNext steps:`);
 console.log(`  1. Edit manifest.json to configure the employee`);
 console.log(`  2. Edit SKILL.md to define the system prompt`);
-console.log(`  3. Restart ClawX to load the new employee`);
+console.log(`  3. Restart PocketCrow to load the new employee`);

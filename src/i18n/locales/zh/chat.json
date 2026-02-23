@@ -1,19 +1,41 @@
 {
-    "gatewayNotRunning": "网关未运行",
-    "gatewayRequired": "OpenClaw 网关需要运行才能使用聊天。它将自动启动，或者您可以从设置中启动。",
-    "welcome": {
-        "title": "ClawX 聊天",
-        "subtitle": "您的 AI 助手已就绪。在下方开始对话。",
-        "askQuestions": "提问",
-        "askQuestionsDesc": "获取任何话题的答案",
-        "creativeTasks": "创意任务",
-        "creativeTasksDesc": "写作、头脑风暴、创意"
-    },
-    "noLogs": "（暂无日志）",
-    "toolbar": {
-        "newSession": "新会话",
-        "refresh": "刷新聊天",
-        "showThinking": "显示思考过程",
-        "hideThinking": "隐藏思考过程"
-    }
+  "gatewayNotRunning": "网关未运行",
+  "gatewayRequired": "OpenClaw 网关需要运行才能使用聊天。它将自动启动，或者您可以从设置中启动。",
+  "welcome": {
+    "title": "PocketCrow 聊天",
+    "subtitle": "您的 AI 助手已就绪。在下方开始对话。",
+    "employeeSubtitle": "随时向我提问，我会用专业技能为你服务。",
+    "askQuestions": "提问",
+    "askQuestionsDesc": "获取任何话题的答案",
+    "creativeTasks": "创意任务",
+    "creativeTasksDesc": "写作、头脑风暴、创意"
+  },
+  "noLogs": "（暂无日志）",
+  "toolbar": {
+    "newSession": "新对话",
+    "refresh": "刷新聊天",
+    "showThinking": "显示思考过程",
+    "hideThinking": "隐藏思考过程"
+  },
+  "history": {
+    "title": "历史记录",
+    "search": "搜索对话...",
+    "empty": "暂无对话记录",
+    "noResults": "没有匹配的对话",
+    "startNew": "开始聊天",
+    "today": "今天",
+    "yesterday": "昨天",
+    "thisWeek": "本周",
+    "thisMonth": "本月",
+    "older": "更早",
+    "rename": "重命名",
+    "pin": "置顶",
+    "unpin": "取消置顶",
+    "archive": "归档",
+    "unarchive": "取消归档",
+    "delete": "删除",
+    "deleteConfirm": "确定要删除这个对话吗？",
+    "conversations": "个对话",
+    "conversation": "个对话"
+  }
 }

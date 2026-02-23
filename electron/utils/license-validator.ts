@@ -1,7 +1,7 @@
 /**
  * License Validator
- * Local license key validation for ClawX tiers.
- * Format: CLAWX-XXXX-XXXX-XXXX
+ * Local license key validation for PocketCrow tiers.
+ * Format: CLAWX-XXXX-XXXX-XXXX (kept for backward compatibility)
  */
 import { createHmac } from 'crypto';
 import { logger } from './logger';
@@ -75,7 +75,9 @@ export class LicenseValidator {
     // 5. Check if expired
     const isValid = expiresAt === null || expiresAt > Date.now();
 
-    logger.info(`License validated: tier=${tier}, isValid=${isValid}, perpetual=${expiresAt === null}`);
+    logger.info(
+      `License validated: tier=${tier}, isValid=${isValid}, perpetual=${expiresAt === null}`
+    );
 
     return {
       key,

@@ -24,6 +24,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { GlassFilter } from '@/components/ui/liquid-glass';
 import { cn } from '@/lib/utils';
 
 // ── Types ────────────────────────────────────────────────────────
@@ -385,21 +386,22 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
 
   return (
     <div
-      className="px-4 pt-2 pb-3"
+      className="px-4 pt-3 pb-3"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <div
-        className={cn(
-          'max-w-4xl mx-auto divide-y divide-border overflow-hidden rounded-2xl border bg-card shadow-sm transition-shadow',
-          dragOver && 'ring-2 ring-primary shadow-md',
-          !disabled && 'focus-within:shadow-md'
-        )}
-      >
+      <GlassFilter />
+      <div className="chat-glass-wrapper max-w-4xl mx-auto">
+        <div
+          className={cn(
+            'chat-glass-input overflow-hidden rounded-2xl',
+            dragOver && 'ring-2 ring-primary'
+          )}
+        >
         {/* Attachment Previews */}
         {attachments.length > 0 && (
-          <div className="flex gap-2 flex-wrap p-3 pb-2">
+          <div className="flex gap-2 flex-wrap px-3 pt-3 pb-1">
             {attachments.map((att) => (
               <AttachmentPreview
                 key={att.id}
@@ -435,7 +437,7 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
             disabled={disabled}
             className={cn(
               'w-full resize-none bg-transparent px-4 py-3 text-sm outline-none',
-              'placeholder:text-muted-foreground',
+              'placeholder:text-muted-foreground/60',
               'disabled:cursor-not-allowed disabled:opacity-50'
             )}
             rows={1}
@@ -443,14 +445,14 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
         </div>
 
         {/* Toolbar */}
-        <div className="flex items-center justify-between px-2 py-1.5">
+        <div className="flex items-center justify-between px-3 py-1.5">
           {/* Left: Tools */}
           <div className="flex items-center gap-0.5">
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              className="h-8 w-8 text-muted-foreground/60 hover:text-foreground"
               onClick={pickFiles}
               disabled={disabled || sending}
               title="Attach files"
@@ -466,7 +468,7 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
             size="icon"
             variant={sending ? 'destructive' : 'default'}
             className={cn(
-              'h-8 w-8 rounded-lg transition-all',
+              'h-8 w-8 rounded-full transition-all',
               !sending && canSend && 'bg-primary text-primary-foreground shadow-sm'
             )}
             title={sending ? 'Stop' : 'Send'}
@@ -477,6 +479,7 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
               <ArrowUp className="h-4 w-4" />
             )}
           </Button>
+        </div>
         </div>
       </div>
     </div>

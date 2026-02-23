@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DB_PATH = join(__dirname, '..', 'data', 'clawx-cloud.db');
+const DB_PATH = join(__dirname, '..', 'data', 'pocketcrow-cloud.db');
 
 mkdirSync(dirname(DB_PATH), { recursive: true });
 

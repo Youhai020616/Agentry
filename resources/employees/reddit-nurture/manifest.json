@@ -2,7 +2,7 @@
   "name": "reddit-nurture",
   "version": "1.0.0",
   "description": "Automated Reddit account nurturing - builds karma through organic commenting and engagement via Camofox headless browser",
-  "author": "ClawX Team",
+  "author": "PocketCrow Team",
   "type": "execution",
   "employee": {
     "role": "Reddit Growth Specialist",

@@ -1,6 +1,6 @@
-appId: app.clawx.desktop
-productName: ClawX
-copyright: Copyright © 2026 ClawX
+appId: app.pocketcrow.desktop
+productName: PocketCrow
+copyright: Copyright © 2026 PocketCrow
 compression: normal
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 
@@ -17,10 +17,10 @@ extraResources:
   - from: resources/
     to: resources/
     filter:
-      - "**/*"
-      - "!icons/*.md"
-      - "!icons/*.svg"
-      - "!bin/**"
+      - '**/*'
+      - '!icons/*.md'
+      - '!icons/*.svg'
+      - '!bin/**'
   # OpenClaw package (node_modules copied separately by afterPack hook
   # because electron-builder respects .gitignore which excludes node_modules/)
   - from: build/openclaw/
@@ -30,7 +30,7 @@ afterPack: ./scripts/after-pack.cjs
 
 asar: true
 asarUnpack:
-  - "**/*.node"
+  - '**/*.node'
 
 # Auto-update configuration
 # Primary: Alibaba Cloud OSS (fast for Chinese users, used for auto-update)
@@ -67,8 +67,8 @@ mac:
   entitlementsInherit: entitlements.mac.plist
   notarize: true
   extendInfo:
-    NSMicrophoneUsageDescription: ClawX requires microphone access for voice features
-    NSCameraUsageDescription: ClawX requires camera access for video features
+    NSMicrophoneUsageDescription: PocketCrow requires microphone access for voice features
+    NSCameraUsageDescription: PocketCrow requires camera access for video features
 
 dmg:
   background: resources/dmg-background.png
@@ -109,8 +109,8 @@ nsis:
   differentialPackage: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: ClawX
-  uninstallDisplayName: ClawX
+  shortcutName: PocketCrow
+  uninstallDisplayName: PocketCrow
   license: LICENSE
   include: scripts/installer.nsh
   installerIcon: resources/icons/icon.ico
@@ -132,16 +132,16 @@ linux:
       arch:
         - x64
   category: Utility
-  maintainer: ClawX Team <team@clawx.app>
-  vendor: ClawX
+  maintainer: PocketCrow Team <team@pocketcrow.app>
+  vendor: PocketCrow
   synopsis: AI Assistant powered by OpenClaw
   description: |
-    ClawX is a graphical AI assistant application that integrates with
+    PocketCrow is a graphical AI assistant application that integrates with
     OpenClaw Gateway to provide intelligent automation and assistance
     across multiple messaging platforms.
   desktop:
     entry:
-      Name: ClawX
+      Name: PocketCrow
       Comment: AI Assistant powered by OpenClaw
       Categories: Utility;Network;
       Keywords: ai;assistant;automation;chat;

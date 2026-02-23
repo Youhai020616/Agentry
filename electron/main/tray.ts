@@ -64,16 +64,16 @@ export function createTray(mainWindow: BrowserWindow): Tray {
   if (process.platform === 'darwin') {
     icon.setTemplateImage(true);
   }
-  
+
   tray = new Tray(icon);
-  
+
   // Set tooltip
-  tray.setToolTip('ClawX - AI Assistant');
-  
+  tray.setToolTip('PocketCrow - AI Assistant');
+
   // Create context menu
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: 'Show ClawX',
+      label: 'Show PocketCrow',
       click: () => {
         mainWindow.show();
         mainWindow.focus();
@@ -134,15 +134,15 @@ export function createTray(mainWindow: BrowserWindow): Tray {
       type: 'separator',
     },
     {
-      label: 'Quit ClawX',
+      label: 'Quit PocketCrow',
       click: () => {
         app.quit();
       },
     },
   ]);
-  
+
   tray.setContextMenu(contextMenu);
-  
+
   // Click to show window (Windows/Linux)
   tray.on('click', () => {
     if (mainWindow.isVisible()) {
@@ -152,13 +152,13 @@ export function createTray(mainWindow: BrowserWindow): Tray {
       mainWindow.focus();
     }
   });
-  
+
   // Double-click to show window (Windows)
   tray.on('double-click', () => {
     mainWindow.show();
     mainWindow.focus();
   });
-  
+
   return tray;
 }
 
@@ -182,8 +182,8 @@ export function updateTrayMenu(mainWindow: BrowserWindow, employees: EmployeeTra
   const workingCount = employees.filter((e) => e.status === 'working').length;
   const tooltip =
     workingCount > 0
-      ? `ClawX - ${workingCount} employee${workingCount > 1 ? 's' : ''} working`
-      : 'ClawX - AI Employee Platform';
+      ? `PocketCrow - ${workingCount} employee${workingCount > 1 ? 's' : ''} working`
+      : 'PocketCrow - AI Employee Platform';
   tray.setToolTip(tooltip);
 
   const employeeMenuItems: Electron.MenuItemConstructorOptions[] =
@@ -196,7 +196,7 @@ export function updateTrayMenu(mainWindow: BrowserWindow, employees: EmployeeTra
 
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: 'Show ClawX',
+      label: 'Show PocketCrow',
       click: () => {
         mainWindow.show();
         mainWindow.focus();
@@ -234,7 +234,7 @@ export function updateTrayMenu(mainWindow: BrowserWindow, employees: EmployeeTra
     },
     { type: 'separator' },
     {
-      label: 'Quit ClawX',
+      label: 'Quit PocketCrow',
       click: () => {
         app.quit();
       },
@@ -249,7 +249,7 @@ export function updateTrayMenu(mainWindow: BrowserWindow, employees: EmployeeTra
  */
 export function updateTrayStatus(status: string): void {
   if (tray) {
-    tray.setToolTip(`ClawX - ${status}`);
+    tray.setToolTip(`PocketCrow - ${status}`);
   }
 }
 

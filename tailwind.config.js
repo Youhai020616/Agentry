@@ -55,6 +55,7 @@ module.exports = {
         sm: 'calc(var(--radius) - 4px)',
         xl: '1rem',
         '2xl': '1.5rem',
+        '4xl': '2.5rem',
       },
       boxShadow: {
         island: '0 1px 3px 0 rgba(0,0,0,0.04), 0 4px 12px 0 rgba(0,0,0,0.03)',

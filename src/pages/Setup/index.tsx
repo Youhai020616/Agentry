@@ -57,7 +57,7 @@ const STEP = {
 const steps: SetupStep[] = [
   {
     id: 'welcome',
-    title: 'Welcome to ClawX',
+    title: 'Welcome to PocketCrow',
     description: 'Your AI assistant is ready to be configured',
   },
   {
@@ -83,7 +83,7 @@ const steps: SetupStep[] = [
   {
     id: 'complete',
     title: 'All Set!',
-    description: 'ClawX is ready to use',
+    description: 'PocketCrow is ready to use',
   },
 ];
 
@@ -102,8 +102,13 @@ const defaultSkills: DefaultSkill[] = [
   { id: 'terminal', name: 'Terminal', description: 'Shell command execution' },
 ];
 
-import { SETUP_PROVIDERS, type ProviderTypeInfo, getProviderIconUrl, shouldInvertInDark } from '@/lib/providers';
-import clawxIcon from '@/assets/logo.svg';
+import {
+  SETUP_PROVIDERS,
+  type ProviderTypeInfo,
+  getProviderIconUrl,
+  shouldInvertInDark,
+} from '@/lib/providers';
+import pocketcrowIcon from '@/assets/logo.svg';
 
 // Use the shared provider registry for setup providers
 const providers = SETUP_PROVIDERS;
@@ -183,7 +188,6 @@ export function Setup() {
     }, 1000);
   }, []);
 
-
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <TitleBar />
@@ -239,7 +243,9 @@ export function Setup() {
             {/* Step-specific content */}
             <div className="rounded-xl bg-card text-card-foreground border shadow-sm p-8 mb-8">
               {safeStepIndex === STEP.WELCOME && <WelcomeContent />}
-              {safeStepIndex === STEP.RUNTIME && <RuntimeContent onStatusChange={setRuntimeChecksPassed} />}
+              {safeStepIndex === STEP.RUNTIME && (
+                <RuntimeContent onStatusChange={setRuntimeChecksPassed} />
+              )}
               {safeStepIndex === STEP.PROVIDER && (
                 <ProviderContent
                   providers={providers}
@@ -283,11 +289,13 @@ export function Setup() {
                       {t('nav.skipStep')}
                     </Button>
                   )}
-                  {!isLastStep && safeStepIndex !== STEP.RUNTIME && safeStepIndex !== STEP.CHANNEL && (
-                    <Button variant="ghost" onClick={handleSkip}>
-                      {t('nav.skipSetup')}
-                    </Button>
-                  )}
+                  {!isLastStep &&
+                    safeStepIndex !== STEP.RUNTIME &&
+                    safeStepIndex !== STEP.CHANNEL && (
+                      <Button variant="ghost" onClick={handleSkip}>
+                        {t('nav.skipSetup')}
+                      </Button>
+                    )}
                   <Button onClick={handleNext} disabled={!canProceed}>
                     {isLastStep ? (
                       t('nav.getStarted')
@@ -317,12 +325,10 @@ function WelcomeContent() {
   return (
     <div className="text-center space-y-4">
       <div className="mb-4 flex justify-center">
-        <img src={clawxIcon} alt="ClawX" className="h-16 w-16" />
+        <img src={pocketcrowIcon} alt="PocketCrow" className="h-16 w-16" />
       </div>
       <h2 className="text-xl font-semibold">{t('welcome.title')}</h2>
-      <p className="text-muted-foreground">
-        {t('welcome.description')}
-      </p>
+      <p className="text-muted-foreground">{t('welcome.description')}</p>
 
       {/* Language Selector */}
       <div className="flex justify-center gap-2 py-2">
@@ -396,7 +402,7 @@ function RuntimeContent({ onStatusChange }: RuntimeContentProps) {
 
     // Check OpenClaw package status
     try {
-      const openclawStatus = await window.electron.ipcRenderer.invoke('openclaw:status') as {
+      const openclawStatus = (await window.electron.ipcRenderer.invoke('openclaw:status')) as {
         packageExists: boolean;
         isBuilt: boolean;
         dir: string;
@@ -410,7 +416,7 @@ function RuntimeContent({ onStatusChange }: RuntimeContentProps) {
           ...prev,
           openclaw: {
             status: 'error',
-            message: `OpenClaw package not found at: ${openclawStatus.dir}`
+            message: `OpenClaw package not found at: ${openclawStatus.dir}`,
           },
         }));
       } else if (!openclawStatus.isBuilt) {
@@ -418,7 +424,7 @@ function RuntimeContent({ onStatusChange }: RuntimeContentProps) {
           ...prev,
           openclaw: {
             status: 'error',
-            message: 'OpenClaw package found but dist is missing'
+            message: 'OpenClaw package found but dist is missing',
           },
         }));
       } else {
@@ -427,7 +433,7 @@ function RuntimeContent({ onStatusChange }: RuntimeContentProps) {
           ...prev,
           openclaw: {
             status: 'success',
-            message: `OpenClaw package ready${versionLabel}`
+            message: `OpenClaw package ready${versionLabel}`,
           },
         }));
       }
@@ -458,7 +464,10 @@ function RuntimeContent({ onStatusChange }: RuntimeContentProps) {
         ...prev,
         gateway: {
           status: 'checking',
-          message: currentGateway.state === 'starting' ? t('runtime.status.checking') : 'Waiting for gateway...'
+          message:
+            currentGateway.state === 'starting'
+              ? t('runtime.status.checking')
+              : 'Waiting for gateway...',
         },
       }));
     }
@@ -470,9 +479,10 @@ function RuntimeContent({ onStatusChange }: RuntimeContentProps) {
 
   // Update canProceed when gateway status changes
   useEffect(() => {
-    const allPassed = checks.nodejs.status === 'success'
-      && checks.openclaw.status === 'success'
-      && (checks.gateway.status === 'success' || gatewayStatus.state === 'running');
+    const allPassed =
+      checks.nodejs.status === 'success' &&
+      checks.openclaw.status === 'success' &&
+      (checks.gateway.status === 'success' || gatewayStatus.state === 'running');
     onStatusChange(allPassed);
   }, [checks, gatewayStatus, onStatusChange]);
 
@@ -481,7 +491,10 @@ function RuntimeContent({ onStatusChange }: RuntimeContentProps) {
     if (gatewayStatus.state === 'running') {
       setChecks((prev) => ({
         ...prev,
-        gateway: { status: 'success', message: t('runtime.status.gatewayRunning', { port: gatewayStatus.port }) },
+        gateway: {
+          status: 'success',
+          message: t('runtime.status.gatewayRunning', { port: gatewayStatus.port }),
+        },
       }));
     } else if (gatewayStatus.state === 'error') {
       setChecks((prev) => ({
@@ -540,7 +553,7 @@ function RuntimeContent({ onStatusChange }: RuntimeContentProps) {
 
   const handleShowLogs = async () => {
     try {
-      const logs = await window.electron.ipcRenderer.invoke('log:readFile', 100) as string;
+      const logs = (await window.electron.ipcRenderer.invoke('log:readFile', 100)) as string;
       setLogContent(logs);
       setShowLogs(true);
     } catch {
@@ -551,7 +564,7 @@ function RuntimeContent({ onStatusChange }: RuntimeContentProps) {
 
   const handleOpenLogDir = async () => {
     try {
-      const logDir = await window.electron.ipcRenderer.invoke('log:getDir') as string;
+      const logDir = (await window.electron.ipcRenderer.invoke('log:getDir')) as string;
       if (logDir) {
         await window.electron.ipcRenderer.invoke('shell:showItemInFolder', logDir);
       }
@@ -590,7 +603,9 @@ function RuntimeContent({ onStatusChange }: RuntimeContentProps) {
         {isLong && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="cursor-pointer text-red-300 hover:text-red-200 font-medium">...</span>
+              <span className="cursor-pointer text-red-300 hover:text-red-200 font-medium">
+                ...
+              </span>
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-sm whitespace-normal break-words text-xs">
               {message}
@@ -656,9 +671,7 @@ function RuntimeContent({ onStatusChange }: RuntimeContentProps) {
             <AlertCircle className="h-5 w-5 text-red-400 mt-0.5" />
             <div>
               <p className="font-medium text-red-400">{t('runtime.issue.title')}</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                {t('runtime.issue.desc')}
-              </p>
+              <p className="text-sm text-muted-foreground mt-1">{t('runtime.issue.desc')}</p>
             </div>
           </div>
         </div>
@@ -674,7 +687,12 @@ function RuntimeContent({ onStatusChange }: RuntimeContentProps) {
                 <ExternalLink className="h-3 w-3 mr-1" />
                 Open Log Folder
               </Button>
-              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowLogs(false)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => setShowLogs(false)}
+              >
                 Close
               </Button>
             </div>
@@ -720,21 +738,30 @@ function ProviderContent({
     let cancelled = false;
     (async () => {
       try {
-        const list = await window.electron.ipcRenderer.invoke('provider:list') as Array<{ id: string; type: string; hasKey: boolean }>;
-        const defaultId = await window.electron.ipcRenderer.invoke('provider:getDefault') as string | null;
+        const list = (await window.electron.ipcRenderer.invoke('provider:list')) as Array<{
+          id: string;
+          type: string;
+          hasKey: boolean;
+        }>;
+        const defaultId = (await window.electron.ipcRenderer.invoke('provider:getDefault')) as
+          | string
+          | null;
         const setupProviderTypes = new Set<string>(providers.map((p) => p.id));
         const setupCandidates = list.filter((p) => setupProviderTypes.has(p.type));
         const preferred =
-          (defaultId && setupCandidates.find((p) => p.id === defaultId))
-          || setupCandidates.find((p) => p.hasKey)
-          || setupCandidates[0];
+          (defaultId && setupCandidates.find((p) => p.id === defaultId)) ||
+          setupCandidates.find((p) => p.hasKey) ||
+          setupCandidates[0];
         if (preferred && !cancelled) {
           onSelectProvider(preferred.type);
           setSelectedProviderConfigId(preferred.id);
           const typeInfo = providers.find((p) => p.id === preferred.type);
           const requiresKey = typeInfo?.requiresApiKey ?? false;
           onConfiguredChange(!requiresKey || preferred.hasKey);
-          const storedKey = await window.electron.ipcRenderer.invoke('provider:getApiKey', preferred.id) as string | null;
+          const storedKey = (await window.electron.ipcRenderer.invoke(
+            'provider:getApiKey',
+            preferred.id
+          )) as string | null;
           if (storedKey) {
             onApiKeyChange(storedKey);
           }
@@ -747,7 +774,9 @@ function ProviderContent({
         }
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [onApiKeyChange, onConfiguredChange, onSelectProvider, providers]);
 
   // When provider changes, load stored key + reset base URL
@@ -756,21 +785,30 @@ function ProviderContent({
     (async () => {
       if (!selectedProvider) return;
       try {
-        const list = await window.electron.ipcRenderer.invoke('provider:list') as Array<{ id: string; type: string; hasKey: boolean }>;
-        const defaultId = await window.electron.ipcRenderer.invoke('provider:getDefault') as string | null;
+        const list = (await window.electron.ipcRenderer.invoke('provider:list')) as Array<{
+          id: string;
+          type: string;
+          hasKey: boolean;
+        }>;
+        const defaultId = (await window.electron.ipcRenderer.invoke('provider:getDefault')) as
+          | string
+          | null;
         const sameType = list.filter((p) => p.type === selectedProvider);
         const preferredInstance =
-          (defaultId && sameType.find((p) => p.id === defaultId))
-          || sameType.find((p) => p.hasKey)
-          || sameType[0];
+          (defaultId && sameType.find((p) => p.id === defaultId)) ||
+          sameType.find((p) => p.hasKey) ||
+          sameType[0];
         const providerIdForLoad = preferredInstance?.id || selectedProvider;
         setSelectedProviderConfigId(providerIdForLoad);
 
-        const savedProvider = await window.electron.ipcRenderer.invoke(
+        const savedProvider = (await window.electron.ipcRenderer.invoke(
           'provider:get',
           providerIdForLoad
-        ) as { baseUrl?: string; model?: string } | null;
-        const storedKey = await window.electron.ipcRenderer.invoke('provider:getApiKey', providerIdForLoad) as string | null;
+        )) as { baseUrl?: string; model?: string } | null;
+        const storedKey = (await window.electron.ipcRenderer.invoke(
+          'provider:getApiKey',
+          providerIdForLoad
+        )) as string | null;
         if (!cancelled) {
           if (storedKey) {
             onApiKeyChange(storedKey);
@@ -786,7 +824,9 @@ function ProviderContent({
         }
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [onApiKeyChange, selectedProvider, providers]);
 
   useEffect(() => {
@@ -829,12 +869,12 @@ function ProviderContent({
     try {
       // Validate key if the provider requires one and a key was entered
       if (requiresKey && apiKey) {
-        const result = await window.electron.ipcRenderer.invoke(
+        const result = (await window.electron.ipcRenderer.invoke(
           'provider:validateKey',
           selectedProviderConfigId || selectedProvider,
           apiKey,
           { baseUrl: baseUrl.trim() || undefined }
-        ) as { valid: boolean; error?: string };
+        )) as { valid: boolean; error?: string };
 
         setKeyValid(result.valid);
 
@@ -847,24 +887,24 @@ function ProviderContent({
         setKeyValid(true);
       }
 
-      const effectiveModelId =
-        selectedProviderData?.defaultModelId ||
-        modelId.trim() ||
-        undefined;
+      const effectiveModelId = selectedProviderData?.defaultModelId || modelId.trim() || undefined;
 
       const providerIdForSave =
         selectedProvider === 'custom'
-          ? (selectedProviderConfigId?.startsWith('custom-')
+          ? selectedProviderConfigId?.startsWith('custom-')
             ? selectedProviderConfigId
-            : `custom-${crypto.randomUUID()}`)
+            : `custom-${crypto.randomUUID()}`
           : selectedProvider;
 
       // Save provider config + API key, then set as default
-      const saveResult = await window.electron.ipcRenderer.invoke(
+      const saveResult = (await window.electron.ipcRenderer.invoke(
         'provider:save',
         {
           id: providerIdForSave,
-          name: selectedProvider === 'custom' ? t('settings:aiProviders.custom') : (selectedProviderData?.name || selectedProvider),
+          name:
+            selectedProvider === 'custom'
+              ? t('settings:aiProviders.custom')
+              : selectedProviderData?.name || selectedProvider,
           type: selectedProvider,
           baseUrl: baseUrl.trim() || undefined,
           model: effectiveModelId,
@@ -873,16 +913,16 @@ function ProviderContent({
           updatedAt: new Date().toISOString(),
         },
         apiKey || undefined
-      ) as { success: boolean; error?: string };
+      )) as { success: boolean; error?: string };
 
       if (!saveResult.success) {
         throw new Error(saveResult.error || 'Failed to save provider config');
       }
 
-      const defaultResult = await window.electron.ipcRenderer.invoke(
+      const defaultResult = (await window.electron.ipcRenderer.invoke(
         'provider:setDefault',
         providerIdForSave
-      ) as { success: boolean; error?: string };
+      )) as { success: boolean; error?: string };
 
       if (!defaultResult.success) {
         throw new Error(defaultResult.error || 'Failed to set default provider');
@@ -902,9 +942,9 @@ function ProviderContent({
 
   // Can the user submit?
   const canSubmit =
-    selectedProvider
-    && (requiresKey ? apiKey.length > 0 : true)
-    && (showModelIdField ? modelId.trim().length > 0 : true);
+    selectedProvider &&
+    (requiresKey ? apiKey.length > 0 : true) &&
+    (showModelIdField ? modelId.trim().length > 0 : true);
 
   const handleSelectProvider = (providerId: string) => {
     onSelectProvider(providerId);
@@ -938,7 +978,10 @@ function ProviderContent({
                   <img
                     src={selectedProviderIconUrl}
                     alt={selectedProviderData.name}
-                    className={cn('h-4 w-4 shrink-0', shouldInvertInDark(selectedProviderData.id) && 'dark:invert')}
+                    className={cn(
+                      'h-4 w-4 shrink-0',
+                      shouldInvertInDark(selectedProviderData.id) && 'dark:invert'
+                    )}
                   />
                 ) : (
                   <span className="text-sm leading-none shrink-0">{selectedProviderData.icon}</span>
@@ -946,13 +989,20 @@ function ProviderContent({
               ) : (
                 <span className="text-xs text-muted-foreground shrink-0">—</span>
               )}
-              <span className={cn('truncate text-left', !selectedProvider && 'text-muted-foreground')}>
+              <span
+                className={cn('truncate text-left', !selectedProvider && 'text-muted-foreground')}
+              >
                 {selectedProviderData
                   ? `${selectedProviderData.id === 'custom' ? t('settings:aiProviders.custom') : selectedProviderData.name}${selectedProviderData.model ? ` — ${selectedProviderData.model}` : ''}`
                   : t('provider.selectPlaceholder')}
               </span>
             </div>
-            <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform', providerMenuOpen && 'rotate-180')} />
+            <ChevronDown
+              className={cn(
+                'h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform',
+                providerMenuOpen && 'rotate-180'
+              )}
+            />
           </button>
 
           {providerMenuOpen && (
@@ -982,12 +1032,18 @@ function ProviderContent({
                         <img
                           src={iconUrl}
                           alt={p.name}
-                          className={cn('h-4 w-4 shrink-0', shouldInvertInDark(p.id) && 'dark:invert')}
+                          className={cn(
+                            'h-4 w-4 shrink-0',
+                            shouldInvertInDark(p.id) && 'dark:invert'
+                          )}
                         />
                       ) : (
                         <span className="text-sm leading-none shrink-0">{p.icon}</span>
                       )}
-                      <span className="truncate">{p.id === 'custom' ? t('settings:aiProviders.custom') : p.name}{p.model ? ` — ${p.model}` : ''}</span>
+                      <span className="truncate">
+                        {p.id === 'custom' ? t('settings:aiProviders.custom') : p.name}
+                        {p.model ? ` — ${p.model}` : ''}
+                      </span>
                     </div>
                     {isSelected && <Check className="h-4 w-4 text-primary shrink-0" />}
                   </button>
@@ -1032,7 +1088,9 @@ function ProviderContent({
               <Input
                 id="modelId"
                 type="text"
-                placeholder={selectedProviderData?.modelIdPlaceholder || 'e.g. deepseek-ai/DeepSeek-V3'}
+                placeholder={
+                  selectedProviderData?.modelIdPlaceholder || 'e.g. deepseek-ai/DeepSeek-V3'
+                }
                 value={modelId}
                 onChange={(e) => {
                   setModelId(e.target.value);
@@ -1041,9 +1099,7 @@ function ProviderContent({
                 autoComplete="off"
                 className="bg-background border-input"
               />
-              <p className="text-xs text-muted-foreground">
-                {t('provider.modelIdDesc')}
-              </p>
+              <p className="text-xs text-muted-foreground">{t('provider.modelIdDesc')}</p>
             </div>
           )}
 
@@ -1082,9 +1138,7 @@ function ProviderContent({
             disabled={!canSubmit || validating}
             className="w-full"
           >
-            {validating ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : null}
+            {validating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
             {requiresKey ? t('provider.validateSave') : t('provider.save')}
           </Button>
 
@@ -1094,9 +1148,7 @@ function ProviderContent({
             </p>
           )}
 
-          <p className="text-sm text-muted-foreground text-center">
-            {t('provider.storedLocally')}
-          </p>
+          <p className="text-sm text-muted-foreground text-center">{t('provider.storedLocally')}</p>
         </motion.div>
       )}
     </div>
@@ -1122,10 +1174,10 @@ function SetupChannelContent() {
     (async () => {
       if (!selectedChannel) return;
       try {
-        const result = await window.electron.ipcRenderer.invoke(
+        const result = (await window.electron.ipcRenderer.invoke(
           'channel:getFormValues',
           selectedChannel
-        ) as { success: boolean; values?: Record<string, string> };
+        )) as { success: boolean; values?: Record<string, string> };
         if (cancelled) return;
         if (result.success && result.values) {
           setConfigValues(result.values);
@@ -1138,7 +1190,9 @@ function SetupChannelContent() {
         }
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [selectedChannel]);
 
   const isFormValid = () => {
@@ -1156,11 +1210,16 @@ function SetupChannelContent() {
 
     try {
       // Validate credentials first
-      const validation = await window.electron.ipcRenderer.invoke(
+      const validation = (await window.electron.ipcRenderer.invoke(
         'channel:validateCredentials',
         selectedChannel,
         configValues
-      ) as { success: boolean; valid?: boolean; errors?: string[]; details?: Record<string, string> };
+      )) as {
+        success: boolean;
+        valid?: boolean;
+        errors?: string[];
+        details?: Record<string, string>;
+      };
 
       if (!validation.valid) {
         setValidationError((validation.errors || ['Validation failed']).join(', '));
@@ -1169,9 +1228,13 @@ function SetupChannelContent() {
       }
 
       // Save config
-      await window.electron.ipcRenderer.invoke('channel:saveConfig', selectedChannel, { ...configValues });
+      await window.electron.ipcRenderer.invoke('channel:saveConfig', selectedChannel, {
+        ...configValues,
+      });
 
-      const botName = validation.details?.botUsername ? ` (@${validation.details.botUsername})` : '';
+      const botName = validation.details?.botUsername
+        ? ` (@${validation.details.botUsername})`
+        : '';
       toast.success(`${meta.name} configured${botName}`);
       setSaved(true);
     } catch (error) {
@@ -1189,9 +1252,7 @@ function SetupChannelContent() {
         <h2 className="text-xl font-semibold">
           {t('channel.connected', { name: meta?.name || 'Channel' })}
         </h2>
-        <p className="text-muted-foreground">
-          {t('channel.connectedDesc')}
-        </p>
+        <p className="text-muted-foreground">{t('channel.connectedDesc')}</p>
         <Button
           variant="ghost"
           className="text-muted-foreground"
@@ -1214,9 +1275,7 @@ function SetupChannelContent() {
         <div className="text-center mb-2">
           <div className="text-4xl mb-3">📡</div>
           <h2 className="text-xl font-semibold">{t('channel.title')}</h2>
-          <p className="text-muted-foreground text-sm mt-1">
-            {t('channel.subtitle')}
-          </p>
+          <p className="text-muted-foreground text-sm mt-1">{t('channel.subtitle')}</p>
         </div>
         <div className="grid grid-cols-2 gap-3">
           {primaryChannels.map((type) => {
@@ -1246,7 +1305,11 @@ function SetupChannelContent() {
     <div className="space-y-4">
       <div className="flex items-center gap-3 mb-2">
         <button
-          onClick={() => { setSelectedChannel(null); setConfigValues({}); setValidationError(null); }}
+          onClick={() => {
+            setSelectedChannel(null);
+            setConfigValues({});
+            setValidationError(null);
+          }}
           className="text-muted-foreground hover:text-foreground transition-colors"
         >
           <ChevronLeft className="h-5 w-5" />
@@ -1307,7 +1370,9 @@ function SetupChannelContent() {
                 type={isPassword && !showSecrets[field.key] ? 'password' : 'text'}
                 placeholder={field.placeholder ? t(field.placeholder) : undefined}
                 value={configValues[field.key] || ''}
-                onChange={(e) => setConfigValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                onChange={(e) =>
+                  setConfigValues((prev) => ({ ...prev, [field.key]: e.target.value }))
+                }
                 autoComplete="off"
                 className="font-mono text-sm bg-background border-input"
               />
@@ -1317,9 +1382,15 @@ function SetupChannelContent() {
                   variant="outline"
                   size="icon"
                   className="shrink-0"
-                  onClick={() => setShowSecrets((prev) => ({ ...prev, [field.key]: !prev[field.key] }))}
+                  onClick={() =>
+                    setShowSecrets((prev) => ({ ...prev, [field.key]: !prev[field.key] }))
+                  }
                 >
-                  {showSecrets[field.key] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showSecrets[field.key] ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </Button>
               )}
             </div>
@@ -1339,11 +1410,7 @@ function SetupChannelContent() {
       )}
 
       {/* Save button */}
-      <Button
-        className="w-full"
-        onClick={handleSave}
-        disabled={!isFormValid() || saving}
-      >
+      <Button className="w-full" onClick={handleSave} disabled={!isFormValid() || saving}>
         {saving ? (
           <>
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1395,28 +1462,28 @@ function InstallingContent({ skills, onComplete, onSkip }: InstallingContentProp
     const runRealInstall = async () => {
       try {
         // Step 1: Initialize all skills to 'installing' state for UI
-        setSkillStates(prev => prev.map(s => ({ ...s, status: 'installing' })));
+        setSkillStates((prev) => prev.map((s) => ({ ...s, status: 'installing' })));
         setOverallProgress(10);
 
         // Step 2: Call the backend to install uv and setup Python
-        const result = await window.electron.ipcRenderer.invoke('uv:install-all') as {
+        const result = (await window.electron.ipcRenderer.invoke('uv:install-all')) as {
           success: boolean;
-          error?: string
+          error?: string;
         };
 
         if (result.success) {
-          setSkillStates(prev => prev.map(s => ({ ...s, status: 'completed' })));
+          setSkillStates((prev) => prev.map((s) => ({ ...s, status: 'completed' })));
           setOverallProgress(100);
 
           await new Promise((resolve) => setTimeout(resolve, 800));
-          onComplete(skills.map(s => s.id));
+          onComplete(skills.map((s) => s.id));
         } else {
-          setSkillStates(prev => prev.map(s => ({ ...s, status: 'failed' })));
+          setSkillStates((prev) => prev.map((s) => ({ ...s, status: 'failed' })));
           setErrorMessage(result.error || 'Unknown error during installation');
           toast.error('Environment setup failed');
         }
       } catch (err) {
-        setSkillStates(prev => prev.map(s => ({ ...s, status: 'failed' })));
+        setSkillStates((prev) => prev.map((s) => ({ ...s, status: 'failed' })));
         setErrorMessage(String(err));
         toast.error('Installation error');
       }
@@ -1456,9 +1523,7 @@ function InstallingContent({ skills, onComplete, onSkip }: InstallingContentProp
       <div className="text-center">
         <div className="text-4xl mb-4">⚙️</div>
         <h2 className="text-xl font-semibold mb-2">{t('installing.title')}</h2>
-        <p className="text-muted-foreground">
-          {t('installing.subtitle')}
-        </p>
+        <p className="text-muted-foreground">{t('installing.subtitle')}</p>
       </div>
 
       {/* Progress bar */}
@@ -1528,16 +1593,10 @@ function InstallingContent({ skills, onComplete, onSkip }: InstallingContentProp
       )}
 
       {!errorMessage && (
-        <p className="text-sm text-slate-400 text-center">
-          {t('installing.wait')}
-        </p>
+        <p className="text-sm text-slate-400 text-center">{t('installing.wait')}</p>
       )}
       <div className="flex justify-end">
-        <Button
-          variant="ghost"
-          className="text-muted-foreground"
-          onClick={onSkip}
-        >
+        <Button variant="ghost" className="text-muted-foreground" onClick={onSkip}>
           {t('installing.skip')}
         </Button>
       </div>
@@ -1563,15 +1622,30 @@ function CompleteContent({ selectedProvider, installedSkills }: CompleteContentP
     <div className="text-center space-y-6">
       <div className="text-6xl mb-4">🎉</div>
       <h2 className="text-xl font-semibold">{t('complete.title')}</h2>
-      <p className="text-muted-foreground">
-        {t('complete.subtitle')}
-      </p>
+      <p className="text-muted-foreground">{t('complete.subtitle')}</p>
 
       <div className="space-y-3 text-left max-w-md mx-auto">
         <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
           <span>{t('complete.provider')}</span>
           <span className="text-green-400">
-            {providerData ? <span className="flex items-center gap-1.5">{getProviderIconUrl(providerData.id) ? <img src={getProviderIconUrl(providerData.id)} alt={providerData.name} className={`h-4 w-4 inline-block ${shouldInvertInDark(providerData.id) ? 'dark:invert' : ''}`} /> : providerData.icon} {providerData.id === 'custom' ? t('settings:aiProviders.custom') : providerData.name}</span> : '—'}
+            {providerData ? (
+              <span className="flex items-center gap-1.5">
+                {getProviderIconUrl(providerData.id) ? (
+                  <img
+                    src={getProviderIconUrl(providerData.id)}
+                    alt={providerData.name}
+                    className={`h-4 w-4 inline-block ${shouldInvertInDark(providerData.id) ? 'dark:invert' : ''}`}
+                  />
+                ) : (
+                  providerData.icon
+                )}{' '}
+                {providerData.id === 'custom'
+                  ? t('settings:aiProviders.custom')
+                  : providerData.name}
+              </span>
+            ) : (
+              '—'
+            )}
           </span>
         </div>
         <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
@@ -1582,15 +1656,15 @@ function CompleteContent({ selectedProvider, installedSkills }: CompleteContentP
         </div>
         <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
           <span>{t('complete.gateway')}</span>
-          <span className={gatewayStatus.state === 'running' ? 'text-green-400' : 'text-yellow-400'}>
+          <span
+            className={gatewayStatus.state === 'running' ? 'text-green-400' : 'text-yellow-400'}
+          >
             {gatewayStatus.state === 'running' ? `✓ ${t('complete.running')}` : gatewayStatus.state}
           </span>
         </div>
       </div>
 
-      <p className="text-sm text-muted-foreground">
-        {t('complete.footer')}
-      </p>
+      <p className="text-sm text-muted-foreground">{t('complete.footer')}</p>
     </div>
   );
 }

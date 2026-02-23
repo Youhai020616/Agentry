@@ -473,3 +473,81 @@
 .emp-card-working { animation: emp-working-border 2.5s ease-in-out infinite; }
 .emp-card-blocked { animation: emp-blocked-border 2s ease-in-out infinite; }
 .emp-card-error { animation: emp-error-border 2s ease-in-out infinite; }
+
+/* ── Liquid Glass Chat Input ──────────────────────────── */
+
+/* Gradient wrapper — same width as the glass input, contains the gradient behind it */
+.chat-glass-wrapper {
+  position: relative;
+}
+
+.chat-glass-wrapper::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  left: 8px;
+  right: 8px;
+  background:
+    radial-gradient(ellipse at 15% 50%, rgba(139, 92, 246, 0.18) 0%, transparent 45%),
+    radial-gradient(ellipse at 85% 50%, rgba(59, 130, 246, 0.14) 0%, transparent 45%),
+    radial-gradient(ellipse at 50% 90%, rgba(236, 72, 153, 0.10) 0%, transparent 45%);
+  border-radius: 1rem;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dark .chat-glass-wrapper::before {
+  background:
+    radial-gradient(ellipse at 15% 50%, rgba(139, 92, 246, 0.14) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 50%, rgba(59, 130, 246, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 90%, rgba(236, 72, 153, 0.08) 0%, transparent 50%);
+}
+
+/* The frosted glass panel */
+.chat-glass-input {
+  position: relative;
+  z-index: 1;
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(40px) saturate(1.8);
+  -webkit-backdrop-filter: blur(40px) saturate(1.8);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.chat-glass-input:focus-within {
+  border-color: rgba(139, 92, 246, 0.3);
+  box-shadow: 0 4px 24px rgba(139, 92, 246, 0.1);
+}
+
+.dark .chat-glass-input {
+  background: rgba(30, 31, 34, 0.45);
+  backdrop-filter: blur(40px) saturate(1.4);
+  -webkit-backdrop-filter: blur(40px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    0 2px 8px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.dark .chat-glass-input:focus-within {
+  border-color: rgba(139, 92, 246, 0.25);
+  box-shadow:
+    0 8px 32px rgba(139, 92, 246, 0.1),
+    0 2px 8px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.02);
+}
+
+/* Liquid Glass background animation */
+@keyframes moveBackground {
+  from {
+    background-position: 0% 0%;
+  }
+  to {
+    background-position: 0% -1000%;
+  }
+}

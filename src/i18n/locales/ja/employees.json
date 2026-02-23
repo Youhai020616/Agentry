@@ -42,6 +42,18 @@
     "backToHub": "従業員一覧に戻る",
     "activating": "従業員を起動中..."
   },
+  "settings": {
+    "title": "{{name}} の設定",
+    "modelTab": "AI モデル",
+    "modelDescription": "この従業員を駆動する AI モデルを選択してください。ツール呼び出し機能が必要な従業員（自動化操作など）には「ツール」バッジ付きのモデルを選択してください。未選択の場合はグローバルデフォルトモデルが使用されます。",
+    "currentModel": "現在のモデル：",
+    "usingDefault": "グローバルデフォルトモデルを使用中",
+    "useDefault": "選択をクリア（デフォルトモデルを使用）",
+    "modelsCount": "モデル",
+    "saveModel": "モデルを保存",
+    "modelSaved": "モデルを保存しました",
+    "restartHint": "モデル切り替え後、変更を反映するには従業員を再アクティベートしてください。"
+  },
   "secrets": {
     "title": "ツール設定",
     "description": "{{name}} のツール用 API キーとシークレットを設定",
@@ -91,7 +103,23 @@
         "installTitle": "インストールと起動方法",
         "step1": "GitHub からダウンロード",
         "step2": "インストールして起動",
-        "skipNote": "このステップをスキップして、後で Camofox を設定できます。Camofox が実行されるまで、従業員はタスクを実行できません。"
+        "skipNote": "このステップをスキップして、後で Camofox を設定できます。Camofox が実行されるまで、従業員はタスクを実行できません。",
+        "detecting": "Camofox のインストールを検出中...",
+        "detected": "Camofox が見つかりました：{{path}}",
+        "notDetected": "システムに Camofox が検出されませんでした",
+        "detectBtn": "インストールを検出",
+        "redetectBtn": "再検出",
+        "installingDeps": "依存関係をインストール中...",
+        "installDepsBtn": "依存関係をインストール",
+        "depsInstalled": "依存関係インストール済み",
+        "depsNeeded": "依存関係のインストールが必要です",
+        "depsFailed": "依存関係のインストールに失敗しました：{{error}}",
+        "starting": "Camofox を起動中...",
+        "startBtn": "Camofox を起動",
+        "startSuccess": "Camofox が正常に起動しました",
+        "startFailed": "Camofox の起動に失敗しました：{{error}}",
+        "downloadFirst": "まず Camofox をダウンロードしてから「インストールを検出」をクリックしてください。",
+        "autoDetected": "自動検出済み"
       },
       "login": {
         "subtitle": "アカウントログイン",

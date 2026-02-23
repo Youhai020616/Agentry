@@ -42,6 +42,18 @@
     "backToHub": "Back to Employee Hub",
     "activating": "Activating employee..."
   },
+  "settings": {
+    "title": "{{name}} Settings",
+    "modelTab": "AI Model",
+    "modelDescription": "Choose the AI model that powers this employee. For employees that need tool-calling capabilities (e.g. automation), select a model with the \"Tool\" badge. Leave empty to use the global default model.",
+    "currentModel": "Current model: ",
+    "usingDefault": "Using global default model",
+    "useDefault": "Clear selection (use default model)",
+    "modelsCount": "models",
+    "saveModel": "Save Model",
+    "modelSaved": "Model saved",
+    "restartHint": "Re-activate the employee after switching models for changes to take effect."
+  },
   "secrets": {
     "title": "Tool Configuration",
     "description": "Configure API keys and secrets for {{name}}'s tools",
@@ -91,7 +103,23 @@
         "installTitle": "How to install and start",
         "step1": "Download from GitHub",
         "step2": "Install and start",
-        "skipNote": "You can skip this step and set up Camofox later. The employee won't be able to execute tasks until Camofox is running."
+        "skipNote": "You can skip this step and set up Camofox later. The employee won't be able to execute tasks until Camofox is running.",
+        "detecting": "Detecting Camofox installation...",
+        "detected": "Camofox found at: {{path}}",
+        "notDetected": "Camofox not detected on your system",
+        "detectBtn": "Detect Installation",
+        "redetectBtn": "Re-detect",
+        "installingDeps": "Installing dependencies...",
+        "installDepsBtn": "Install Dependencies",
+        "depsInstalled": "Dependencies installed",
+        "depsNeeded": "Dependencies need to be installed",
+        "depsFailed": "Dependency installation failed: {{error}}",
+        "starting": "Starting Camofox...",
+        "startBtn": "Start Camofox",
+        "startSuccess": "Camofox started successfully",
+        "startFailed": "Failed to start Camofox: {{error}}",
+        "downloadFirst": "Please download Camofox first, then click \"Detect Installation\".",
+        "autoDetected": "Auto-detected"
       },
       "login": {
         "subtitle": "Account login",

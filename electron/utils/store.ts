@@ -13,7 +13,7 @@ let settingsStoreInstance: any = null;
  * Generate a random token for gateway authentication
  */
 function generateToken(): string {
-  return `clawx-${randomBytes(16).toString('hex')}`;
+  return `pocketcrow-${randomBytes(16).toString('hex')}`;
 }
 
 /**
@@ -25,22 +25,22 @@ export interface AppSettings {
   language: string;
   startMinimized: boolean;
   launchAtStartup: boolean;
-  
+
   // Gateway
   gatewayAutoStart: boolean;
   gatewayPort: number;
   gatewayToken: string;
-  
+
   // Update
   updateChannel: 'stable' | 'beta' | 'dev';
   autoCheckUpdate: boolean;
   autoDownloadUpdate: boolean;
   skippedVersions: string[];
-  
+
   // UI State
   sidebarCollapsed: boolean;
   devModeUnlocked: boolean;
-  
+
   // Presets
   selectedBundles: string[];
   enabledSkills: string[];
@@ -56,22 +56,22 @@ const defaults: AppSettings = {
   language: 'en',
   startMinimized: false,
   launchAtStartup: false,
-  
+
   // Gateway
   gatewayAutoStart: true,
   gatewayPort: 18789,
   gatewayToken: generateToken(),
-  
+
   // Update
   updateChannel: 'stable',
   autoCheckUpdate: true,
   autoDownloadUpdate: false,
   skippedVersions: [],
-  
+
   // UI State
   sidebarCollapsed: false,
   devModeUnlocked: false,
-  
+
   // Presets
   selectedBundles: ['productivity', 'developer'],
   enabledSkills: [],

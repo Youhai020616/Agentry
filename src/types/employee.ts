@@ -53,6 +53,8 @@ export interface Employee {
   config: Record<string, unknown>;
   /** Per-employee secret keys (e.g., API keys for tools) */
   secrets?: Record<string, string>;
+  /** Per-employee model override (e.g., "anthropic/claude-3.5-haiku"). When set, this model is used instead of the global default. */
+  modelOverride?: string;
 
   createdAt: number;
   updatedAt: number;

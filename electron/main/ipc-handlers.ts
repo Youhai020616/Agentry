@@ -157,6 +157,7 @@ export function registerIpcHandlers(
   registerOllamaHandlers(mainWindow);
   registerOnboardingHandlers(mainWindow, employeeManager);
   registerSupervisorHandlers(engine, gatewayManager, mainWindow);
+  registerConversationHandlers();
 
   // Note: task:changed event forwarding happens lazily when Phase 1 initializes.
   // The task-changed listener is set up inside registerTaskHandlers via getLazy().
@@ -270,7 +271,7 @@ function transformCronJob(job: GatewayCronJob) {
  * These handlers bridge the two formats.
  *
  * Employee assignment (assignedEmployeeId) is stored locally since the
- * Gateway has no concept of ClawX employees. A lazily-initialized
+ * Gateway has no concept of PocketCrow employees. A lazily-initialized
  * electron-store persists the cronJobId → employeeId mapping.
  */
 
@@ -291,10 +292,7 @@ async function getCronEmployeeStore(): Promise<{
   return cronEmployeeStoreInstance;
 }
 
-function registerCronHandlers(
-  gatewayManager: GatewayManager,
-  engine: EngineContext | null,
-): void {
+function registerCronHandlers(gatewayManager: GatewayManager, engine: EngineContext | null): void {
   // List all cron jobs — transforms Gateway CronJob format to frontend CronJob format
   ipcMain.handle('cron:list', async () => {
     try {
@@ -361,12 +359,8 @@ function registerCronHandlers(
           // Persist employee assignment locally
           if (input.assignedEmployeeId) {
             const assignmentStore = await getCronEmployeeStore();
-            assignmentStore.set(
-              (result as GatewayCronJob).id,
-              input.assignedEmployeeId,
-            );
-            (transformed as Record<string, unknown>).assignedEmployeeId =
-              input.assignedEmployeeId;
+            assignmentStore.set((result as GatewayCronJob).id, input.assignedEmployeeId);
+            (transformed as Record<string, unknown>).assignedEmployeeId = input.assignedEmployeeId;
           }
           return transformed;
         }
@@ -472,9 +466,7 @@ function registerCronHandlers(
             assignedBy: 'user',
             priority: 'medium',
           });
-          logger.info(
-            `Cron trigger created task for employee ${assignedEmployeeId} (cron: ${id})`,
-          );
+          logger.info(`Cron trigger created task for employee ${assignedEmployeeId} (cron: ${id})`);
         }
       } catch (taskErr) {
         logger.warn(`Failed to create task from cron trigger: ${taskErr}`);
@@ -1189,7 +1181,7 @@ function registerProviderHandlers(): void {
         // This ensures Setup/Settings validation reflects unsaved edits immediately.
         const resolvedBaseUrl = options?.baseUrl || provider?.baseUrl || registryBaseUrl;
 
-        console.log(`[clawx-validate] validating provider type: ${providerType}`);
+        console.log(`[pocketcrow-validate] validating provider type: ${providerType}`);
         return await validateApiKeyWithProvider(providerType, apiKey, { baseUrl: resolvedBaseUrl });
       } catch (error) {
         console.error('Validation error:', error);
@@ -1251,7 +1243,7 @@ async function validateApiKeyWithProvider(
 }
 
 function logValidationStatus(provider: string, status: number): void {
-  console.log(`[clawx-validate] ${provider} HTTP ${status}`);
+  console.log(`[pocketcrow-validate] ${provider} HTTP ${status}`);
 }
 
 function maskSecret(secret: string): string {
@@ -1298,7 +1290,7 @@ function logValidationRequest(
   headers: Record<string, string>
 ): void {
   console.log(
-    `[clawx-validate] ${provider} request ${method} ${sanitizeValidationUrl(url)} headers=${JSON.stringify(sanitizeHeaders(headers))}`
+    `[pocketcrow-validate] ${provider} request ${method} ${sanitizeValidationUrl(url)} headers=${JSON.stringify(sanitizeHeaders(headers))}`
   );
 }
 
@@ -1376,7 +1368,7 @@ async function validateOpenAiCompatibleKey(
   // Fall back to a minimal /chat/completions POST which almost all providers support.
   if (modelsResult.error?.includes('API error: 404')) {
     console.log(
-      `[clawx-validate] ${providerType} /models returned 404, falling back to /chat/completions probe`
+      `[pocketcrow-validate] ${providerType} /models returned 404, falling back to /chat/completions probe`
     );
     const base = normalizeBaseUrl(trimmedBaseUrl);
     const chatUrl = `${base}/chat/completions`;
@@ -1908,6 +1900,47 @@ function registerEmployeeHandlers(employeeManager: EmployeeManager): void {
       return { success: false, error: String(error) };
     }
   });
+
+  // employee:setModel — Save per-employee model override
+  ipcMain.handle('employee:setModel', async (_event, employeeId: string, modelId: string) => {
+    try {
+      const store = await getEmployeeSecretsStore();
+      if (modelId) {
+        store.set(`employee-models.${employeeId}`, modelId);
+        logger.info(`Set model override for employee ${employeeId}: ${modelId}`);
+
+        // Also update the OpenClaw config so the gateway uses this model
+        try {
+          // Determine provider from model ID (e.g. "anthropic/claude-3.5-haiku" → "openrouter")
+          // Since user is using OpenRouter, we set the model via openrouter provider
+          setOpenClawDefaultModel('openrouter', `openrouter/${modelId}`);
+          logger.info(`Updated OpenClaw default model to openrouter/${modelId}`);
+        } catch (err) {
+          logger.warn(`Failed to update OpenClaw config for model ${modelId}:`, err);
+        }
+      } else {
+        // Clear the override — revert to global default
+        store.set(`employee-models.${employeeId}`, '');
+        logger.info(`Cleared model override for employee ${employeeId}`);
+      }
+      return { success: true };
+    } catch (error) {
+      logger.error('employee:setModel failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // employee:getModel — Get per-employee model override
+  ipcMain.handle('employee:getModel', async (_event, employeeId: string) => {
+    try {
+      const store = await getEmployeeSecretsStore();
+      const modelId = (store.get(`employee-models.${employeeId}`) ?? '') as string;
+      return { success: true, result: modelId };
+    } catch (error) {
+      logger.error('employee:getModel failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -2000,7 +2033,10 @@ function registerTaskHandlers(engine: EngineContext | null, gatewayManager: Gate
   ipcMain.handle('task:update', async (_, id: string, changes: unknown) => {
     try {
       const lazy = await getLazy();
-      const task = lazy.taskQueue.update(id, changes as Parameters<typeof lazy.taskQueue.update>[1]);
+      const task = lazy.taskQueue.update(
+        id,
+        changes as Parameters<typeof lazy.taskQueue.update>[1]
+      );
       return { success: true, result: task };
     } catch (error) {
       return { success: false, error: String(error) };
@@ -2017,15 +2053,18 @@ function registerTaskHandlers(engine: EngineContext | null, gatewayManager: Gate
     }
   });
 
-  ipcMain.handle('task:complete', async (_, taskId: string, output: string, outputFiles?: string[]) => {
-    try {
-      const lazy = await getLazy();
-      const task = lazy.taskQueue.complete(taskId, output, outputFiles);
-      return { success: true, result: task };
-    } catch (error) {
-      return { success: false, error: String(error) };
+  ipcMain.handle(
+    'task:complete',
+    async (_, taskId: string, output: string, outputFiles?: string[]) => {
+      try {
+        const lazy = await getLazy();
+        const task = lazy.taskQueue.complete(taskId, output, outputFiles);
+        return { success: true, result: task };
+      } catch (error) {
+        return { success: false, error: String(error) };
+      }
     }
-  });
+  );
 
   ipcMain.handle('task:cancel', async (_, taskId: string) => {
     try {
@@ -2061,7 +2100,10 @@ function registerTaskHandlers(engine: EngineContext | null, gatewayManager: Gate
 
 // ── Project Handlers ──────────────────────────────────────────────
 
-function registerProjectHandlers(engine: EngineContext | null, gatewayManager: GatewayManager): void {
+function registerProjectHandlers(
+  engine: EngineContext | null,
+  gatewayManager: GatewayManager
+): void {
   const getLazy = async () => {
     if (!engine) throw new Error('Engine not initialized');
     return engine.getLazy(gatewayManager);
@@ -2071,7 +2113,7 @@ function registerProjectHandlers(engine: EngineContext | null, gatewayManager: G
     try {
       const lazy = await getLazy();
       const project = lazy.taskQueue.createProject(
-        input as Parameters<typeof lazy.taskQueue.createProject>[0],
+        input as Parameters<typeof lazy.taskQueue.createProject>[0]
       );
       return { success: true, result: project };
     } catch (error) {
@@ -2112,7 +2154,10 @@ function registerProjectHandlers(engine: EngineContext | null, gatewayManager: G
 
 // ── Message Handlers ──────────────────────────────────────────────
 
-function registerMessageHandlers(engine: EngineContext | null, gatewayManager: GatewayManager): void {
+function registerMessageHandlers(
+  engine: EngineContext | null,
+  gatewayManager: GatewayManager
+): void {
   const getLazy = async () => {
     if (!engine) throw new Error('Engine not initialized');
     return engine.getLazy(gatewayManager);
@@ -2151,7 +2196,10 @@ function registerMessageHandlers(engine: EngineContext | null, gatewayManager: G
 
 // ── Execution Handlers ──────────────────────────────────────────────
 
-function registerExecutionHandlers(engine: EngineContext | null, gatewayManager: GatewayManager): void {
+function registerExecutionHandlers(
+  engine: EngineContext | null,
+  gatewayManager: GatewayManager
+): void {
   const getLazy = async () => {
     if (!engine) throw new Error('Engine not initialized');
     return engine.getLazy(gatewayManager);
@@ -2230,7 +2278,7 @@ function registerCreditsHandlers(engine: EngineContext | null): void {
         description: string;
         employeeId?: string;
         taskId?: string;
-      },
+      }
     ) => {
       try {
         if (!engine?.creditsEngine) {
@@ -2241,7 +2289,7 @@ function registerCreditsHandlers(engine: EngineContext | null): void {
           params.amount,
           params.description,
           params.employeeId,
-          params.taskId,
+          params.taskId
         );
         if (!ok) {
           return { success: false, error: 'Insufficient credits' };
@@ -2251,7 +2299,7 @@ function registerCreditsHandlers(engine: EngineContext | null): void {
         logger.error('credits:consume failed:', error);
         return { success: false, error: String(error) };
       }
-    },
+    }
   );
 
   ipcMain.handle(
@@ -2267,7 +2315,7 @@ function registerCreditsHandlers(engine: EngineContext | null): void {
         logger.error('credits:topup failed:', error);
         return { success: false, error: String(error) };
       }
-    },
+    }
   );
 
   ipcMain.handle('credits:dailySummary', async (_event, days?: number) => {
@@ -2303,7 +2351,7 @@ function registerCreditsHandlers(engine: EngineContext | null): void {
       }
       const transactions = engine.creditsEngine.getHistoryByType(
         type as Parameters<typeof engine.creditsEngine.getHistoryByType>[0],
-        limit,
+        limit
       );
       return { success: true, result: transactions };
     } catch (error) {
@@ -2341,24 +2389,24 @@ function registerActivityHandlers(
     return _aggregator;
   };
 
-  ipcMain.handle(
-    'activity:list',
-    async (_event, params?: { limit?: number; before?: number }) => {
-      try {
-        const aggregator = await getAggregator();
-        const events = aggregator.list(params?.limit ?? 50, params?.before);
-        return { success: true, result: events };
-      } catch (error) {
-        logger.error('activity:list failed:', error);
-        return { success: false, error: String(error) };
-      }
+  ipcMain.handle('activity:list', async (_event, params?: { limit?: number; before?: number }) => {
+    try {
+      const aggregator = await getAggregator();
+      const events = aggregator.list(params?.limit ?? 50, params?.before);
+      return { success: true, result: events };
+    } catch (error) {
+      logger.error('activity:list failed:', error);
+      return { success: false, error: String(error) };
     }
-  );
+  });
 }
 
 // ── Memory Handlers ─────────────────────────────────────────────────
 
-function registerMemoryHandlers(engine: EngineContext | null, gatewayManager: GatewayManager): void {
+function registerMemoryHandlers(
+  engine: EngineContext | null,
+  gatewayManager: GatewayManager
+): void {
   const getLazy = async () => {
     if (!engine) throw new Error('Engine not initialized');
     return engine.getLazy(gatewayManager);
@@ -2501,7 +2549,10 @@ function registerMemoryHandlers(engine: EngineContext | null, gatewayManager: Ga
 
 // ── Prohibition Handlers ────────────────────────────────────────────
 
-function registerProhibitionHandlers(engine: EngineContext | null, gatewayManager: GatewayManager): void {
+function registerProhibitionHandlers(
+  engine: EngineContext | null,
+  gatewayManager: GatewayManager
+): void {
   const getLazy = async () => {
     if (!engine) throw new Error('Engine not initialized');
     return engine.getLazy(gatewayManager);
@@ -2561,7 +2612,10 @@ function registerProhibitionHandlers(engine: EngineContext | null, gatewayManage
     ) => {
       try {
         const lazy = await getLazy();
-        lazy.prohibitionEngine.update(id, updates as Parameters<typeof lazy.prohibitionEngine.update>[1]);
+        lazy.prohibitionEngine.update(
+          id,
+          updates as Parameters<typeof lazy.prohibitionEngine.update>[1]
+        );
         return { success: true };
       } catch (error) {
         logger.error('prohibition:update failed:', error);
@@ -2769,10 +2823,7 @@ function registerUserHandlers(): void {
   // user:create — create a new user
   ipcMain.handle(
     'user:create',
-    async (
-      _event,
-      input: { name: string; email?: string; role?: string; avatar?: string }
-    ) => {
+    async (_event, input: { name: string; email?: string; role?: string; avatar?: string }) => {
       try {
         const user = userManager.create(input as Parameters<typeof userManager.create>[0]);
         return { success: true, result: user };
@@ -2845,7 +2896,10 @@ function registerUserHandlers(): void {
 
 const browserLoginManager = new BrowserLoginManager();
 
-function registerOnboardingHandlers(mainWindow: BrowserWindow, employeeManager: EmployeeManager): void {
+function registerOnboardingHandlers(
+  mainWindow: BrowserWindow,
+  employeeManager: EmployeeManager
+): void {
   // onboarding:browserLogin — Open a BrowserWindow for the user to log in
   ipcMain.handle(
     'onboarding:browserLogin',
@@ -2918,21 +2972,18 @@ function registerOnboardingHandlers(mainWindow: BrowserWindow, employeeManager: 
   });
 
   // camofox:health — Check if Camofox is running
-  ipcMain.handle(
-    'camofox:health',
-    async (_event, params?: { port?: number; apiKey?: string }) => {
-      try {
-        const client = new CamofoxClient({
-          port: params?.port ?? 9377,
-          apiKey: params?.apiKey ?? 'pocketai',
-        });
-        const healthy = await client.health();
-        return { success: true, result: healthy };
-      } catch (error) {
-        return { success: false, error: String(error) };
-      }
+  ipcMain.handle('camofox:health', async (_event, params?: { port?: number; apiKey?: string }) => {
+    try {
+      const client = new CamofoxClient({
+        port: params?.port ?? 9377,
+        apiKey: params?.apiKey ?? 'pocketai',
+      });
+      const healthy = await client.health();
+      return { success: true, result: healthy };
+    } catch (error) {
+      return { success: false, error: String(error) };
     }
-  );
+  });
 
   // camofox:pushCookies — Push cookies to a Camofox session
   ipcMain.handle(
@@ -2954,6 +3005,65 @@ function registerOnboardingHandlers(mainWindow: BrowserWindow, employeeManager: 
       }
     }
   );
+
+  // camofox:detect — Detect if Camofox is installed on the system
+  ipcMain.handle('camofox:detect', async () => {
+    try {
+      const { getCamofoxLauncher } = await import('../engine/camofox-launcher');
+      const launcher = getCamofoxLauncher();
+      const result = launcher.detect();
+      return { success: true, result };
+    } catch (error) {
+      logger.error('camofox:detect failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // camofox:installDeps — Install npm dependencies in the Camofox directory
+  ipcMain.handle('camofox:installDeps', async (_event, params?: { path?: string }) => {
+    try {
+      const { getCamofoxLauncher } = await import('../engine/camofox-launcher');
+      const launcher = getCamofoxLauncher();
+      const result = await launcher.installDeps(params?.path);
+      return { success: true, result };
+    } catch (error) {
+      logger.error('camofox:installDeps failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // camofox:start — Start the Camofox server process
+  ipcMain.handle(
+    'camofox:start',
+    async (_event, params?: { port?: number; apiKey?: string; path?: string }) => {
+      try {
+        const { getCamofoxLauncher } = await import('../engine/camofox-launcher');
+        const launcher = getCamofoxLauncher();
+        const result = await launcher.start(
+          params?.port ?? 9377,
+          params?.apiKey ?? 'pocketai',
+          params?.path
+        );
+        return { success: true, result };
+      } catch (error) {
+        logger.error('camofox:start failed:', error);
+        return { success: false, error: String(error) };
+      }
+    }
+  );
+
+  // camofox:stop — Stop the managed Camofox process
+  ipcMain.handle('camofox:stop', async () => {
+    try {
+      const { getCamofoxLauncher } = await import('../engine/camofox-launcher');
+      const launcher = getCamofoxLauncher();
+      const result = launcher.stop();
+      return { success: true, result };
+    } catch (error) {
+      logger.error('camofox:stop failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
 }
 
 // ── Supervisor Handlers ──────────────────────────────────────────────
@@ -3063,4 +3173,232 @@ function registerSupervisorHandlers(
       }
     }
   );
+}
+
+// ---------------------------------------------------------------------------
+// Conversation (Chat History) Handlers
+// ---------------------------------------------------------------------------
+
+/** Lazy-loaded electron-store for conversation persistence */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _conversationStore: any = null;
+
+interface ConversationRecord {
+  id: string;
+  title: string;
+  sessionKey: string;
+  participantType: 'supervisor' | 'employee';
+  employeeId?: string;
+  employeeName?: string;
+  employeeAvatar?: string;
+  createdAt: number;
+  updatedAt: number;
+  lastMessagePreview?: string;
+  messageCount: number;
+  pinned: boolean;
+  archived: boolean;
+}
+
+async function getConversationStore() {
+  if (!_conversationStore) {
+    const ElectronStore = (await import('electron-store')).default;
+    _conversationStore = new ElectronStore<{ conversations: ConversationRecord[] }>({
+      name: 'clawx-conversations',
+      defaults: {
+        conversations: [],
+      },
+    });
+  }
+  return _conversationStore;
+}
+
+function registerConversationHandlers(): void {
+  // conversation:listAll — get all conversations (raw, for the renderer to filter)
+  ipcMain.handle('conversation:listAll', async () => {
+    try {
+      const store = await getConversationStore();
+      const conversations: ConversationRecord[] = store.get('conversations', []);
+      return { success: true, result: conversations };
+    } catch (error) {
+      logger.error('conversation:listAll failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // conversation:list — get conversations with optional filter
+  ipcMain.handle(
+    'conversation:list',
+    async (
+      _,
+      filter?: {
+        participantType?: string;
+        employeeId?: string;
+        includeArchived?: boolean;
+        search?: string;
+        limit?: number;
+      }
+    ) => {
+      try {
+        const store = await getConversationStore();
+        let conversations: ConversationRecord[] = store.get('conversations', []);
+
+        if (filter) {
+          if (filter.participantType) {
+            conversations = conversations.filter(
+              (c) => c.participantType === filter.participantType
+            );
+          }
+          if (filter.employeeId) {
+            conversations = conversations.filter((c) => c.employeeId === filter.employeeId);
+          }
+          if (!filter.includeArchived) {
+            conversations = conversations.filter((c) => !c.archived);
+          }
+          if (filter.search) {
+            const q = filter.search.toLowerCase();
+            conversations = conversations.filter(
+              (c) =>
+                c.title.toLowerCase().includes(q) ||
+                (c.lastMessagePreview && c.lastMessagePreview.toLowerCase().includes(q)) ||
+                (c.employeeName && c.employeeName.toLowerCase().includes(q))
+            );
+          }
+          if (filter.limit && filter.limit > 0) {
+            conversations = conversations.slice(0, filter.limit);
+          }
+        } else {
+          conversations = conversations.filter((c) => !c.archived);
+        }
+
+        // Sort: pinned first, then by updatedAt desc
+        conversations.sort((a, b) => {
+          if (a.pinned && !b.pinned) return -1;
+          if (!a.pinned && b.pinned) return 1;
+          return b.updatedAt - a.updatedAt;
+        });
+
+        return { success: true, result: conversations };
+      } catch (error) {
+        logger.error('conversation:list failed:', error);
+        return { success: false, error: String(error) };
+      }
+    }
+  );
+
+  // conversation:get — get a single conversation by ID
+  ipcMain.handle('conversation:get', async (_, id: string) => {
+    try {
+      const store = await getConversationStore();
+      const conversations: ConversationRecord[] = store.get('conversations', []);
+      const conversation = conversations.find((c) => c.id === id);
+      if (!conversation) {
+        return { success: false, error: `Conversation not found: ${id}` };
+      }
+      return { success: true, result: conversation };
+    } catch (error) {
+      logger.error('conversation:get failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // conversation:create — create a new conversation record
+  ipcMain.handle(
+    'conversation:create',
+    async (
+      _,
+      input: {
+        title?: string;
+        sessionKey: string;
+        participantType: 'supervisor' | 'employee';
+        employeeId?: string;
+        employeeName?: string;
+        employeeAvatar?: string;
+      }
+    ) => {
+      try {
+        const store = await getConversationStore();
+        const conversations: ConversationRecord[] = store.get('conversations', []);
+
+        const now = Date.now();
+        const record: ConversationRecord = {
+          id: crypto.randomUUID(),
+          title: input.title || 'New Chat',
+          sessionKey: input.sessionKey,
+          participantType: input.participantType,
+          employeeId: input.employeeId,
+          employeeName: input.employeeName,
+          employeeAvatar: input.employeeAvatar,
+          createdAt: now,
+          updatedAt: now,
+          messageCount: 0,
+          pinned: false,
+          archived: false,
+        };
+
+        conversations.unshift(record);
+        store.set('conversations', conversations);
+
+        logger.info(`Conversation created: ${record.id} (${record.title})`);
+        return { success: true, result: record };
+      } catch (error) {
+        logger.error('conversation:create failed:', error);
+        return { success: false, error: String(error) };
+      }
+    }
+  );
+
+  // conversation:update — update conversation metadata
+  ipcMain.handle(
+    'conversation:update',
+    async (
+      _,
+      params: {
+        id: string;
+        updates: {
+          title?: string;
+          lastMessagePreview?: string;
+          messageCount?: number;
+          pinned?: boolean;
+          archived?: boolean;
+        };
+      }
+    ) => {
+      try {
+        const store = await getConversationStore();
+        const conversations: ConversationRecord[] = store.get('conversations', []);
+        const idx = conversations.findIndex((c) => c.id === params.id);
+        if (idx === -1) {
+          return { success: false, error: `Conversation not found: ${params.id}` };
+        }
+
+        conversations[idx] = {
+          ...conversations[idx],
+          ...params.updates,
+          updatedAt: Date.now(),
+        };
+        store.set('conversations', conversations);
+
+        return { success: true, result: conversations[idx] };
+      } catch (error) {
+        logger.error('conversation:update failed:', error);
+        return { success: false, error: String(error) };
+      }
+    }
+  );
+
+  // conversation:delete — permanently delete a conversation
+  ipcMain.handle('conversation:delete', async (_, id: string) => {
+    try {
+      const store = await getConversationStore();
+      const conversations: ConversationRecord[] = store.get('conversations', []);
+      const filtered = conversations.filter((c) => c.id !== id);
+      store.set('conversations', filtered);
+
+      logger.info(`Conversation deleted: ${id}`);
+      return { success: true };
+    } catch (error) {
+      logger.error('conversation:delete failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
 }

@@ -21,5 +21,5 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`ClawX Cloud API listening on port ${PORT}`);
+  console.log(`PocketCrow Cloud API listening on port ${PORT}`);
 });

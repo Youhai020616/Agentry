@@ -1,5 +1,5 @@
 {
-  "name": "clawx",
+  "name": "pocketcrow",
   "version": "0.1.13",
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -12,9 +12,9 @@
       "sharp"
     ]
   },
-  "description": "ClawX - Graphical AI Assistant based on OpenClaw",
+  "description": "PocketCrow - Graphical AI Assistant based on OpenClaw",
   "main": "dist-electron/main/index.js",
-  "author": "ClawX Team",
+  "author": "PocketCrow Team",
   "license": "MIT",
   "private": true,
   "scripts": {

@@ -137,6 +137,8 @@ const electronAPI = {
         'employee:setSecret',
         'employee:getSecrets',
         'employee:getManifest',
+        'employee:setModel',
+        'employee:getModel',
         // Task
         'task:create',
         'task:list',
@@ -166,6 +168,10 @@ const electronAPI = {
         // Camofox
         'camofox:health',
         'camofox:pushCookies',
+        'camofox:detect',
+        'camofox:installDeps',
+        'camofox:start',
+        'camofox:stop',
         // Execution
         'execution:run',
         'execution:cancel',
@@ -220,6 +226,13 @@ const electronAPI = {
         'supervisor:disable',
         'supervisor:status',
         'supervisor:dispatch',
+        // Conversations (chat history persistence)
+        'conversation:list',
+        'conversation:create',
+        'conversation:update',
+        'conversation:delete',
+        'conversation:get',
+        'conversation:listAll',
       ];
 
       if (validChannels.includes(channel)) {

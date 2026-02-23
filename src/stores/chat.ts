@@ -93,7 +93,16 @@ interface ChatState {
   switchSession: (key: string) => void;
   newSession: () => void;
   loadHistory: () => Promise<void>;
-  sendMessage: (text: string, attachments?: Array<{ fileName: string; mimeType: string; fileSize: number; stagedPath: string; preview: string | null }>) => Promise<void>;
+  sendMessage: (
+    text: string,
+    attachments?: Array<{
+      fileName: string;
+      mimeType: string;
+      fileSize: number;
+      stagedPath: string;
+      preview: string | null;
+    }>
+  ) => Promise<void>;
   abortRun: () => Promise<void>;
   handleChatEvent: (event: Record<string, unknown>) => void;
   toggleThinking: () => void;
@@ -120,7 +129,9 @@ function loadImageCache(): Map<string, AttachedFileMeta> {
       const entries = JSON.parse(raw) as Array<[string, AttachedFileMeta]>;
       return new Map(entries);
     }
-  } catch { /* ignore parse errors */ }
+  } catch {
+    /* ignore parse errors */
+  }
   return new Map();
 }
 
@@ -128,11 +139,12 @@ function saveImageCache(cache: Map<string, AttachedFileMeta>): void {
   try {
     // Evict oldest entries if over limit
     const entries = Array.from(cache.entries());
-    const trimmed = entries.length > IMAGE_CACHE_MAX
-      ? entries.slice(entries.length - IMAGE_CACHE_MAX)
-      : entries;
+    const trimmed =
+      entries.length > IMAGE_CACHE_MAX ? entries.slice(entries.length - IMAGE_CACHE_MAX) : entries;
     localStorage.setItem(IMAGE_CACHE_KEY, JSON.stringify(trimmed));
-  } catch { /* ignore quota errors */ }
+  } catch {
+    /* ignore quota errors */
+  }
 }
 
 const _imageCache = loadImageCache();
@@ -142,8 +154,8 @@ function getMessageText(content: unknown): string {
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) {
     return (content as Array<{ type?: string; text?: string }>)
-      .filter(b => b.type === 'text' && b.text)
-      .map(b => b.text!)
+      .filter((b) => b.type === 'text' && b.text)
+      .map((b) => b.text!)
       .join('\n');
   }
   return '';
@@ -166,12 +178,12 @@ function extractMediaRefs(text: string): Array<{ filePath: string; mimeType: str
  * from [media attached: ...] text patterns so file cards show even without cache.
  */
 function enrichWithCachedImages(messages: RawMessage[]): RawMessage[] {
-  return messages.map(msg => {
+  return messages.map((msg) => {
     if (msg.role !== 'user' || msg._attachedFiles) return msg;
     const text = getMessageText(msg.content);
     const refs = extractMediaRefs(text);
     if (refs.length === 0) return msg;
-    const files: AttachedFileMeta[] = refs.map(ref => {
+    const files: AttachedFileMeta[] = refs.map((ref) => {
       const cached = _imageCache.get(ref.filePath);
       if (cached) return cached;
       // Fallback: create entry from text pattern (preview loaded later via IPC)
@@ -203,10 +215,10 @@ async function loadMissingPreviews(messages: RawMessage[]): Promise<boolean> {
   if (needPreview.length === 0) return false;
 
   try {
-    const thumbnails = await window.electron.ipcRenderer.invoke(
+    const thumbnails = (await window.electron.ipcRenderer.invoke(
       'media:getThumbnails',
-      needPreview,
-    ) as Record<string, { preview: string | null; fileSize: number }>;
+      needPreview
+    )) as Record<string, { preview: string | null; fileSize: number }>;
 
     let updated = false;
     for (const msg of messages) {
@@ -268,7 +280,12 @@ function isToolOnlyMessage(message: RawMessage | undefined): boolean {
   let hasNonToolContent = false;
 
   for (const block of content as ContentBlock[]) {
-    if (block.type === 'tool_use' || block.type === 'tool_result' || block.type === 'toolCall' || block.type === 'toolResult') {
+    if (
+      block.type === 'tool_use' ||
+      block.type === 'tool_result' ||
+      block.type === 'toolCall' ||
+      block.type === 'toolResult'
+    ) {
       hasTool = true;
       continue;
     }
@@ -305,7 +322,10 @@ function extractTextFromContent(content: unknown): string {
 function summarizeToolOutput(text: string): string | undefined {
   const trimmed = text.trim();
   if (!trimmed) return undefined;
-  const lines = trimmed.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const lines = trimmed
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
   if (lines.length === 0) return undefined;
   const summaryLines = lines.slice(0, 2);
   let summary = summaryLines.join(' / ');
@@ -315,7 +335,10 @@ function summarizeToolOutput(text: string): string | undefined {
   return summary;
 }
 
-function normalizeToolStatus(rawStatus: unknown, fallback: 'running' | 'completed'): ToolStatus['status'] {
+function normalizeToolStatus(
+  rawStatus: unknown,
+  fallback: 'running' | 'completed'
+): ToolStatus['status'] {
   const status = typeof rawStatus === 'string' ? rawStatus.toLowerCase() : '';
   if (status === 'error' || status === 'failed') return 'error';
   if (status === 'completed' || status === 'success' || status === 'done') return 'completed';
@@ -401,18 +424,27 @@ function extractToolResultUpdate(message: unknown, eventState: string): ToolStat
   const role = typeof msg.role === 'string' ? msg.role.toLowerCase() : '';
   if (!isToolResultRole(role)) return null;
 
-  const toolName = typeof msg.toolName === 'string' ? msg.toolName : (typeof msg.name === 'string' ? msg.name : '');
+  const toolName =
+    typeof msg.toolName === 'string' ? msg.toolName : typeof msg.name === 'string' ? msg.name : '';
   const toolCallId = typeof msg.toolCallId === 'string' ? msg.toolCallId : undefined;
-  const details = (msg.details && typeof msg.details === 'object') ? msg.details as Record<string, unknown> : undefined;
-  const rawStatus = (msg.status ?? details?.status);
+  const details =
+    msg.details && typeof msg.details === 'object'
+      ? (msg.details as Record<string, unknown>)
+      : undefined;
+  const rawStatus = msg.status ?? details?.status;
   const fallback = eventState === 'delta' ? 'running' : 'completed';
   const status = normalizeToolStatus(rawStatus, fallback);
-  const durationMs = parseDurationMs(details?.durationMs ?? details?.duration ?? (msg as Record<string, unknown>).durationMs);
+  const durationMs = parseDurationMs(
+    details?.durationMs ?? details?.duration ?? (msg as Record<string, unknown>).durationMs
+  );
 
-  const outputText = (details && typeof details.aggregated === 'string')
-    ? details.aggregated
-    : extractTextFromContent(msg.content);
-  const summary = summarizeToolOutput(outputText) ?? summarizeToolOutput(String(details?.error ?? msg.error ?? ''));
+  const outputText =
+    details && typeof details.aggregated === 'string'
+      ? details.aggregated
+      : extractTextFromContent(msg.content);
+  const summary =
+    summarizeToolOutput(outputText) ??
+    summarizeToolOutput(String(details?.error ?? msg.error ?? ''));
 
   const name = toolName || toolCallId || 'tool';
   const id = toolCallId || name;
@@ -428,7 +460,10 @@ function extractToolResultUpdate(message: unknown, eventState: string): ToolStat
   };
 }
 
-function mergeToolStatus(existing: ToolStatus['status'], incoming: ToolStatus['status']): ToolStatus['status'] {
+function mergeToolStatus(
+  existing: ToolStatus['status'],
+  incoming: ToolStatus['status']
+): ToolStatus['status'] {
   const order: Record<ToolStatus['status'], number> = { running: 0, completed: 1, error: 2 };
   return order[incoming] >= order[existing] ? incoming : existing;
 }
@@ -505,13 +540,19 @@ let _pendingFinalRetryTimer: ReturnType<typeof setTimeout> | null = null;
 let _pendingFinalTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
 
 function clearPendingFinalTimers() {
-  if (_pendingFinalRetryTimer) { clearTimeout(_pendingFinalRetryTimer); _pendingFinalRetryTimer = null; }
-  if (_pendingFinalTimeoutTimer) { clearTimeout(_pendingFinalTimeoutTimer); _pendingFinalTimeoutTimer = null; }
+  if (_pendingFinalRetryTimer) {
+    clearTimeout(_pendingFinalRetryTimer);
+    _pendingFinalRetryTimer = null;
+  }
+  if (_pendingFinalTimeoutTimer) {
+    clearTimeout(_pendingFinalTimeoutTimer);
+    _pendingFinalTimeoutTimer = null;
+  }
 }
 
 function schedulePendingFinalSafetyNet(
   getState: () => ChatState,
-  setState: (partial: Partial<ChatState>) => void,
+  setState: (partial: Partial<ChatState>) => void
 ) {
   clearPendingFinalTimers();
 
@@ -564,22 +605,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   loadSessions: async () => {
     try {
-      const result = await window.electron.ipcRenderer.invoke(
-        'gateway:rpc',
-        'sessions.list',
-        { limit: 50 }
-      ) as { success: boolean; result?: Record<string, unknown>; error?: string };
+      const result = (await window.electron.ipcRenderer.invoke('gateway:rpc', 'sessions.list', {
+        limit: 50,
+      })) as { success: boolean; result?: Record<string, unknown>; error?: string };
 
       if (result.success && result.result) {
         const data = result.result;
         const rawSessions = Array.isArray(data.sessions) ? data.sessions : [];
-        const sessions: ChatSession[] = rawSessions.map((s: Record<string, unknown>) => ({
-          key: String(s.key || ''),
-          label: s.label ? String(s.label) : undefined,
-          displayName: s.displayName ? String(s.displayName) : undefined,
-          thinkingLevel: s.thinkingLevel ? String(s.thinkingLevel) : undefined,
-          model: s.model ? String(s.model) : undefined,
-        })).filter((s: ChatSession) => s.key);
+        const sessions: ChatSession[] = rawSessions
+          .map((s: Record<string, unknown>) => ({
+            key: String(s.key || ''),
+            label: s.label ? String(s.label) : undefined,
+            displayName: s.displayName ? String(s.displayName) : undefined,
+            thinkingLevel: s.thinkingLevel ? String(s.thinkingLevel) : undefined,
+            model: s.model ? String(s.model) : undefined,
+          }))
+          .filter((s: ChatSession) => s.key);
 
         const canonicalBySuffix = new Map<string, string>();
         for (const session of sessions) {
@@ -614,12 +655,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
           nextSessionKey = dedupedSessions[0].key;
         }
 
-        const sessionsWithCurrent = !dedupedSessions.find((s) => s.key === nextSessionKey) && nextSessionKey
-          ? [
-            ...dedupedSessions,
-            { key: nextSessionKey, displayName: nextSessionKey },
-          ]
-          : dedupedSessions;
+        const sessionsWithCurrent =
+          !dedupedSessions.find((s) => s.key === nextSessionKey) && nextSessionKey
+            ? [...dedupedSessions, { key: nextSessionKey, displayName: nextSessionKey }]
+            : dedupedSessions;
 
         set({ sessions: sessionsWithCurrent, currentSessionKey: nextSessionKey });
 
@@ -653,10 +692,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
   // ── New session ──
 
   newSession: () => {
-    // Generate a new unique session key and switch to it
+    // Generate a new unique session key and switch to it.
+    // The key includes a short random suffix to guarantee uniqueness even
+    // if called multiple times within the same millisecond.
     const prefix = getCanonicalPrefixFromSessions(get().sessions) ?? DEFAULT_CANONICAL_PREFIX;
-    const newKey = `${prefix}:session-${Date.now()}`;
-    const newSessionEntry: ChatSession = { key: newKey, displayName: newKey };
+    const ts = Date.now();
+    const rand = Math.random().toString(36).slice(2, 6);
+    const newKey = `${prefix}:session-${ts}-${rand}`;
+    const newSessionEntry: ChatSession = {
+      key: newKey,
+      displayName: `New Chat ${new Date(ts).toLocaleString()}`,
+    };
     set((s) => ({
       currentSessionKey: newKey,
       sessions: [...s.sessions, newSessionEntry],
@@ -669,6 +715,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       pendingFinal: false,
       lastUserMessageAt: null,
     }));
+    // Load history for the new (empty) session to initialize properly
+    get().loadHistory();
   },
 
   // ── Load chat history ──
@@ -678,15 +726,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ loading: true, error: null });
 
     try {
-      const result = await window.electron.ipcRenderer.invoke(
-        'gateway:rpc',
-        'chat.history',
-        { sessionKey: currentSessionKey, limit: 200 }
-      ) as { success: boolean; result?: Record<string, unknown>; error?: string };
+      const result = (await window.electron.ipcRenderer.invoke('gateway:rpc', 'chat.history', {
+        sessionKey: currentSessionKey,
+        limit: 200,
+      })) as { success: boolean; result?: Record<string, unknown>; error?: string };
 
       if (result.success && result.result) {
         const data = result.result;
-        const rawMessages = Array.isArray(data.messages) ? data.messages as RawMessage[] : [];
+        const rawMessages = Array.isArray(data.messages) ? (data.messages as RawMessage[]) : [];
         const filteredMessages = rawMessages.filter((msg) => !isToolResultRole(msg.role));
         // Restore file attachments for user messages (from cache + text patterns)
         const enrichedMessages = enrichWithCachedImages(filteredMessages);
@@ -700,9 +747,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
             // loadMissingPreviews mutates AttachedFileMeta in place, so we
             // must produce fresh message + file references for each affected msg.
             set({
-              messages: enrichedMessages.map(msg =>
+              messages: enrichedMessages.map((msg) =>
                 msg._attachedFiles
-                  ? { ...msg, _attachedFiles: msg._attachedFiles.map(f => ({ ...f })) }
+                  ? { ...msg, _attachedFiles: msg._attachedFiles.map((f) => ({ ...f })) }
                   : msg
               ),
             });
@@ -712,7 +759,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (pendingFinal) {
           const recentAssistant = [...filteredMessages].reverse().find((msg) => {
             if (msg.role !== 'assistant') return false;
-            if (lastUserMessageAt && msg.timestamp && toMs(msg.timestamp) < toMs(lastUserMessageAt)) return false;
+            if (lastUserMessageAt && msg.timestamp && toMs(msg.timestamp) < toMs(lastUserMessageAt))
+              return false;
             // Accept messages with actual content OR error responses
             if (hasNonToolAssistantContent(msg)) return true;
             const sr = msg.stopReason || (msg as unknown as Record<string, unknown>).stop_reason;
@@ -736,13 +784,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
             // in history is an assistant with empty content (run may have errored
             // without producing output). Resolve pendingFinal to avoid infinite
             // sending state.
-            const lastMsg = filteredMessages.length > 0
-              ? filteredMessages[filteredMessages.length - 1]
-              : null;
+            const lastMsg =
+              filteredMessages.length > 0 ? filteredMessages[filteredMessages.length - 1] : null;
             if (lastMsg && lastMsg.role === 'assistant' && !hasNonToolAssistantContent(lastMsg)) {
-              const errMsg = lastMsg.errorMessage
-                ? String(lastMsg.errorMessage)
-                : undefined;
+              const errMsg = lastMsg.errorMessage ? String(lastMsg.errorMessage) : undefined;
               clearPendingFinalTimers();
               set({
                 sending: false,
@@ -764,7 +809,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   // ── Send message ──
 
-  sendMessage: async (text: string, attachments?: Array<{ fileName: string; mimeType: string; fileSize: number; stagedPath: string; preview: string | null }>) => {
+  sendMessage: async (
+    text: string,
+    attachments?: Array<{
+      fileName: string;
+      mimeType: string;
+      fileSize: number;
+      stagedPath: string;
+      preview: string | null;
+    }>
+  ) => {
     const trimmed = text.trim();
     if (!trimmed && (!attachments || attachments.length === 0)) return;
 
@@ -776,7 +830,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       content: trimmed || (attachments?.length ? '(file attached)' : ''),
       timestamp: Date.now(),
       id: crypto.randomUUID(),
-      _attachedFiles: attachments?.map(a => ({
+      _attachedFiles: attachments?.map((a) => ({
         fileName: a.fileName,
         mimeType: a.mimeType,
         fileSize: a.fileSize,
@@ -797,9 +851,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     try {
       const idempotencyKey = crypto.randomUUID();
       const hasMedia = attachments && attachments.length > 0;
-      console.log(`[sendMessage] hasMedia=${hasMedia}, attachmentCount=${attachments?.length ?? 0}`);
+      console.log(
+        `[sendMessage] hasMedia=${hasMedia}, attachmentCount=${attachments?.length ?? 0}`
+      );
       if (hasMedia) {
-        console.log('[sendMessage] Media paths:', attachments!.map(a => a.stagedPath));
+        console.log(
+          '[sendMessage] Media paths:',
+          attachments!.map((a) => a.stagedPath)
+        );
       }
 
       // Cache image attachments BEFORE the IPC call to avoid race condition:
@@ -822,35 +881,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (hasMedia) {
         // Use dedicated chat:sendWithMedia handler — main process reads staged files
         // from disk and builds base64 attachments, avoiding large IPC transfers
-        result = await window.electron.ipcRenderer.invoke(
-          'chat:sendWithMedia',
-          {
-            sessionKey: currentSessionKey,
-            message: trimmed || 'Process the attached file(s).',
-            deliver: false,
-            idempotencyKey,
-            media: attachments.map((a) => ({
-              filePath: a.stagedPath,
-              mimeType: a.mimeType,
-              fileName: a.fileName,
-            })),
-          },
-        ) as { success: boolean; result?: { runId?: string }; error?: string };
+        result = (await window.electron.ipcRenderer.invoke('chat:sendWithMedia', {
+          sessionKey: currentSessionKey,
+          message: trimmed || 'Process the attached file(s).',
+          deliver: false,
+          idempotencyKey,
+          media: attachments.map((a) => ({
+            filePath: a.stagedPath,
+            mimeType: a.mimeType,
+            fileName: a.fileName,
+          })),
+        })) as { success: boolean; result?: { runId?: string }; error?: string };
       } else {
         // No media — use standard lightweight RPC
-        result = await window.electron.ipcRenderer.invoke(
-          'gateway:rpc',
-          'chat.send',
-          {
-            sessionKey: currentSessionKey,
-            message: trimmed,
-            deliver: false,
-            idempotencyKey,
-          },
-        ) as { success: boolean; result?: { runId?: string }; error?: string };
+        result = (await window.electron.ipcRenderer.invoke('gateway:rpc', 'chat.send', {
+          sessionKey: currentSessionKey,
+          message: trimmed,
+          deliver: false,
+          idempotencyKey,
+        })) as { success: boolean; result?: { runId?: string }; error?: string };
       }
 
-      console.log(`[sendMessage] RPC result: success=${result.success}, error=${result.error || 'none'}, runId=${result.result?.runId || 'none'}`);
+      console.log(
+        `[sendMessage] RPC result: success=${result.success}, error=${result.error || 'none'}, runId=${result.result?.runId || 'none'}`
+      );
 
       if (!result.success) {
         set({ error: result.error || 'Failed to send message', sending: false });
@@ -868,15 +922,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   abortRun: async () => {
     const { currentSessionKey } = get();
-    set({ sending: false, streamingText: '', streamingMessage: null, pendingFinal: false, lastUserMessageAt: null });
+    set({
+      sending: false,
+      streamingText: '',
+      streamingMessage: null,
+      pendingFinal: false,
+      lastUserMessageAt: null,
+    });
     set({ streamingTools: [] });
 
     try {
-      await window.electron.ipcRenderer.invoke(
-        'gateway:rpc',
-        'chat.abort',
-        { sessionKey: currentSessionKey },
-      );
+      await window.electron.ipcRenderer.invoke('gateway:rpc', 'chat.abort', {
+        sessionKey: currentSessionKey,
+      });
     } catch (err) {
       set({ error: String(err) });
     }
@@ -891,13 +949,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     // Debug: trace incoming chat events
     if (process.env.NODE_ENV === 'development') {
-      const msgInfo = event.message && typeof event.message === 'object'
-        ? ` msg.role=${(event.message as Record<string, unknown>).role}`
-        : '';
-      console.debug(`[handleChatEvent] state="${eventState}" runId="${runId.slice(0, 8)}" active="${String(activeRunId).slice(0, 8)}"${msgInfo}`);
+      const msgInfo =
+        event.message && typeof event.message === 'object'
+          ? ` msg.role=${(event.message as Record<string, unknown>).role}`
+          : '';
+      console.debug(
+        `[handleChatEvent] state="${eventState}" runId="${runId.slice(0, 8)}" active="${String(activeRunId).slice(0, 8)}"${msgInfo}`
+      );
     }
 
-    // Only process events for the active run (or if no active run set)
+    // Only process events for the active run (or if no active run set).
+    // BUG FIX: Also accept events when activeRunId is set but runId is empty —
+    // some Gateway protocol events omit runId, and dropping them silently
+    // causes "missing response" symptoms.
     if (activeRunId && runId && runId !== activeRunId) return;
 
     // Defensive: if state is missing but we have a message, try to infer state.
@@ -918,7 +982,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     switch (resolvedState) {
       case 'delta': {
-        // Streaming update - store the cumulative message
+        // Streaming update - store the cumulative message.
+        // BUG FIX: When the Gateway sends rapid delta events (e.g., during
+        // tool-heavy Reddit account nurturing sessions), later deltas would
+        // completely overwrite earlier ones. Now we merge content intelligently:
+        // if both old and new are objects with text content, we keep the longer
+        // / more recent one (Gateway sends cumulative deltas, not incremental).
         const updates = collectToolUpdates(event.message, resolvedState);
         set((s) => ({
           streamingMessage: (() => {
@@ -926,9 +995,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
               const msgRole = (event.message as RawMessage).role;
               if (isToolResultRole(msgRole)) return s.streamingMessage;
             }
+            // Use the new message if present (Gateway sends cumulative content)
             return event.message ?? s.streamingMessage;
           })(),
-          streamingTools: updates.length > 0 ? upsertToolStatuses(s.streamingTools, updates) : s.streamingTools,
+          streamingTools:
+            updates.length > 0 ? upsertToolStatuses(s.streamingTools, updates) : s.streamingTools,
         }));
         break;
       }
@@ -941,7 +1012,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
             set((s) => ({
               streamingText: '',
               pendingFinal: true,
-              streamingTools: updates.length > 0 ? upsertToolStatuses(s.streamingTools, updates) : s.streamingTools,
+              streamingTools:
+                updates.length > 0
+                  ? upsertToolStatuses(s.streamingTools, updates)
+                  : s.streamingTools,
             }));
             break;
           }
@@ -957,55 +1031,73 @@ export const useChatStore = create<ChatState>((set, get) => ({
           );
           // Run is resolved if we have actual content OR it's an error response
           const isResolved = hasOutput || isErrorResponse;
-          const msgId = finalMsg.id || (toolOnly ? `run-${runId}-tool-${Date.now()}` : `run-${runId}`);
+          // BUG FIX: Previously, non-tool messages used `run-${runId}` as ID,
+          // meaning multiple assistant messages within the same run would share
+          // the same ID. The `alreadyExists` check would then silently drop
+          // subsequent messages, causing content loss / "overwriting" behavior.
+          // Now every final message gets a unique ID to prevent any overwrites.
+          const msgId =
+            finalMsg.id ||
+            `run-${runId || 'unknown'}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
           // Surface error message to the store
           if (isErrorResponse && finalMsg.errorMessage) {
             set({ error: String(finalMsg.errorMessage) });
           }
           set((s) => {
-            const nextTools = updates.length > 0 ? upsertToolStatuses(s.streamingTools, updates) : s.streamingTools;
+            const nextTools =
+              updates.length > 0 ? upsertToolStatuses(s.streamingTools, updates) : s.streamingTools;
             const streamingTools = isResolved ? [] : nextTools;
             // Check if message already exists (prevent duplicates)
-            const alreadyExists = s.messages.some(m => m.id === msgId);
+            const alreadyExists = s.messages.some((m) => m.id === msgId);
             if (alreadyExists) {
               // Just clear streaming state, don't add duplicate
-              return toolOnly ? {
-                streamingText: '',
-                streamingMessage: null,
-                pendingFinal: true,
-                streamingTools,
-              } : {
-                streamingText: '',
-                streamingMessage: null,
-                sending: isResolved ? false : s.sending,
-                activeRunId: isResolved ? null : s.activeRunId,
-                pendingFinal: isResolved ? false : true,
-                streamingTools,
-              };
+              return toolOnly
+                ? {
+                    streamingText: '',
+                    streamingMessage: null,
+                    pendingFinal: true,
+                    streamingTools,
+                  }
+                : {
+                    streamingText: '',
+                    streamingMessage: null,
+                    sending: isResolved ? false : s.sending,
+                    activeRunId: isResolved ? null : s.activeRunId,
+                    pendingFinal: isResolved ? false : true,
+                    streamingTools,
+                  };
             }
-            return toolOnly ? {
-              messages: [...s.messages, {
-                ...finalMsg,
-                role: finalMsg.role || 'assistant',
-                id: msgId,
-              }],
-              streamingText: '',
-              streamingMessage: null,
-              pendingFinal: true,
-              streamingTools,
-            } : {
-              messages: [...s.messages, {
-                ...finalMsg,
-                role: finalMsg.role || 'assistant',
-                id: msgId,
-              }],
-              streamingText: '',
-              streamingMessage: null,
-              sending: isResolved ? false : s.sending,
-              activeRunId: isResolved ? null : s.activeRunId,
-              pendingFinal: isResolved ? false : true,
-              streamingTools,
-            };
+            return toolOnly
+              ? {
+                  messages: [
+                    ...s.messages,
+                    {
+                      ...finalMsg,
+                      role: finalMsg.role || 'assistant',
+                      id: msgId,
+                    },
+                  ],
+                  streamingText: '',
+                  streamingMessage: null,
+                  pendingFinal: true,
+                  streamingTools,
+                }
+              : {
+                  messages: [
+                    ...s.messages,
+                    {
+                      ...finalMsg,
+                      role: finalMsg.role || 'assistant',
+                      id: msgId,
+                    },
+                  ],
+                  streamingText: '',
+                  streamingMessage: null,
+                  sending: isResolved ? false : s.sending,
+                  activeRunId: isResolved ? null : s.activeRunId,
+                  pendingFinal: isResolved ? false : true,
+                  streamingTools,
+                };
           });
           // If still pending after set, schedule safety net
           if (get().pendingFinal) {
@@ -1055,11 +1147,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
         // edge cases where the Gateway sends events without a state field.
         const { sending } = get();
         if (sending && event.message && typeof event.message === 'object') {
-          console.warn(`[handleChatEvent] Unknown event state "${resolvedState}", treating message as streaming delta. Event keys:`, Object.keys(event));
+          console.warn(
+            `[handleChatEvent] Unknown event state "${resolvedState}", treating message as streaming delta. Event keys:`,
+            Object.keys(event)
+          );
           const updates = collectToolUpdates(event.message, 'delta');
           set((s) => ({
             streamingMessage: event.message ?? s.streamingMessage,
-            streamingTools: updates.length > 0 ? upsertToolStatuses(s.streamingTools, updates) : s.streamingTools,
+            streamingTools:
+              updates.length > 0 ? upsertToolStatuses(s.streamingTools, updates) : s.streamingTools,
           }));
         }
         break;

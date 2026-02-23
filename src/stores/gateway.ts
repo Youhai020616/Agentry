@@ -88,13 +88,21 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
 
       // Forward agent notification events to the chat store.
       window.electron.ipcRenderer.on('gateway:notification', (notification) => {
-        const payload = notification as { method?: string; params?: Record<string, unknown> } | undefined;
-        if (!payload || payload.method !== 'agent' || !payload.params || typeof payload.params !== 'object') {
+        const payload = notification as
+          | { method?: string; params?: Record<string, unknown> }
+          | undefined;
+        if (
+          !payload ||
+          payload.method !== 'agent' ||
+          !payload.params ||
+          typeof payload.params !== 'object'
+        ) {
           return;
         }
 
         const p = payload.params;
-        const data = (p.data && typeof p.data === 'object') ? (p.data as Record<string, unknown>) : {};
+        const data =
+          p.data && typeof p.data === 'object' ? (p.data as Record<string, unknown>) : {};
         const normalizedEvent: Record<string, unknown> = {
           ...data,
           runId: p.runId ?? data.runId,
@@ -121,24 +129,52 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
       });
 
       // Forward chat protocol events to the chat store.
+      // The Gateway sends 'chat' protocol events via handleProtocolEvent which
+      // wraps the payload as { message: payload }. The payload itself may or may
+      // not contain state/runId fields depending on the OpenClaw protocol version.
+      //
+      // BUG FIX: Previously, events without a `state` field were blindly marked
+      // as 'final', causing streaming deltas to be treated as complete messages.
+      // This led to message duplication/overwriting during tool-heavy sessions
+      // (e.g., Reddit account nurturing). Now we intelligently infer the state
+      // from the message content: stopReason → final, otherwise → delta.
       window.electron.ipcRenderer.on('gateway:chat-message', (data) => {
         try {
           import('./chat').then(({ useChatStore }) => {
             const chatData = data as Record<string, unknown>;
-            const payload = ('message' in chatData && typeof chatData.message === 'object')
-              ? chatData.message as Record<string, unknown>
-              : chatData;
 
+            // Unwrap: handleProtocolEvent wraps as { message: payload }
+            // but the payload itself might also have a nested message field
+            const payload =
+              'message' in chatData && typeof chatData.message === 'object'
+                ? (chatData.message as Record<string, unknown>)
+                : chatData;
+
+            // Case 1: Payload already has an explicit state — use it directly
             if (payload.state) {
               if (isDuplicateEvent(payload)) return;
               useChatStore.getState().handleChatEvent(payload);
               return;
             }
 
+            // Case 2: No explicit state — intelligently infer from message content
+            // instead of blindly marking everything as 'final'
+            const msgObj =
+              payload.message && typeof payload.message === 'object'
+                ? (payload.message as Record<string, unknown>)
+                : payload;
+
+            // Detect if this is a final message by checking for stop indicators
+            const stopReason = msgObj.stopReason ?? msgObj.stop_reason;
+            const hasError = !!(msgObj.errorMessage || stopReason === 'error');
+            const isFinal = !!stopReason || hasError;
+
             const syntheticEvent: Record<string, unknown> = {
-              state: 'final',
-              message: payload,
-              runId: chatData.runId ?? payload.runId,
+              state: isFinal ? 'final' : 'delta',
+              message: payload.message ?? payload,
+              runId: chatData.runId ?? payload.runId ?? msgObj.runId,
+              sessionKey: chatData.sessionKey ?? payload.sessionKey ?? msgObj.sessionKey,
+              seq: chatData.seq ?? payload.seq ?? msgObj.seq,
             };
             if (isDuplicateEvent(syntheticEvent)) return;
             useChatStore.getState().handleChatEvent(syntheticEvent);
@@ -152,7 +188,9 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
       // hasn't registered IPC handlers yet (race condition during startup).
       // In that case we rely on the status-changed event listener above.
       try {
-        const status = await window.electron.ipcRenderer.invoke('gateway:status') as GatewayStatus;
+        const status = (await window.electron.ipcRenderer.invoke(
+          'gateway:status'
+        )) as GatewayStatus;
         set({ status, isInitialized: true });
       } catch (error) {
         console.warn('Initial gateway status fetch failed (will update via events):', error);
@@ -169,18 +207,21 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
   start: async () => {
     try {
       set({ status: { ...get().status, state: 'starting' }, lastError: null });
-      const result = await window.electron.ipcRenderer.invoke('gateway:start') as { success: boolean; error?: string };
+      const result = (await window.electron.ipcRenderer.invoke('gateway:start')) as {
+        success: boolean;
+        error?: string;
+      };
 
       if (!result.success) {
         set({
           status: { ...get().status, state: 'error', error: result.error },
-          lastError: result.error || 'Failed to start Gateway'
+          lastError: result.error || 'Failed to start Gateway',
         });
       }
     } catch (error) {
       set({
         status: { ...get().status, state: 'error', error: String(error) },
-        lastError: String(error)
+        lastError: String(error),
       });
     }
   },
@@ -198,29 +239,32 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
   restart: async () => {
     try {
       set({ status: { ...get().status, state: 'starting' }, lastError: null });
-      const result = await window.electron.ipcRenderer.invoke('gateway:restart') as { success: boolean; error?: string };
+      const result = (await window.electron.ipcRenderer.invoke('gateway:restart')) as {
+        success: boolean;
+        error?: string;
+      };
 
       if (!result.success) {
         set({
           status: { ...get().status, state: 'error', error: result.error },
-          lastError: result.error || 'Failed to restart Gateway'
+          lastError: result.error || 'Failed to restart Gateway',
         });
       }
     } catch (error) {
       set({
         status: { ...get().status, state: 'error', error: String(error) },
-        lastError: String(error)
+        lastError: String(error),
       });
     }
   },
 
   checkHealth: async () => {
     try {
-      const result = await window.electron.ipcRenderer.invoke('gateway:health') as {
+      const result = (await window.electron.ipcRenderer.invoke('gateway:health')) as {
         success: boolean;
         ok: boolean;
         error?: string;
-        uptime?: number
+        uptime?: number;
       };
 
       const health: GatewayHealth = {
@@ -239,7 +283,12 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
   },
 
   rpc: async <T>(method: string, params?: unknown, timeoutMs?: number): Promise<T> => {
-    const result = await window.electron.ipcRenderer.invoke('gateway:rpc', method, params, timeoutMs) as {
+    const result = (await window.electron.ipcRenderer.invoke(
+      'gateway:rpc',
+      method,
+      params,
+      timeoutMs
+    )) as {
       success: boolean;
       result?: T;
       error?: string;
