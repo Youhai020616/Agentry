@@ -77,13 +77,20 @@ import type { LicenseInfo } from '../utils/license-validator';
 import { ollamaManager } from '../utils/ollama-manager';
 
 /**
+ * Mutable reference to EngineContext.
+ * Allows IPC handlers registered before engine bootstrap to access the engine
+ * once it becomes available (by updating `.current`).
+ */
+export type EngineRef = { current: EngineContext | null };
+
+/**
  * Register all IPC handlers
  */
 export function registerIpcHandlers(
   gatewayManager: GatewayManager,
   clawHubService: ClawHubService,
   mainWindow: BrowserWindow,
-  engine: EngineContext | null
+  engineRef: EngineRef
 ): void {
   // Gateway handlers
   registerGatewayHandlers(gatewayManager, mainWindow);
@@ -116,7 +123,7 @@ export function registerIpcHandlers(
   registerSkillConfigHandlers();
 
   // Cron task handlers (proxy to Gateway RPC)
-  registerCronHandlers(gatewayManager, engine);
+  registerCronHandlers(gatewayManager, engineRef);
 
   // Window control handlers (for custom title bar on Windows/Linux)
   registerWindowHandlers(mainWindow);
@@ -128,12 +135,17 @@ export function registerIpcHandlers(
   registerFileHandlers();
 
   // Employee handlers (use engine context if available, fallback to standalone)
-  const employeeManager = engine?.employeeManager ?? new EmployeeManager();
-  if (!engine) {
-    // Fallback: init standalone (should not happen in normal startup)
-    logger.warn('Engine context not available, initializing standalone EmployeeManager');
-    void employeeManager.init();
+  // Note: engineRef.current may be null at registration time but will be set later.
+  // EmployeeManager is accessed lazily via engineRef inside handlers.
+  let _employeeManager: EmployeeManager | null = engineRef.current?.employeeManager ?? null;
+  if (!_employeeManager) {
+    // Engine not ready yet — create a standalone EmployeeManager as fallback.
+    // Once engine bootstraps, handlers that need engine will use engineRef.current.
+    logger.warn('Engine context not yet available, initializing standalone EmployeeManager');
+    _employeeManager = new EmployeeManager();
+    void _employeeManager.init();
   }
+  const employeeManager = _employeeManager;
 
   // Forward employee status changes to renderer
   employeeManager.on('status', (employeeId: string, status: string) => {
@@ -144,21 +156,21 @@ export function registerIpcHandlers(
 
   registerEmployeeHandlers(employeeManager);
   registerBuiltinSkillHandlers(employeeManager);
-  registerTaskHandlers(engine, gatewayManager);
-  registerProjectHandlers(engine, gatewayManager);
-  registerMessageHandlers(engine, gatewayManager);
-  registerCreditsHandlers(engine);
-  registerActivityHandlers(engine, gatewayManager, employeeManager);
-  registerExecutionHandlers(engine, gatewayManager);
-  registerMemoryHandlers(engine, gatewayManager);
-  registerProhibitionHandlers(engine, gatewayManager);
+  registerTaskHandlers(engineRef, gatewayManager);
+  registerProjectHandlers(engineRef, gatewayManager);
+  registerMessageHandlers(engineRef, gatewayManager);
+  registerCreditsHandlers(engineRef);
+  registerActivityHandlers(engineRef, gatewayManager, employeeManager);
+  registerExecutionHandlers(engineRef, gatewayManager);
+  registerMemoryHandlers(engineRef, gatewayManager);
+  registerProhibitionHandlers(engineRef, gatewayManager);
   registerLicenseHandlers();
   registerUserHandlers();
   registerOllamaHandlers(mainWindow);
   registerOnboardingHandlers(mainWindow, employeeManager);
-  registerSupervisorHandlers(engine, gatewayManager, mainWindow);
+  registerSupervisorHandlers(engineRef, gatewayManager, mainWindow);
   registerConversationHandlers();
-  registerChatMessageHandlers(engine, gatewayManager);
+  registerChatMessageHandlers(engineRef, gatewayManager);
 
   // Note: task:changed event forwarding happens lazily when Phase 1 initializes.
   // The task-changed listener is set up inside registerTaskHandlers via getLazy().
@@ -293,7 +305,7 @@ async function getCronEmployeeStore(): Promise<{
   return cronEmployeeStoreInstance;
 }
 
-function registerCronHandlers(gatewayManager: GatewayManager, engine: EngineContext | null): void {
+function registerCronHandlers(gatewayManager: GatewayManager, engineRef: EngineRef): void {
   // List all cron jobs — transforms Gateway CronJob format to frontend CronJob format
   ipcMain.handle('cron:list', async () => {
     try {
@@ -443,31 +455,38 @@ function registerCronHandlers(gatewayManager: GatewayManager, engine: EngineCont
       try {
         const assignmentStore = await getCronEmployeeStore();
         const assignedEmployeeId = assignmentStore.get(id) as string | undefined;
-        if (assignedEmployeeId && engine?.taskQueue) {
-          // Fetch the cron job name for the task subject
-          let cronName = `Cron Job ${id}`;
-          let cronMessage = '';
-          try {
-            const listResult = await gatewayManager.rpc('cron.list', { includeDisabled: true });
-            const data = listResult as { jobs?: GatewayCronJob[] };
-            const cronJob = data?.jobs?.find((j) => j.id === id);
-            if (cronJob) {
-              cronName = cronJob.name;
-              cronMessage = cronJob.payload?.message || cronJob.payload?.text || '';
+        const engine = engineRef.current;
+        if (assignedEmployeeId && engine) {
+          const lazy = await engine.getLazy(gatewayManager);
+          const taskQueue = lazy.taskQueue;
+          if (taskQueue) {
+            // Fetch the cron job name for the task subject
+            let cronName = `Cron Job ${id}`;
+            let cronMessage = '';
+            try {
+              const listResult = await gatewayManager.rpc('cron.list', { includeDisabled: true });
+              const data = listResult as { jobs?: GatewayCronJob[] };
+              const cronJob = data?.jobs?.find((j) => j.id === id);
+              if (cronJob) {
+                cronName = cronJob.name;
+                cronMessage = cronJob.payload?.message || cronJob.payload?.text || '';
+              }
+            } catch {
+              // Ignore; use fallback name
             }
-          } catch {
-            // Ignore; use fallback name
-          }
 
-          engine.taskQueue.create({
-            projectId: 'cron-auto',
-            subject: `Cron: ${cronName}`,
-            description: cronMessage || cronName,
-            owner: assignedEmployeeId,
-            assignedBy: 'user',
-            priority: 'medium',
-          });
-          logger.info(`Cron trigger created task for employee ${assignedEmployeeId} (cron: ${id})`);
+            taskQueue.create({
+              projectId: 'cron-auto',
+              subject: `Cron: ${cronName}`,
+              description: cronMessage || cronName,
+              owner: assignedEmployeeId,
+              assignedBy: 'user',
+              priority: 'medium',
+            });
+            logger.info(
+              `Cron trigger created task for employee ${assignedEmployeeId} (cron: ${id})`
+            );
+          }
         }
       } catch (taskErr) {
         logger.warn(`Failed to create task from cron trigger: ${taskErr}`);
@@ -2036,10 +2055,10 @@ function registerBuiltinSkillHandlers(employeeManager: EmployeeManager): void {
 
 // ── Task Handlers ──────────────────────────────────────────────────
 
-function registerTaskHandlers(engine: EngineContext | null, gatewayManager: GatewayManager): void {
+function registerTaskHandlers(engineRef: EngineRef, gatewayManager: GatewayManager): void {
   const getLazy = async () => {
-    if (!engine) throw new Error('Engine not initialized');
-    return engine.getLazy(gatewayManager);
+    if (!engineRef.current) throw new Error('Engine not initialized');
+    return engineRef.current.getLazy(gatewayManager);
   };
 
   ipcMain.handle('task:create', async (_, input: unknown) => {
@@ -2236,13 +2255,10 @@ function registerTaskHandlers(engine: EngineContext | null, gatewayManager: Gate
 
 // ── Project Handlers ──────────────────────────────────────────────
 
-function registerProjectHandlers(
-  engine: EngineContext | null,
-  gatewayManager: GatewayManager
-): void {
+function registerProjectHandlers(engineRef: EngineRef, gatewayManager: GatewayManager): void {
   const getLazy = async () => {
-    if (!engine) throw new Error('Engine not initialized');
-    return engine.getLazy(gatewayManager);
+    if (!engineRef.current) throw new Error('Engine not initialized');
+    return engineRef.current.getLazy(gatewayManager);
   };
 
   ipcMain.handle('project:create', async (_, input: unknown) => {
@@ -2290,13 +2306,10 @@ function registerProjectHandlers(
 
 // ── Message Handlers ──────────────────────────────────────────────
 
-function registerMessageHandlers(
-  engine: EngineContext | null,
-  gatewayManager: GatewayManager
-): void {
+function registerMessageHandlers(engineRef: EngineRef, gatewayManager: GatewayManager): void {
   const getLazy = async () => {
-    if (!engine) throw new Error('Engine not initialized');
-    return engine.getLazy(gatewayManager);
+    if (!engineRef.current) throw new Error('Engine not initialized');
+    return engineRef.current.getLazy(gatewayManager);
   };
 
   ipcMain.handle('message:send', async (_, input: unknown) => {
@@ -2332,13 +2345,10 @@ function registerMessageHandlers(
 
 // ── Execution Handlers ──────────────────────────────────────────────
 
-function registerExecutionHandlers(
-  engine: EngineContext | null,
-  gatewayManager: GatewayManager
-): void {
+function registerExecutionHandlers(engineRef: EngineRef, gatewayManager: GatewayManager): void {
   const getLazy = async () => {
-    if (!engine) throw new Error('Engine not initialized');
-    return engine.getLazy(gatewayManager);
+    if (!engineRef.current) throw new Error('Engine not initialized');
+    return engineRef.current.getLazy(gatewayManager);
   };
 
   ipcMain.handle('execution:run', async (_, id: string, options: ExecutionOptions) => {
@@ -2377,9 +2387,10 @@ function registerExecutionHandlers(
 
 // ── Credits Handlers ────────────────────────────────────────────────
 
-function registerCreditsHandlers(engine: EngineContext | null): void {
+function registerCreditsHandlers(engineRef: EngineRef): void {
   ipcMain.handle('credits:balance', async () => {
     try {
+      const engine = engineRef.current;
       if (!engine?.creditsEngine) {
         return { success: true, result: { total: 0, used: 0, remaining: 0 } };
       }
@@ -2391,8 +2402,9 @@ function registerCreditsHandlers(engine: EngineContext | null): void {
     }
   });
 
-  ipcMain.handle('credits:history', async (_event, limit?: number, offset?: number) => {
+  ipcMain.handle('credits:history', async (_, limit?: number, offset?: number) => {
     try {
+      const engine = engineRef.current;
       if (!engine?.creditsEngine) {
         return { success: true, result: { transactions: [], total: 0 } };
       }
@@ -2417,6 +2429,7 @@ function registerCreditsHandlers(engine: EngineContext | null): void {
       }
     ) => {
       try {
+        const engine = engineRef.current;
         if (!engine?.creditsEngine) {
           return { success: false, error: 'Credits engine not initialized' };
         }
@@ -2442,6 +2455,7 @@ function registerCreditsHandlers(engine: EngineContext | null): void {
     'credits:topup',
     async (_event, params: { amount: number; description?: string }) => {
       try {
+        const engine = engineRef.current;
         if (!engine?.creditsEngine) {
           return { success: false, error: 'Credits engine not initialized' };
         }
@@ -2454,8 +2468,9 @@ function registerCreditsHandlers(engine: EngineContext | null): void {
     }
   );
 
-  ipcMain.handle('credits:dailySummary', async (_event, days?: number) => {
+  ipcMain.handle('credits:dailySummary', async (_, days?: number) => {
     try {
+      const engine = engineRef.current;
       if (!engine?.creditsEngine) {
         return { success: true, result: [] };
       }
@@ -2467,8 +2482,9 @@ function registerCreditsHandlers(engine: EngineContext | null): void {
     }
   });
 
-  ipcMain.handle('credits:byEmployee', async (_event, employeeId: string, limit?: number) => {
+  ipcMain.handle('credits:historyByEmployee', async (_, employeeId: string, limit?: number) => {
     try {
+      const engine = engineRef.current;
       if (!engine?.creditsEngine) {
         return { success: true, result: [] };
       }
@@ -2480,8 +2496,9 @@ function registerCreditsHandlers(engine: EngineContext | null): void {
     }
   });
 
-  ipcMain.handle('credits:byType', async (_event, type: string, limit?: number) => {
+  ipcMain.handle('credits:historyByType', async (_, type: string, limit?: number) => {
     try {
+      const engine = engineRef.current;
       if (!engine?.creditsEngine) {
         return { success: true, result: [] };
       }
@@ -2500,7 +2517,7 @@ function registerCreditsHandlers(engine: EngineContext | null): void {
 // ── Activity Handlers ────────────────────────────────────────────────
 
 function registerActivityHandlers(
-  engine: EngineContext | null,
+  engineRef: EngineRef,
   gatewayManager: GatewayManager,
   employeeManager: EmployeeManager
 ): void {
@@ -2509,11 +2526,11 @@ function registerActivityHandlers(
 
   const getAggregator = async () => {
     if (_aggregator) return _aggregator;
-    if (!engine) throw new Error('Engine not initialized');
+    if (!engineRef.current) throw new Error('Engine not initialized');
 
-    const lazy = await engine.getLazy(gatewayManager);
+    const lazy = await engineRef.current.getLazy(gatewayManager);
     const { ActivityAggregator } = await import('../engine/activity-aggregator');
-    _aggregator = new ActivityAggregator(lazy.taskQueue, engine.creditsEngine);
+    _aggregator = new ActivityAggregator(lazy.taskQueue, engineRef.current.creditsEngine);
 
     // Populate employee names
     const names = new Map<string, string>();
@@ -2539,13 +2556,10 @@ function registerActivityHandlers(
 
 // ── Memory Handlers ─────────────────────────────────────────────────
 
-function registerMemoryHandlers(
-  engine: EngineContext | null,
-  gatewayManager: GatewayManager
-): void {
+function registerMemoryHandlers(engineRef: EngineRef, gatewayManager: GatewayManager): void {
   const getLazy = async () => {
-    if (!engine) throw new Error('Engine not initialized');
-    return engine.getLazy(gatewayManager);
+    if (!engineRef.current) throw new Error('Engine not initialized');
+    return engineRef.current.getLazy(gatewayManager);
   };
 
   ipcMain.handle(
@@ -2685,13 +2699,10 @@ function registerMemoryHandlers(
 
 // ── Prohibition Handlers ────────────────────────────────────────────
 
-function registerProhibitionHandlers(
-  engine: EngineContext | null,
-  gatewayManager: GatewayManager
-): void {
+function registerProhibitionHandlers(engineRef: EngineRef, gatewayManager: GatewayManager): void {
   const getLazy = async () => {
-    if (!engine) throw new Error('Engine not initialized');
-    return engine.getLazy(gatewayManager);
+    if (!engineRef.current) throw new Error('Engine not initialized');
+    return engineRef.current.getLazy(gatewayManager);
   };
 
   ipcMain.handle('prohibition:list', async (_event, employeeId?: string) => {
@@ -3205,13 +3216,13 @@ function registerOnboardingHandlers(
 // ── Supervisor Handlers ──────────────────────────────────────────────
 
 function registerSupervisorHandlers(
-  engine: EngineContext | null,
+  engineRef: EngineRef,
   gatewayManager: GatewayManager,
   mainWindow: BrowserWindow
 ): void {
   const getLazy = async () => {
-    if (!engine) throw new Error('Engine not initialized');
-    return engine.getLazy(gatewayManager);
+    if (!engineRef.current) throw new Error('Engine not initialized');
+    return engineRef.current.getLazy(gatewayManager);
   };
 
   // supervisor:enable — Activate the Supervisor employee and enable Feishu delegation
@@ -3221,9 +3232,9 @@ function registerSupervisorHandlers(
       const lazy = await getLazy();
 
       // Activate the supervisor employee if not already active
-      const employee = engine!.employeeManager.get(slug);
+      const employee = engineRef.current!.employeeManager.get(slug);
       if (!employee || employee.status === 'offline') {
-        await engine!.employeeManager.activate(slug);
+        await engineRef.current!.employeeManager.activate(slug);
       }
 
       // Enable delegation detection on Gateway events
@@ -3543,13 +3554,10 @@ function registerConversationHandlers(): void {
 // Chat Message Persistence Handlers
 // ---------------------------------------------------------------------------
 
-function registerChatMessageHandlers(
-  engine: EngineContext | null,
-  gatewayManager: GatewayManager
-): void {
+function registerChatMessageHandlers(engineRef: EngineRef, gatewayManager: GatewayManager): void {
   const getMessageStore = async () => {
-    if (!engine) throw new Error('Engine not initialized');
-    const lazy = await engine.getLazy(gatewayManager);
+    if (!engineRef.current) throw new Error('Engine not initialized');
+    const lazy = await engineRef.current.getLazy(gatewayManager);
     return lazy.messageStore;
   };
 

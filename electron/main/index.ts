@@ -6,6 +6,7 @@ import { app, BrowserWindow, nativeImage, session, shell } from 'electron';
 import { join } from 'path';
 import { GatewayManager } from '../gateway/manager';
 import { registerIpcHandlers } from './ipc-handlers';
+import type { EngineRef } from './ipc-handlers';
 import { createTray, updateTrayMenu } from './tray';
 import type { EmployeeTrayInfo } from './tray';
 import { createMenu } from './menu';
@@ -174,16 +175,20 @@ async function initialize(): Promise<void> {
   // Register IPC handlers IMMEDIATELY — the renderer starts loading as soon as
   // createWindow() returns, and may invoke IPC channels before async bootstrap
   // work completes.  Registering handlers first eliminates the startup race.
-  // Engine is null here; engine-dependent handlers fail gracefully until it's set.
-  registerIpcHandlers(gatewayManager, clawHubService, mainWindow, null);
+  // Engine is null here; engine-dependent handlers read engineRef.current lazily,
+  // so they'll pick up the engine once bootstrap completes.
+  const engineRef: EngineRef = { current: null };
+  registerIpcHandlers(gatewayManager, clawHubService, mainWindow, engineRef);
 
   // Register update handlers
   registerUpdateHandlers(appUpdater, mainWindow);
 
   // Bootstrap Skill Runtime Engine (after IPC handlers are registered)
+  // Once bootstrapped, set engineRef.current so all IPC handlers can access it.
   let engine: EngineContext | null = null;
   try {
     engine = await bootstrapEngine();
+    engineRef.current = engine;
     logger.info('Skill Runtime Engine bootstrapped');
   } catch (error) {
     logger.error('Skill Runtime Engine bootstrap failed:', error);
