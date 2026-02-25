@@ -42,6 +42,8 @@ export interface LazyEngineContext {
   executionWorker: import('./execution-worker').ExecutionWorker;
   memoryEngine: import('./memory').MemoryEngine;
   prohibitionEngine: import('./prohibition').ProhibitionEngine;
+  messageStore: import('./message-store').MessageStore;
+  taskExecutor: import('./task-executor').TaskExecutor;
 }
 
 /**
@@ -86,17 +88,17 @@ export async function bootstrapEngine(): Promise<EngineContext> {
     const { ExecutionWorker } = await import('./execution-worker');
     const { MemoryEngine } = await import('./memory');
     const { ProhibitionEngine } = await import('./prohibition');
+    const { MessageStore } = await import('./message-store');
+    const { TaskExecutor } = await import('./task-executor');
 
     const taskQueue = new TaskQueue();
     taskQueue.init();
 
-    const messageBus = new MessageBus(
-      taskQueue.getDb(),
-      () =>
-        employeeManager
-          .list('idle')
-          .concat(employeeManager.list('working'))
-          .map((e) => e.id)
+    const messageBus = new MessageBus(taskQueue.getDb(), () =>
+      employeeManager
+        .list('idle')
+        .concat(employeeManager.list('working'))
+        .map((e) => e.id)
     );
     messageBus.init();
 
@@ -116,6 +118,11 @@ export async function bootstrapEngine(): Promise<EngineContext> {
     // Wire prohibition engine into the compiler
     compiler.setProhibitionEngine(prohibitionEngine);
 
+    const messageStore = new MessageStore();
+    messageStore.init();
+
+    const taskExecutor = new TaskExecutor(taskQueue, employeeManager, gateway);
+
     _lazy = {
       taskQueue,
       messageBus,
@@ -123,6 +130,8 @@ export async function bootstrapEngine(): Promise<EngineContext> {
       executionWorker,
       memoryEngine,
       prohibitionEngine,
+      messageStore,
+      taskExecutor,
     };
 
     logger.info('Phase 1 engine components initialized');

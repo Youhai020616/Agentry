@@ -1,87 +1,92 @@
 {
-    "board": {
-        "title": "タスクボード",
-        "empty": "タスクはまだありません。従業員にタスクを割り当てて始めましょう。",
-        "search": "タスクを検索...",
-        "newProject": "新規プロジェクト",
-        "allProjects": "全プロジェクト",
-        "selectProject": "プロジェクトを選択"
-    },
-    "status": {
-        "pending": "保留中",
-        "in_progress": "進行中",
-        "in_review": "レビュー中",
-        "completed": "完了",
-        "blocked": "ブロック中"
-    },
-    "create": {
-        "title": "新規タスク",
-        "subjectLabel": "タスク名",
-        "subjectPlaceholder": "簡潔なタスクタイトル...",
-        "descriptionLabel": "説明",
-        "descriptionPlaceholder": "従業員への詳細な指示...",
-        "assignLabel": "従業員に割り当て",
-        "priorityLabel": "優先度",
-        "submit": "タスクを作成",
-        "cancel": "キャンセル"
-    },
-    "detail": {
-        "title": "タスク詳細",
-        "description": "説明",
-        "assignedTo": "担当者",
-        "createdAt": "作成日",
-        "startedAt": "開始日",
-        "completedAt": "完了日",
-        "duration": "所要時間",
-        "result": "結果",
-        "error": "エラー",
-        "output": "出力",
-        "outputFiles": "出力ファイル",
-        "plan": "計画",
-        "planStatus": "計画ステータス",
-        "wave": "実行ウェーブ",
-        "priority": "優先度",
-        "dependencies": "依存タスク",
-        "tokens": "トークン使用量",
-        "credits": "クレジット",
-        "noOutput": "出力はまだありません",
-        "noFiles": "出力ファイルなし",
-        "openFile": "Finderで表示",
-        "downloadFile": "ダウンロード"
-    },
-    "card": {
-        "unassigned": "未割当",
-        "dependencies": "{{count}} 件の依存",
-        "priority": {
-            "low": "低",
-            "medium": "中",
-            "high": "高",
-            "urgent": "緊急"
-        }
-    },
-    "actions": {
-        "cancel": "タスクをキャンセル",
-        "retry": "再試行",
-        "claim": "タスクを担当",
-        "complete": "完了",
-        "approve": "承認",
-        "reject": "却下",
-        "viewResult": "結果を表示"
-    },
-    "rating": {
-        "title": "このタスクを評価",
-        "placeholder": "フィードバック（任意）...",
-        "submitted": "評価が送信されました",
-        "stars": "{{count}}つ星"
-    },
-    "project": {
-        "title": "プロジェクト",
-        "goal": "目標",
-        "status": "ステータス",
-        "employees": "参加従業員",
-        "tasks": "タスク",
-        "create": "プロジェクトを作成",
-        "goalPlaceholder": "目標を記述...",
-        "selectPM": "プロジェクトマネージャーを選択"
+  "board": {
+    "title": "タスクボード",
+    "empty": "タスクはまだありません。従業員にタスクを割り当てて始めましょう。",
+    "search": "タスクを検索...",
+    "newProject": "新規プロジェクト",
+    "allProjects": "全プロジェクト",
+    "selectProject": "プロジェクトを選択"
+  },
+  "status": {
+    "pending": "保留中",
+    "in_progress": "進行中",
+    "in_review": "レビュー中",
+    "completed": "完了",
+    "blocked": "ブロック中"
+  },
+  "create": {
+    "title": "新規タスク",
+    "subjectLabel": "タスク名",
+    "subjectPlaceholder": "簡潔なタスクタイトル...",
+    "descriptionLabel": "説明",
+    "descriptionPlaceholder": "従業員への詳細な指示...",
+    "assignLabel": "従業員に割り当て",
+    "priorityLabel": "優先度",
+    "submit": "タスクを作成",
+    "cancel": "キャンセル"
+  },
+  "detail": {
+    "title": "タスク詳細",
+    "description": "説明",
+    "assignedTo": "担当者",
+    "createdAt": "作成日時",
+    "startedAt": "開始日時",
+    "completedAt": "完了日時",
+    "duration": "所要時間",
+    "result": "結果",
+    "error": "エラー",
+    "output": "出力",
+    "outputFiles": "出力ファイル",
+    "plan": "計画",
+    "planStatus": "計画ステータス",
+    "wave": "実行ウェーブ",
+    "priority": "優先度",
+    "dependencies": "依存タスク",
+    "tokens": "トークン使用量",
+    "credits": "クレジット消費",
+    "noOutput": "出力はまだありません",
+    "execute": "実行",
+    "cancelExecution": "キャンセル",
+    "executing": "実行中...",
+    "selectEmployee": "従業員を選択",
+    "noEmployees": "利用可能な従業員がいません",
+    "noFiles": "出力ファイルなし",
+    "openFile": "Finderで表示",
+    "downloadFile": "ダウンロード"
+  },
+  "card": {
+    "unassigned": "未割り当て",
+    "dependencies": "{{count}} 件の依存関係",
+    "priority": {
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "urgent": "緊急"
     }
+  },
+  "actions": {
+    "cancel": "タスクをキャンセル",
+    "retry": "再試行",
+    "claim": "タスクを取得",
+    "complete": "完了",
+    "approve": "承認",
+    "reject": "却下",
+    "viewResult": "結果を表示"
+  },
+  "rating": {
+    "title": "このタスクを評価",
+    "placeholder": "任意のフィードバック...",
+    "submitted": "評価を送信しました",
+    "stars": "{{count}} つ星"
+  },
+  "project": {
+    "title": "プロジェクト",
+    "goal": "目標",
+    "status": "ステータス",
+    "employees": "従業員",
+    "tasks": "タスク",
+    "create": "プロジェクトを作成",
+    "goalPlaceholder": "目標を記述...",
+    "selectPM": "プロジェクトマネージャーを選択"
+  }
 }

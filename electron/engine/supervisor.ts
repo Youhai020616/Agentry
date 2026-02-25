@@ -11,11 +11,7 @@ import type { TaskQueue } from './task-queue';
 import type { MessageBus } from './message-bus';
 import type { EmployeeManager } from './employee-manager';
 import type { GatewayManager } from '../gateway/manager';
-import type {
-  Task,
-  Project,
-  CreateTaskInput,
-} from '../../src/types/task';
+import type { Task, Project, CreateTaskInput } from '../../src/types/task';
 
 /** Parsed task from PM's response */
 interface PMTaskPlan {
@@ -55,7 +51,7 @@ export class SupervisorEngine extends EventEmitter {
     taskQueue: TaskQueue,
     messageBus: MessageBus,
     employeeManager: EmployeeManager,
-    gateway: GatewayManager,
+    gateway: GatewayManager
   ) {
     super();
     this.taskQueue = taskQueue;
@@ -82,9 +78,9 @@ export class SupervisorEngine extends EventEmitter {
     }
 
     // Get active employees for context
-    const activeEmployees = this.employeeManager.list().filter(
-      (e) => e.status !== 'offline' && e.id !== pmEmployeeId,
-    );
+    const activeEmployees = this.employeeManager
+      .list()
+      .filter((e) => e.status !== 'offline' && e.id !== pmEmployeeId);
 
     const employeeList = activeEmployees
       .map((e) => `- ${e.role} (${e.name}): ID=${e.id}`)
@@ -124,12 +120,13 @@ Do NOT include any text outside the JSON array.`;
           session: pmEmployee.gatewaySessionKey,
           message: planPrompt,
         },
-        60_000, // 60s timeout for planning
+        60_000 // 60s timeout for planning
       );
 
-      const responseText = typeof response === 'string'
-        ? response
-        : response?.content ?? response?.text ?? JSON.stringify(response);
+      const responseText =
+        typeof response === 'string'
+          ? response
+          : (response?.content ?? response?.text ?? JSON.stringify(response));
 
       const tasks = this.parsePMTaskPlan(responseText);
 
@@ -142,7 +139,7 @@ Do NOT include any text outside the JSON array.`;
           projectId: project.id,
           subject: planTask.subject,
           description: planTask.description,
-          owner: planTask.assignTo ?? null,
+          owner: planTask.assignTo ?? undefined,
           assignedBy: 'pm',
           blockedBy: [],
           priority: planTask.priority ?? 'medium',
@@ -278,9 +275,7 @@ Do NOT include any text outside the JSON array.`;
    * When dependencies resolve, notify the assigned employee
    */
   private async checkAutoUnblock(tasks: Task[], projectId: string): Promise<void> {
-    const completedIds = new Set(
-      tasks.filter((t) => t.status === 'completed').map((t) => t.id),
-    );
+    const completedIds = new Set(tasks.filter((t) => t.status === 'completed').map((t) => t.id));
 
     const project = this.taskQueue.getProject(projectId);
     if (!project) return;
@@ -453,12 +448,12 @@ and provide actionable next steps.`;
         session: pmEmployee.gatewaySessionKey,
         message: synthesisPrompt,
       },
-      120_000, // 2 min for synthesis
+      120_000 // 2 min for synthesis
     );
 
     return typeof response === 'string'
       ? response
-      : response?.content ?? response?.text ?? JSON.stringify(response);
+      : (response?.content ?? response?.text ?? JSON.stringify(response));
   }
 
   // ── Shutdown ────────────────────────────────────────────────────
@@ -596,7 +591,8 @@ After each task, check the task board for more work:
       typeof msgObj === 'string'
         ? msgObj
         : typeof msgObj === 'object' && msgObj !== null
-          ? (msgObj as Record<string, unknown>).content ?? (msgObj as Record<string, unknown>).text
+          ? ((msgObj as Record<string, unknown>).content ??
+            (msgObj as Record<string, unknown>).text)
           : undefined;
 
     if (typeof content !== 'string') return;
@@ -618,8 +614,7 @@ After each task, check the task board for more work:
     // Determine Supervisor's session key for sending results back
     const supervisor = this.employeeManager.get(this.supervisorSlug!);
     // Feishu messages use the default main session, not the employee session
-    const supervisorSessionKey =
-      supervisor?.gatewaySessionKey ?? 'agent:main:main';
+    const supervisorSessionKey = supervisor?.gatewaySessionKey ?? 'agent:main:main';
 
     try {
       await this.handleFeishuDelegation(supervisorSessionKey, parsed.delegation);
@@ -643,7 +638,10 @@ After each task, check the task board for more work:
    */
   parseDelegation(
     response: string
-  ): { acknowledgment: string; delegation: { employee: string; task: string; context?: string } } | null {
+  ): {
+    acknowledgment: string;
+    delegation: { employee: string; task: string; context?: string };
+  } | null {
     const match = response.match(/<!--\s*DELEGATE\s*(\{[\s\S]*?\})\s*-->/);
     if (!match) return null;
 
@@ -703,21 +701,19 @@ After each task, check the task board for more work:
     // Mark employee as working
     this.employeeManager.assignTask(employeeId);
 
-    const prompt = context
-      ? `${taskDescription}\n\n## Context\n${context}`
-      : taskDescription;
+    const prompt = context ? `${taskDescription}\n\n## Context\n${context}` : taskDescription;
 
     try {
       const response = await this.gateway.rpc<{ content?: string; text?: string }>(
         'chat.send',
         { session: sessionKey, message: prompt },
-        timeoutMs,
+        timeoutMs
       );
 
       const responseText =
         typeof response === 'string'
           ? response
-          : response?.content ?? response?.text ?? JSON.stringify(response);
+          : (response?.content ?? response?.text ?? JSON.stringify(response));
 
       this.employeeManager.completeTask(employeeId);
 
@@ -741,9 +737,7 @@ After each task, check the task board for more work:
     supervisorSessionKey: string,
     delegation: { employee: string; task: string; context?: string }
   ): Promise<void> {
-    logger.info(
-      `Feishu delegation: dispatching to ${delegation.employee}`
-    );
+    logger.info(`Feishu delegation: dispatching to ${delegation.employee}`);
 
     this.emit('delegation-started', {
       employee: delegation.employee,
@@ -754,7 +748,7 @@ After each task, check the task board for more work:
       const employeeResponse = await this.dispatchToEmployee(
         delegation.employee,
         delegation.task,
-        delegation.context,
+        delegation.context
       );
 
       // Send result back to Supervisor session for synthesis
@@ -771,7 +765,7 @@ Please present this result to the user. Be concise and helpful. If the result is
       await this.gateway.rpc(
         'chat.send',
         { session: supervisorSessionKey, message: synthesisPrompt },
-        60_000,
+        60_000
       );
 
       this.emit('delegation-completed', {

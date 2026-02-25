@@ -149,6 +149,11 @@ const electronAPI = {
         'task:cancel',
         'task:available',
         'task:rate',
+        'task:execute',
+        'task:executeAdHoc',
+        'task:cancelExecution',
+        'task:executionStatus',
+        'task:setAutoExecute',
         // Project
         'project:create',
         'project:list',
@@ -176,6 +181,13 @@ const electronAPI = {
         'execution:run',
         'execution:cancel',
         'execution:status',
+        // Chat Message Persistence
+        'chatMessage:save',
+        'chatMessage:list',
+        'chatMessage:sync',
+        'chatMessage:clear',
+        'chatMessage:count',
+        'chatMessage:listSessions',
         // Memory (Episodic)
         'memory:store',
         'memory:recall',

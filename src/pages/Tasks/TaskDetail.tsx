@@ -1,8 +1,9 @@
 /**
  * TaskDetail Component
  * Dialog view showing full task details including output, files, plan, and rating.
+ * Includes an "Execute" button to dispatch tasks to employee AI sessions.
  */
-import { useMemo } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Clock,
@@ -15,6 +16,9 @@ import {
   ListTodo,
   Coins,
   Zap,
+  Play,
+  Square,
+  Loader2,
 } from 'lucide-react';
 import {
   Dialog,
@@ -24,9 +28,18 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { FilePreview } from '@/components/chat/FilePreview';
 import { useTasksStore } from '@/stores/tasks';
+import { useEmployeesStore } from '@/stores/employees';
 import { cn } from '@/lib/utils';
 import type { TaskStatus, TaskPriority, PlanStatus } from '@/types/task';
 
@@ -40,7 +53,10 @@ interface TaskDetailProps {
 
 // ── Status / Priority badge variants ───────────────────────────────
 
-const statusVariant: Record<TaskStatus, 'default' | 'secondary' | 'destructive' | 'success' | 'warning' | 'outline'> = {
+const statusVariant: Record<
+  TaskStatus,
+  'default' | 'secondary' | 'destructive' | 'success' | 'warning' | 'outline'
+> = {
   pending: 'secondary',
   in_progress: 'default',
   in_review: 'warning',
@@ -48,14 +64,20 @@ const statusVariant: Record<TaskStatus, 'default' | 'secondary' | 'destructive' 
   blocked: 'destructive',
 };
 
-const priorityVariant: Record<TaskPriority, 'default' | 'secondary' | 'destructive' | 'warning' | 'outline'> = {
+const priorityVariant: Record<
+  TaskPriority,
+  'default' | 'secondary' | 'destructive' | 'warning' | 'outline'
+> = {
   low: 'outline',
   medium: 'secondary',
   high: 'warning',
   urgent: 'destructive',
 };
 
-const planStatusVariant: Record<PlanStatus, 'default' | 'secondary' | 'success' | 'destructive' | 'outline'> = {
+const planStatusVariant: Record<
+  PlanStatus,
+  'default' | 'secondary' | 'success' | 'destructive' | 'outline'
+> = {
   none: 'outline',
   submitted: 'default',
   approved: 'success',
@@ -112,9 +134,7 @@ function StarDisplay({ rating }: { rating: number }) {
           key={star}
           className={cn(
             'h-4 w-4',
-            star <= rating
-              ? 'fill-amber-400 text-amber-400'
-              : 'text-muted-foreground/30'
+            star <= rating ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/30'
           )}
         />
       ))}
@@ -127,11 +147,56 @@ function StarDisplay({ rating }: { rating: number }) {
 export function TaskDetail({ taskId, open, onOpenChange }: TaskDetailProps) {
   const { t } = useTranslation('tasks');
   const tasks = useTasksStore((s) => s.tasks);
+  const executingTaskIds = useTasksStore((s) => s.executingTaskIds);
+  const executeTask = useTasksStore((s) => s.executeTask);
+  const cancelExecution = useTasksStore((s) => s.cancelExecution);
 
-  const task = useMemo(
-    () => tasks.find((t) => t.id === taskId),
-    [tasks, taskId]
-  );
+  const employees = useEmployeesStore((s) => s.employees);
+  const fetchEmployees = useEmployeesStore((s) => s.fetchEmployees);
+
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+  const [executionError, setExecutionError] = useState<string | null>(null);
+
+  const task = useMemo(() => tasks.find((t) => t.id === taskId), [tasks, taskId]);
+
+  const isExecuting = executingTaskIds.includes(taskId);
+
+  // Available employees (non-offline) for assignment
+  const availableEmployees = useMemo(() => {
+    return employees.filter((e) => e.status !== 'offline' || e.gatewaySessionKey);
+  }, [employees]);
+
+  // Load employees if not yet loaded
+  useMemo(() => {
+    if (employees.length === 0) {
+      fetchEmployees();
+    }
+  }, [employees.length, fetchEmployees]);
+
+  // Pre-select the task owner if available
+  useMemo(() => {
+    if (task?.owner && !selectedEmployeeId) {
+      setSelectedEmployeeId(task.owner);
+    }
+  }, [task?.owner, selectedEmployeeId]);
+
+  const handleExecute = useCallback(async () => {
+    if (!task) return;
+    const empId = selectedEmployeeId || task.owner;
+    if (!empId) {
+      setExecutionError(t('detail.selectEmployee', 'Please select an employee'));
+      return;
+    }
+    setExecutionError(null);
+    const result = await executeTask(taskId, empId);
+    if (result && !result.success && result.error) {
+      setExecutionError(result.error);
+    }
+  }, [task, taskId, selectedEmployeeId, executeTask, t]);
+
+  const handleCancel = useCallback(async () => {
+    await cancelExecution(taskId);
+  }, [taskId, cancelExecution]);
 
   if (!task) {
     return (
@@ -152,14 +217,74 @@ export function TaskDetail({ taskId, open, onOpenChange }: TaskDetailProps) {
         <DialogHeader>
           <DialogTitle className="pr-8">{task.subject}</DialogTitle>
           <DialogDescription className="flex items-center gap-2 pt-1">
-            <Badge variant={statusVariant[task.status]}>
-              {t(`status.${task.status}`)}
-            </Badge>
+            <Badge variant={statusVariant[task.status]}>{t(`status.${task.status}`)}</Badge>
             <Badge variant={priorityVariant[task.priority]}>
               {t(`card.priority.${task.priority}`)}
             </Badge>
           </DialogDescription>
         </DialogHeader>
+
+        {/* Execute controls — show for pending, in_progress, or blocked tasks */}
+        {(task.status === 'pending' ||
+          task.status === 'in_progress' ||
+          task.status === 'blocked') && (
+          <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Employee selector (only if not already assigned) */}
+              {!task.owner && (
+                <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
+                  <SelectTrigger className="w-[200px] h-8 text-xs">
+                    <SelectValue placeholder={t('detail.selectEmployee', 'Select employee')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableEmployees.map((emp) => (
+                      <SelectItem key={emp.id} value={emp.id}>
+                        {emp.name} ({emp.role})
+                      </SelectItem>
+                    ))}
+                    {availableEmployees.length === 0 && (
+                      <SelectItem value="_none" disabled>
+                        {t('detail.noEmployees', 'No employees available')}
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {isExecuting ? (
+                <Button variant="destructive" size="sm" onClick={handleCancel} className="gap-1.5">
+                  <Square className="h-3.5 w-3.5" />
+                  {t('detail.cancelExecution', 'Cancel')}
+                </Button>
+              ) : (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleExecute}
+                  disabled={!task.owner && !selectedEmployeeId}
+                  className="gap-1.5"
+                >
+                  <Play className="h-3.5 w-3.5" />
+                  {t('detail.execute', 'Execute')}
+                </Button>
+              )}
+
+              {isExecuting && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  {t('detail.executing', 'Executing...')}
+                </div>
+              )}
+            </div>
+
+            {executionError && (
+              <p className="text-xs text-destructive flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {executionError}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Description */}
         {task.description && (
@@ -244,9 +369,7 @@ export function TaskDetail({ taskId, open, onOpenChange }: TaskDetailProps) {
                 <p className="whitespace-pre-wrap text-sm">{task.plan}</p>
               </div>
               {task.planFeedback && (
-                <p className="mt-1.5 text-xs text-muted-foreground">
-                  {task.planFeedback}
-                </p>
+                <p className="mt-1.5 text-xs text-muted-foreground">{task.planFeedback}</p>
               )}
             </div>
           </>

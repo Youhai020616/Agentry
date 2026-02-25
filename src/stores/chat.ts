@@ -725,6 +725,44 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { currentSessionKey } = get();
     set({ loading: true, error: null });
 
+    // ── Step 1: Try loading from local SQLite store first (survives Gateway restarts) ──
+    let localMessages: RawMessage[] = [];
+    let usedLocalFallback = false;
+    try {
+      const localResult = (await window.electron.ipcRenderer.invoke('chatMessage:list', {
+        sessionKey: currentSessionKey,
+        limit: 200,
+      })) as { success: boolean; result?: Array<Record<string, unknown>>; error?: string };
+
+      if (
+        localResult.success &&
+        Array.isArray(localResult.result) &&
+        localResult.result.length > 0
+      ) {
+        // Convert stored messages back to RawMessage format
+        localMessages = localResult.result.map((stored) => {
+          const raw = (stored.raw ?? {}) as Record<string, unknown>;
+          return {
+            ...raw,
+            id: stored.id as string,
+            role: stored.role as string,
+            content: (stored.content as string) || (raw.content as string) || '',
+            timestamp: stored.timestamp as number,
+            runId: stored.runId as string | undefined,
+            providerId: stored.providerId as string | undefined,
+            model: stored.model as string | undefined,
+            stopReason: stored.stopReason as string | undefined,
+            _attachedFiles: (stored.attachedFiles ?? raw._attachedFiles) as
+              | AttachedFileMeta[]
+              | undefined,
+          } as RawMessage;
+        });
+      }
+    } catch (err) {
+      console.debug('[loadHistory] Local message store unavailable:', err);
+    }
+
+    // ── Step 2: Try loading from Gateway (live source of truth when available) ──
     try {
       const result = (await window.electron.ipcRenderer.invoke('gateway:rpc', 'chat.history', {
         sessionKey: currentSessionKey,
@@ -743,9 +781,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
         // Async: load missing image previews from disk (updates in background)
         loadMissingPreviews(enrichedMessages).then((updated) => {
           if (updated) {
-            // Create new object references so React.memo detects changes.
-            // loadMissingPreviews mutates AttachedFileMeta in place, so we
-            // must produce fresh message + file references for each affected msg.
             set({
               messages: enrichedMessages.map((msg) =>
                 msg._attachedFiles
@@ -755,6 +790,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
             });
           }
         });
+
+        // Async: sync Gateway messages to local store for persistence
+        window.electron.ipcRenderer
+          .invoke('chatMessage:sync', { sessionKey: currentSessionKey })
+          .catch((err: unknown) =>
+            console.debug('[loadHistory] Background sync to local store failed:', err)
+          );
+
         const { pendingFinal, lastUserMessageAt } = get();
         if (pendingFinal) {
           const recentAssistant = [...filteredMessages].reverse().find((msg) => {
@@ -780,10 +823,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
               ...(errMsg ? { error: errMsg } : {}),
             });
           } else {
-            // No resolving assistant message found — check if the last message
-            // in history is an assistant with empty content (run may have errored
-            // without producing output). Resolve pendingFinal to avoid infinite
-            // sending state.
             const lastMsg =
               filteredMessages.length > 0 ? filteredMessages[filteredMessages.length - 1] : null;
             if (lastMsg && lastMsg.role === 'assistant' && !hasNonToolAssistantContent(lastMsg)) {
@@ -798,12 +837,48 @@ export const useChatStore = create<ChatState>((set, get) => ({
             }
           }
         }
+      } else if (localMessages.length > 0) {
+        // Gateway returned no data — fall back to local store
+        usedLocalFallback = true;
+        const filteredLocal = localMessages.filter((msg) => !isToolResultRole(msg.role));
+        const enrichedLocal = enrichWithCachedImages(filteredLocal);
+        set({ messages: enrichedLocal, loading: false });
+        console.info(
+          `[loadHistory] Using ${enrichedLocal.length} messages from local store (Gateway returned empty)`
+        );
       } else {
         set({ messages: [], loading: false });
       }
     } catch (err) {
-      console.warn('Failed to load chat history:', err);
-      set({ messages: [], loading: false });
+      // Gateway unreachable — fall back to local store if we have data
+      if (localMessages.length > 0) {
+        usedLocalFallback = true;
+        const filteredLocal = localMessages.filter((msg) => !isToolResultRole(msg.role));
+        const enrichedLocal = enrichWithCachedImages(filteredLocal);
+        set({ messages: enrichedLocal, loading: false });
+        console.info(
+          `[loadHistory] Gateway unavailable, loaded ${enrichedLocal.length} messages from local store`
+        );
+      } else {
+        console.warn('Failed to load chat history:', err);
+        set({ messages: [], loading: false });
+      }
+    }
+
+    if (usedLocalFallback) {
+      // Load image previews for locally-restored messages
+      const msgs = get().messages;
+      loadMissingPreviews(msgs).then((updated) => {
+        if (updated) {
+          set({
+            messages: msgs.map((msg) =>
+              msg._attachedFiles
+                ? { ...msg, _attachedFiles: msg._attachedFiles.map((f) => ({ ...f })) }
+                : msg
+            ),
+          });
+        }
+      });
     }
   },
 
@@ -847,6 +922,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
       pendingFinal: false,
       lastUserMessageAt: userMsg.timestamp ?? null,
     }));
+
+    // Persist user message to local SQLite store (non-blocking)
+    window.electron.ipcRenderer
+      .invoke('chatMessage:save', {
+        id: userMsg.id,
+        sessionKey: currentSessionKey,
+        role: 'user',
+        content: userMsg.content,
+        timestamp: userMsg.timestamp,
+        attachedFiles: userMsg._attachedFiles,
+        raw: {
+          role: 'user',
+          content: userMsg.content,
+          timestamp: userMsg.timestamp,
+          id: userMsg.id,
+        },
+      })
+      .catch((err: unknown) => console.debug('[sendMessage] Failed to persist user message:', err));
 
     try {
       const idempotencyKey = crypto.randomUUID();

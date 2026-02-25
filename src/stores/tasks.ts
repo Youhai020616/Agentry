@@ -5,12 +5,23 @@
 import { create } from 'zustand';
 import type { Task, Project, CreateTaskInput, CreateProjectInput } from '../types/task';
 
+interface TaskExecutionResult {
+  taskId: string;
+  employeeId: string;
+  success: boolean;
+  output?: string;
+  error?: string;
+  durationMs: number;
+}
+
 interface TasksState {
   tasks: Task[];
   projects: Project[];
   loading: boolean;
   error: string | null;
   selectedProjectId: string | null;
+  /** Task IDs currently being executed by the TaskExecutor */
+  executingTaskIds: string[];
 
   fetchTasks: (projectId?: string) => Promise<void>;
   fetchProjects: () => Promise<void>;
@@ -22,6 +33,27 @@ interface TasksState {
   rateTask: (taskId: string, rating: number, feedback?: string) => Promise<void>;
   createProject: (input: CreateProjectInput) => Promise<Project | null>;
   selectProject: (projectId: string | null) => void;
+  /**
+   * Execute a task via the TaskExecutor — dispatches to the employee's AI session.
+   * Automatically claims the task if not yet claimed.
+   */
+  executeTask: (
+    taskId: string,
+    employeeId: string,
+    options?: { timeoutMs?: number; context?: string; includeProjectContext?: boolean }
+  ) => Promise<TaskExecutionResult | null>;
+  /**
+   * Execute an ad-hoc task (creates a new task and executes immediately).
+   */
+  executeAdHoc: (
+    employeeId: string,
+    description: string,
+    options?: { timeoutMs?: number; context?: string }
+  ) => Promise<TaskExecutionResult | null>;
+  /**
+   * Cancel a running task execution.
+   */
+  cancelExecution: (taskId: string) => Promise<boolean>;
   init: () => void;
 }
 
@@ -31,6 +63,7 @@ export const useTasksStore = create<TasksState>((set, get) => ({
   loading: false,
   error: null,
   selectedProjectId: null,
+  executingTaskIds: [],
 
   fetchTasks: async (projectId?: string) => {
     if (get().tasks.length === 0) {
@@ -107,7 +140,11 @@ export const useTasksStore = create<TasksState>((set, get) => ({
 
   claimTask: async (taskId: string, employeeId: string) => {
     try {
-      const result = (await window.electron.ipcRenderer.invoke('task:claim', taskId, employeeId)) as {
+      const result = (await window.electron.ipcRenderer.invoke(
+        'task:claim',
+        taskId,
+        employeeId
+      )) as {
         success: boolean;
         result?: Task;
         error?: string;
@@ -126,7 +163,11 @@ export const useTasksStore = create<TasksState>((set, get) => ({
 
   completeTask: async (taskId: string, output: string) => {
     try {
-      const result = (await window.electron.ipcRenderer.invoke('task:complete', taskId, output)) as {
+      const result = (await window.electron.ipcRenderer.invoke(
+        'task:complete',
+        taskId,
+        output
+      )) as {
         success: boolean;
         result?: Task;
         error?: string;
@@ -160,15 +201,18 @@ export const useTasksStore = create<TasksState>((set, get) => ({
 
   rateTask: async (taskId: string, rating: number, feedback?: string) => {
     try {
-      const result = (await window.electron.ipcRenderer.invoke('task:rate', taskId, rating, feedback)) as {
+      const result = (await window.electron.ipcRenderer.invoke(
+        'task:rate',
+        taskId,
+        rating,
+        feedback
+      )) as {
         success: boolean;
         error?: string;
       };
       if (result.success) {
         set((state) => ({
-          tasks: state.tasks.map((t) =>
-            t.id === taskId ? { ...t, rating, feedback } : t
-          ),
+          tasks: state.tasks.map((t) => (t.id === taskId ? { ...t, rating, feedback } : t)),
         }));
       } else {
         console.error('Failed to rate task:', result.error);
@@ -199,6 +243,97 @@ export const useTasksStore = create<TasksState>((set, get) => ({
 
   selectProject: (projectId: string | null) => {
     set({ selectedProjectId: projectId });
+  },
+
+  executeTask: async (taskId, employeeId, options) => {
+    // Track that this task is executing
+    set((state) => ({
+      executingTaskIds: [...state.executingTaskIds, taskId],
+      error: null,
+    }));
+
+    try {
+      // First, ensure the task is claimed by the employee
+      const task = get().tasks.find((t) => t.id === taskId);
+      if (task && task.status === 'pending' && !task.owner) {
+        await get().claimTask(taskId, employeeId);
+      }
+
+      const result = (await window.electron.ipcRenderer.invoke('task:execute', {
+        taskId,
+        employeeId,
+        timeoutMs: options?.timeoutMs,
+        context: options?.context,
+        includeProjectContext: options?.includeProjectContext,
+      })) as {
+        success: boolean;
+        result?: TaskExecutionResult;
+        error?: string;
+      };
+
+      if (result.success && result.result) {
+        // Refresh tasks to get the updated state
+        await get().fetchTasks();
+        return result.result;
+      } else {
+        set({ error: result.error ?? 'Failed to execute task' });
+        return null;
+      }
+    } catch (error) {
+      set({ error: String(error) });
+      return null;
+    } finally {
+      set((state) => ({
+        executingTaskIds: state.executingTaskIds.filter((id) => id !== taskId),
+      }));
+    }
+  },
+
+  executeAdHoc: async (employeeId, description, options) => {
+    try {
+      set({ error: null });
+      const result = (await window.electron.ipcRenderer.invoke('task:executeAdHoc', {
+        employeeId,
+        description,
+        timeoutMs: options?.timeoutMs,
+        context: options?.context,
+      })) as {
+        success: boolean;
+        result?: TaskExecutionResult;
+        error?: string;
+      };
+
+      if (result.success && result.result) {
+        await get().fetchTasks();
+        return result.result;
+      } else {
+        set({ error: result.error ?? 'Failed to execute ad-hoc task' });
+        return null;
+      }
+    } catch (error) {
+      set({ error: String(error) });
+      return null;
+    }
+  },
+
+  cancelExecution: async (taskId) => {
+    try {
+      const result = (await window.electron.ipcRenderer.invoke('task:cancelExecution', taskId)) as {
+        success: boolean;
+        result?: { cancelled: boolean };
+        error?: string;
+      };
+      if (result.success && result.result?.cancelled) {
+        set((state) => ({
+          executingTaskIds: state.executingTaskIds.filter((id) => id !== taskId),
+        }));
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Failed to cancel task execution:', error);
+      return false;
+    }
   },
 
   init: () => {

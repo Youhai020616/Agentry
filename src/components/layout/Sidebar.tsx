@@ -8,6 +8,7 @@ import {
   Activity,
   Users,
   Crown,
+  ClipboardList,
   Radio,
   Wrench,
   Clock,
@@ -39,7 +40,9 @@ function NavItem({ to, icon, label, badge, collapsed }: NavItemProps) {
         cn(
           'flex items-center gap-2.5 rounded-xl px-2 py-2 text-sm font-medium transition-colors',
           'hover:bg-accent hover:text-accent-foreground',
-          isActive ? 'bg-violet-100 text-violet-500 dark:bg-violet-500/15 dark:text-violet-400' : 'text-muted-foreground',
+          isActive
+            ? 'bg-violet-100 text-violet-500 dark:bg-violet-500/15 dark:text-violet-400'
+            : 'text-muted-foreground',
           collapsed && 'justify-center px-2'
         )
       }
@@ -86,6 +89,7 @@ export function Sidebar() {
   const navItems = [
     { to: '/', icon: <Crown className="h-5 w-5" />, label: t('nav.supervisor') },
     { to: '/employees', icon: <Users className="h-5 w-5" />, label: t('nav.employees') },
+    { to: '/tasks', icon: <ClipboardList className="h-5 w-5" />, label: t('nav.tasks') },
     { to: '/dashboard', icon: <Activity className="h-5 w-5" />, label: t('nav.dashboard') },
     { to: '/channels', icon: <Radio className="h-5 w-5" />, label: t('nav.channels') },
     { to: '/skills', icon: <Wrench className="h-5 w-5" />, label: t('nav.skills') },

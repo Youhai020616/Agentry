@@ -158,6 +158,7 @@ export function registerIpcHandlers(
   registerOnboardingHandlers(mainWindow, employeeManager);
   registerSupervisorHandlers(engine, gatewayManager, mainWindow);
   registerConversationHandlers();
+  registerChatMessageHandlers(engine, gatewayManager);
 
   // Note: task:changed event forwarding happens lazily when Phase 1 initializes.
   // The task-changed listener is set up inside registerTaskHandlers via getLazy().
@@ -581,10 +582,39 @@ function registerGatewayHandlers(gatewayManager: GatewayManager, mainWindow: Bro
     }
   });
 
-  // Gateway RPC call
+  // Gateway RPC call — intercepts chat.send to inject per-employee model override
   ipcMain.handle('gateway:rpc', async (_, method: string, params?: unknown, timeoutMs?: number) => {
     try {
-      const result = await gatewayManager.rpc(method, params, timeoutMs);
+      let finalParams = params;
+
+      // Inject per-employee model into chat.send if the session belongs to an employee
+      if (method === 'chat.send' && params && typeof params === 'object') {
+        const p = params as Record<string, unknown>;
+        const sessionKey = (p.sessionKey ?? p.session ?? '') as string;
+
+        // Employee sessions use the pattern: agent:main:employee-<slug>
+        const empMatch = sessionKey.match(/^agent:main:employee-(.+)$/);
+        if (empMatch) {
+          const employeeId = empMatch[1];
+          try {
+            const store = await getEmployeeSecretsStore();
+            const modelId = (store.get(`employee-models.${employeeId}`) ?? '') as string;
+            if (modelId) {
+              // Pass the model in the RPC params so the Gateway uses it for this request
+              finalParams = { ...p, model: `openrouter/${modelId}` };
+              logger.debug(
+                `[gateway:rpc] Injected per-employee model for ${employeeId}: openrouter/${modelId}`
+              );
+            }
+          } catch (err) {
+            logger.debug(
+              `[gateway:rpc] Failed to look up model for employee ${employeeId}: ${err}`
+            );
+          }
+        }
+      }
+
+      const result = await gatewayManager.rpc(method, finalParams, timeoutMs);
       return { success: true, result };
     } catch (error) {
       return { success: false, error: String(error) };
@@ -664,6 +694,26 @@ function registerGatewayHandlers(gatewayManager: GatewayManager, mainWindow: Bro
 
         if (imageAttachments.length > 0) {
           rpcParams.attachments = imageAttachments;
+        }
+
+        // Inject per-employee model override if this session belongs to an employee
+        const empMatch = params.sessionKey.match(/^agent:main:employee-(.+)$/);
+        if (empMatch) {
+          const employeeId = empMatch[1];
+          try {
+            const store = await getEmployeeSecretsStore();
+            const modelId = (store.get(`employee-models.${employeeId}`) ?? '') as string;
+            if (modelId) {
+              rpcParams.model = `openrouter/${modelId}`;
+              logger.info(
+                `[chat:sendWithMedia] Injected per-employee model for ${employeeId}: openrouter/${modelId}`
+              );
+            }
+          } catch (err) {
+            logger.debug(
+              `[chat:sendWithMedia] Failed to look up model for employee ${employeeId}: ${err}`
+            );
+          }
         }
 
         logger.info(
@@ -1901,25 +1951,17 @@ function registerEmployeeHandlers(employeeManager: EmployeeManager): void {
     }
   });
 
-  // employee:setModel — Save per-employee model override
+  // employee:setModel — Save per-employee model override (per-session, no global mutation)
   ipcMain.handle('employee:setModel', async (_event, employeeId: string, modelId: string) => {
     try {
       const store = await getEmployeeSecretsStore();
       if (modelId) {
         store.set(`employee-models.${employeeId}`, modelId);
         logger.info(`Set model override for employee ${employeeId}: ${modelId}`);
-
-        // Also update the OpenClaw config so the gateway uses this model
-        try {
-          // Determine provider from model ID (e.g. "anthropic/claude-3.5-haiku" → "openrouter")
-          // Since user is using OpenRouter, we set the model via openrouter provider
-          setOpenClawDefaultModel('openrouter', `openrouter/${modelId}`);
-          logger.info(`Updated OpenClaw default model to openrouter/${modelId}`);
-        } catch (err) {
-          logger.warn(`Failed to update OpenClaw config for model ${modelId}:`, err);
-        }
+        // Model is now injected per-session in gateway:rpc and chat:sendWithMedia handlers.
+        // No global config mutation needed — each chat.send RPC carries the model param.
       } else {
-        // Clear the override — revert to global default
+        // Clear the override — employee will use global default
         store.set(`employee-models.${employeeId}`, '');
         logger.info(`Cleared model override for employee ${employeeId}`);
       }
@@ -2093,6 +2135,100 @@ function registerTaskHandlers(engine: EngineContext | null, gatewayManager: Gate
       return { success: true };
     } catch (error) {
       logger.error('task:rate failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // task:execute — Execute a task by dispatching it to the assigned employee's AI session
+  ipcMain.handle(
+    'task:execute',
+    async (
+      _,
+      params: {
+        taskId: string;
+        employeeId: string;
+        timeoutMs?: number;
+        context?: string;
+        includeProjectContext?: boolean;
+      }
+    ) => {
+      try {
+        const lazy = await getLazy();
+        const result = await lazy.taskExecutor.executeTask(params.taskId, params.employeeId, {
+          timeoutMs: params.timeoutMs,
+          context: params.context,
+          includeProjectContext: params.includeProjectContext,
+        });
+        return { success: true, result };
+      } catch (error) {
+        logger.error('task:execute failed:', error);
+        return { success: false, error: String(error) };
+      }
+    }
+  );
+
+  // task:executeAdHoc — Create and execute a one-off task for an employee
+  ipcMain.handle(
+    'task:executeAdHoc',
+    async (
+      _,
+      params: {
+        employeeId: string;
+        description: string;
+        timeoutMs?: number;
+        context?: string;
+      }
+    ) => {
+      try {
+        const lazy = await getLazy();
+        const result = await lazy.taskExecutor.executeAdHoc(params.employeeId, params.description, {
+          timeoutMs: params.timeoutMs,
+          context: params.context,
+        });
+        return { success: true, result };
+      } catch (error) {
+        logger.error('task:executeAdHoc failed:', error);
+        return { success: false, error: String(error) };
+      }
+    }
+  );
+
+  // task:cancelExecution — Cancel a running task execution
+  ipcMain.handle('task:cancelExecution', async (_, taskId: string) => {
+    try {
+      const lazy = await getLazy();
+      const cancelled = lazy.taskExecutor.cancel(taskId);
+      return { success: true, result: { cancelled } };
+    } catch (error) {
+      logger.error('task:cancelExecution failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // task:executionStatus — Get execution status of tasks
+  ipcMain.handle('task:executionStatus', async () => {
+    try {
+      const lazy = await getLazy();
+      const stats = lazy.taskExecutor.getStats();
+      const executing = lazy.taskExecutor.getExecutingTasks();
+      return {
+        success: true,
+        result: { ...stats, executingTaskIds: executing },
+      };
+    } catch (error) {
+      logger.error('task:executionStatus failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // task:setAutoExecute — Toggle auto-execution when tasks are claimed
+  ipcMain.handle('task:setAutoExecute', async (_, enabled: boolean) => {
+    try {
+      const lazy = await getLazy();
+      lazy.taskExecutor.setAutoExecute(enabled);
+      return { success: true };
+    } catch (error) {
+      logger.error('task:setAutoExecute failed:', error);
       return { success: false, error: String(error) };
     }
   });
@@ -3399,6 +3535,192 @@ function registerConversationHandlers(): void {
     } catch (error) {
       logger.error('conversation:delete failed:', error);
       return { success: false, error: String(error) };
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Chat Message Persistence Handlers
+// ---------------------------------------------------------------------------
+
+function registerChatMessageHandlers(
+  engine: EngineContext | null,
+  gatewayManager: GatewayManager
+): void {
+  const getMessageStore = async () => {
+    if (!engine) throw new Error('Engine not initialized');
+    const lazy = await engine.getLazy(gatewayManager);
+    return lazy.messageStore;
+  };
+
+  // chatMessage:save — Save a single message to local SQLite store
+  ipcMain.handle(
+    'chatMessage:save',
+    async (
+      _,
+      input: {
+        id: string;
+        sessionKey: string;
+        role: string;
+        content: string;
+        timestamp?: number;
+        runId?: string;
+        providerId?: string;
+        model?: string;
+        stopReason?: string;
+        toolCalls?: unknown[];
+        attachedFiles?: unknown[];
+        raw?: Record<string, unknown>;
+      }
+    ) => {
+      try {
+        const store = await getMessageStore();
+        const message = store.save(input);
+        return { success: true, result: message };
+      } catch (error) {
+        logger.error('chatMessage:save failed:', error);
+        return { success: false, error: String(error) };
+      }
+    }
+  );
+
+  // chatMessage:list — List messages for a session from local store
+  ipcMain.handle(
+    'chatMessage:list',
+    async (_, params: { sessionKey: string; limit?: number; offset?: number }) => {
+      try {
+        const store = await getMessageStore();
+        const messages = store.listBySession(
+          params.sessionKey,
+          params.limit ?? 200,
+          params.offset ?? 0
+        );
+        return { success: true, result: messages };
+      } catch (error) {
+        logger.error('chatMessage:list failed:', error);
+        return { success: false, error: String(error) };
+      }
+    }
+  );
+
+  // chatMessage:sync — Sync messages from Gateway history into local store
+  ipcMain.handle('chatMessage:sync', async (_, params: { sessionKey: string }) => {
+    try {
+      const store = await getMessageStore();
+
+      // Fetch current history from Gateway
+      const result = await gatewayManager.rpc<Record<string, unknown>>('chat.history', {
+        sessionKey: params.sessionKey,
+        limit: 500,
+      });
+
+      const data = result as Record<string, unknown>;
+      const rawMessages = (data?.messages ?? data?.history ?? []) as Array<Record<string, unknown>>;
+
+      if (rawMessages.length === 0) {
+        return {
+          success: true,
+          result: { synced: 0, total: store.countBySession(params.sessionKey) },
+        };
+      }
+
+      const synced = store.syncFromGateway(params.sessionKey, rawMessages);
+      const total = store.countBySession(params.sessionKey);
+
+      return { success: true, result: { synced, total } };
+    } catch (error) {
+      logger.error('chatMessage:sync failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // chatMessage:clear — Delete all messages for a session from local store
+  ipcMain.handle('chatMessage:clear', async (_, sessionKey: string) => {
+    try {
+      const store = await getMessageStore();
+      const deleted = store.clearSession(sessionKey);
+      return { success: true, result: { deleted } };
+    } catch (error) {
+      logger.error('chatMessage:clear failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // chatMessage:count — Count messages for a session in local store
+  ipcMain.handle('chatMessage:count', async (_, sessionKey: string) => {
+    try {
+      const store = await getMessageStore();
+      const count = store.countBySession(sessionKey);
+      return { success: true, result: count };
+    } catch (error) {
+      logger.error('chatMessage:count failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // chatMessage:listSessions — List all sessions with stored messages
+  ipcMain.handle('chatMessage:listSessions', async () => {
+    try {
+      const store = await getMessageStore();
+      const sessions = store.listSessionMeta();
+      return { success: true, result: sessions };
+    } catch (error) {
+      logger.error('chatMessage:listSessions failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // Auto-persist incoming Gateway chat events to local store
+  gatewayManager.on('chat:message', async (eventData: { message: unknown }) => {
+    try {
+      const store = await getMessageStore();
+      const msg = eventData.message as Record<string, unknown>;
+      if (!msg) return;
+
+      // Extract session key from the event
+      const sessionKey = (msg.sessionKey ?? msg.session ?? '') as string;
+      if (!sessionKey) return;
+
+      // Only persist final/complete messages (not streaming deltas)
+      const state = (msg.state ?? msg.status) as string | undefined;
+      if (state === 'delta' || state === 'streaming') return;
+
+      const role = (msg.role ?? 'assistant') as string;
+      let content = '';
+      if (typeof msg.content === 'string') {
+        content = msg.content;
+      } else if (Array.isArray(msg.content)) {
+        content = (msg.content as Array<{ type?: string; text?: string }>)
+          .filter((b) => b.type === 'text' || !b.type)
+          .map((b) => b.text ?? '')
+          .join('\n');
+      }
+
+      // Skip empty messages
+      if (!content && role !== 'tool') return;
+
+      const id =
+        (msg.id as string) ??
+        (msg.providerId as string) ??
+        `auto-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+      store.save({
+        id,
+        sessionKey,
+        role,
+        content,
+        timestamp: (msg.timestamp as number) ?? Date.now(),
+        runId: msg.runId as string | undefined,
+        providerId: msg.providerId as string | undefined,
+        model: msg.model as string | undefined,
+        stopReason: msg.stopReason as string | undefined,
+        toolCalls: msg.toolCalls as unknown[] | undefined,
+        attachedFiles: (msg._attachedFiles ?? msg.attachedFiles) as unknown[] | undefined,
+        raw: msg,
+      });
+    } catch (err) {
+      // Non-fatal — message persistence is a cache layer
+      logger.debug(`Failed to auto-persist chat message: ${err}`);
     }
   });
 }
