@@ -12,6 +12,7 @@ export const BUILTIN_PROVIDER_TYPES = [
   'openrouter',
   'moonshot',
   'siliconflow',
+  'dashscope',
   'ollama',
 ] as const;
 export type BuiltinProviderType = (typeof BUILTIN_PROVIDER_TYPES)[number];
@@ -21,7 +22,6 @@ interface ProviderModelEntry extends Record<string, unknown> {
   id: string;
   name: string;
 }
-
 
 interface ProviderBackendMeta {
   envVar?: string;
@@ -95,6 +95,53 @@ const REGISTRY: Record<string, ProviderBackendMeta> = {
       baseUrl: 'https://api.siliconflow.cn/v1',
       api: 'openai-completions',
       apiKeyEnv: 'SILICONFLOW_API_KEY',
+    },
+  },
+  dashscope: {
+    envVar: 'DASHSCOPE_API_KEY',
+    defaultModel: 'dashscope/qwen-plus',
+    providerConfig: {
+      baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+      api: 'openai-completions',
+      apiKeyEnv: 'DASHSCOPE_API_KEY',
+      models: [
+        {
+          id: 'qwen-plus',
+          name: 'Qwen Plus',
+          reasoning: false,
+          input: ['text'],
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          contextWindow: 131072,
+          maxTokens: 8192,
+        },
+        {
+          id: 'qwen-max',
+          name: 'Qwen Max',
+          reasoning: false,
+          input: ['text'],
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          contextWindow: 32768,
+          maxTokens: 8192,
+        },
+        {
+          id: 'qwen-turbo',
+          name: 'Qwen Turbo',
+          reasoning: false,
+          input: ['text'],
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          contextWindow: 131072,
+          maxTokens: 8192,
+        },
+        {
+          id: 'qwen3-235b-a22b',
+          name: 'Qwen3 235B A22B',
+          reasoning: true,
+          input: ['text'],
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          contextWindow: 131072,
+          maxTokens: 8192,
+        },
+      ],
     },
   },
   // Additional providers with env var mappings but no default model
