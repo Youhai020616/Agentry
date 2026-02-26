@@ -92,8 +92,8 @@ export function registerIpcHandlers(
   mainWindow: BrowserWindow,
   engineRef: EngineRef
 ): void {
-  // Gateway handlers
-  registerGatewayHandlers(gatewayManager, mainWindow);
+  // Gateway handlers (engineRef passed for lazy employee system prompt injection)
+  registerGatewayHandlers(gatewayManager, mainWindow, engineRef);
 
   // ClawHub handlers
   registerClawHubHandlers(clawHubService);
@@ -561,7 +561,24 @@ function registerLogHandlers(): void {
 /**
  * Gateway-related IPC handlers
  */
-function registerGatewayHandlers(gatewayManager: GatewayManager, mainWindow: BrowserWindow): void {
+function registerGatewayHandlers(
+  gatewayManager: GatewayManager,
+  mainWindow: BrowserWindow,
+  engineRef: EngineRef
+): void {
+  // Helper: look up the compiled system prompt for an employee session.
+  // Returns the prompt string or undefined if not available.
+  function getEmployeeSystemPrompt(employeeId: string): string | undefined {
+    try {
+      const mgr = engineRef.current?.employeeManager;
+      if (!mgr) return undefined;
+      const emp = mgr.get(employeeId);
+      return emp?.systemPrompt ?? undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   // Get Gateway status
   ipcMain.handle('gateway:status', () => {
     return gatewayManager.getStatus();
@@ -602,12 +619,39 @@ function registerGatewayHandlers(gatewayManager: GatewayManager, mainWindow: Bro
     }
   });
 
-  // Gateway RPC call — intercepts chat.send to inject per-employee model override
+  // ── Helper: humanize cryptic Gateway errors ────────────────────
+  function humanizeGatewayError(raw: string): string {
+    // "No API key found for provider "anthropic". Auth store: ..."
+    const noKeyMatch = raw.match(/No API key found for provider "([^"]+)"/);
+    if (noKeyMatch) {
+      const provider = noKeyMatch[1];
+      return (
+        `No API key configured for provider "${provider}". ` +
+        'Please go to Settings → AI Providers and add your API key, ' +
+        'or set a per-employee model override in the employee settings.'
+      );
+    }
+    // "402" / "credits exhausted" style errors from OpenRouter
+    if (/402|credits exhausted|insufficient.*(credit|balance)/i.test(raw)) {
+      return 'Your API credits are exhausted. Please top up your account with the AI provider.';
+    }
+    // Rate limit
+    if (/429|rate.limit|too many requests/i.test(raw)) {
+      return 'Rate limit reached. Please wait a moment and try again.';
+    }
+    return raw;
+  }
+
+  // Gateway RPC call — intercepts chat.send for employee sessions:
+  //  1. Upgrades to the 'agent' RPC method (which supports extraSystemPrompt)
+  //  2. Injects the compiled SKILL.md system prompt as extraSystemPrompt
+  //  3. Injects per-employee model override
   ipcMain.handle('gateway:rpc', async (_, method: string, params?: unknown, timeoutMs?: number) => {
     try {
+      let finalMethod = method;
       let finalParams = params;
 
-      // Inject per-employee model into chat.send if the session belongs to an employee
+      // Intercept chat.send for employee sessions → upgrade to 'agent' with system prompt
       if (method === 'chat.send' && params && typeof params === 'object') {
         const p = params as Record<string, unknown>;
         const sessionKey = (p.sessionKey ?? p.session ?? '') as string;
@@ -616,12 +660,28 @@ function registerGatewayHandlers(gatewayManager: GatewayManager, mainWindow: Bro
         const empMatch = sessionKey.match(/^agent:main:employee-(.+)$/);
         if (empMatch) {
           const employeeId = empMatch[1];
+          const merged: Record<string, unknown> = { ...p };
+
+          // Inject compiled SKILL.md system prompt via extraSystemPrompt.
+          // The Gateway's 'agent' method passes this into the LLM system prompt,
+          // so the employee actually follows its SKILL.md instructions instead of
+          // only seeing the skill name/description in the available_skills list.
+          const systemPrompt = getEmployeeSystemPrompt(employeeId);
+          if (systemPrompt) {
+            merged.extraSystemPrompt = systemPrompt;
+            // Upgrade from chat.send → agent (only 'agent' supports extraSystemPrompt)
+            finalMethod = 'agent';
+            logger.debug(
+              `[gateway:rpc] Upgraded chat.send → agent for employee ${employeeId}, injected systemPrompt (${systemPrompt.length} chars)`
+            );
+          }
+
+          // Inject per-employee model override
           try {
             const store = await getEmployeeSecretsStore();
             const modelId = (store.get(`employee-models.${employeeId}`) ?? '') as string;
             if (modelId) {
-              // Pass the model in the RPC params so the Gateway uses it for this request
-              finalParams = { ...p, model: `openrouter/${modelId}` };
+              merged.model = `openrouter/${modelId}`;
               logger.debug(
                 `[gateway:rpc] Injected per-employee model for ${employeeId}: openrouter/${modelId}`
               );
@@ -631,13 +691,20 @@ function registerGatewayHandlers(gatewayManager: GatewayManager, mainWindow: Bro
               `[gateway:rpc] Failed to look up model for employee ${employeeId}: ${err}`
             );
           }
+
+          finalParams = merged;
         }
       }
 
-      const result = await gatewayManager.rpc(method, finalParams, timeoutMs);
+      const result = await gatewayManager.rpc(finalMethod, finalParams, timeoutMs);
       return { success: true, result };
     } catch (error) {
-      return { success: false, error: String(error) };
+      const raw = String(error);
+      const friendly = humanizeGatewayError(raw);
+      if (friendly !== raw) {
+        logger.warn(`[gateway:rpc] Humanized error: ${raw} → ${friendly}`);
+      }
+      return { success: false, error: friendly };
     }
   });
 
@@ -716,10 +783,23 @@ function registerGatewayHandlers(gatewayManager: GatewayManager, mainWindow: Bro
           rpcParams.attachments = imageAttachments;
         }
 
-        // Inject per-employee model override if this session belongs to an employee
+        // Inject per-employee system prompt + model override if this session belongs to an employee
+        let rpcMethod = 'chat.send';
         const empMatch = params.sessionKey.match(/^agent:main:employee-(.+)$/);
         if (empMatch) {
           const employeeId = empMatch[1];
+
+          // Inject compiled SKILL.md system prompt → upgrade to 'agent' method
+          const systemPrompt = getEmployeeSystemPrompt(employeeId);
+          if (systemPrompt) {
+            rpcParams.extraSystemPrompt = systemPrompt;
+            rpcMethod = 'agent';
+            logger.info(
+              `[chat:sendWithMedia] Upgraded to agent for employee ${employeeId}, injected systemPrompt (${systemPrompt.length} chars)`
+            );
+          }
+
+          // Inject per-employee model override
           try {
             const store = await getEmployeeSecretsStore();
             const modelId = (store.get(`employee-models.${employeeId}`) ?? '') as string;
@@ -737,17 +817,19 @@ function registerGatewayHandlers(gatewayManager: GatewayManager, mainWindow: Bro
         }
 
         logger.info(
-          `[chat:sendWithMedia] Sending: message="${message.substring(0, 100)}", attachments=${imageAttachments.length}, fileRefs=${fileReferences.length}`
+          `[chat:sendWithMedia] Sending via ${rpcMethod}: message="${message.substring(0, 100)}", attachments=${imageAttachments.length}, fileRefs=${fileReferences.length}`
         );
 
         // Use a longer timeout when images are present (120s vs default 30s)
         const timeoutMs = imageAttachments.length > 0 ? 120000 : 30000;
-        const result = await gatewayManager.rpc('chat.send', rpcParams, timeoutMs);
+        const result = await gatewayManager.rpc(rpcMethod, rpcParams, timeoutMs);
         logger.info(`[chat:sendWithMedia] RPC result: ${JSON.stringify(result)}`);
         return { success: true, result };
       } catch (error) {
-        logger.error(`[chat:sendWithMedia] Error: ${String(error)}`);
-        return { success: false, error: String(error) };
+        const raw = String(error);
+        const friendly = humanizeGatewayError(raw);
+        logger.error(`[chat:sendWithMedia] Error: ${raw}`);
+        return { success: false, error: friendly };
       }
     }
   );

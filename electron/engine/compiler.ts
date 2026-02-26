@@ -54,7 +54,7 @@ export class SkillCompiler {
 
   /**
    * Compile a skill directory's SKILL.md into a system prompt
-   * Template variables: {{ROLE}}, {{ROLE_ZH}}, {{TEAM}}, {{PERSONALITY_STYLE}}
+   * Template variables: {{ROLE}}, {{ROLE_ZH}}, {{TEAM}}, {{PERSONALITY_STYLE}}, {{SKILL_DIR}}
    *
    * If a ToolRegistry is configured and the employee has registered tools,
    * the tool prompt section is appended to the system prompt.
@@ -82,7 +82,7 @@ export class SkillCompiler {
       template = this.generateFromManifest(manifest);
     }
 
-    let systemPrompt = this.replaceVariables(template, manifest);
+    let systemPrompt = this.replaceVariables(template, manifest, skillDir);
 
     // Append tool prompt section if the employee has registered tools
     if (employeeId && this.toolRegistry) {
@@ -111,17 +111,14 @@ export class SkillCompiler {
       const businessContextSection = this.memoryEngine.generateBusinessContextSection();
       if (businessContextSection) {
         systemPrompt += businessContextSection;
-        logger.debug(
-          `Appended business context section (${businessContextSection.length} chars)`
-        );
+        logger.debug(`Appended business context section (${businessContextSection.length} chars)`);
       }
     }
 
     // Append prohibition rules section
     if (this.prohibitionEngine) {
-      const prohibitionSection = this.prohibitionEngine.generateProhibitionPromptSection(
-        employeeId
-      );
+      const prohibitionSection =
+        this.prohibitionEngine.generateProhibitionPromptSection(employeeId);
       if (prohibitionSection) {
         systemPrompt += prohibitionSection;
         logger.debug(
@@ -137,13 +134,20 @@ export class SkillCompiler {
   /**
    * Replace template variables in the template string
    */
-  private replaceVariables(template: string, manifest: SkillManifest): string {
+  private replaceVariables(template: string, manifest: SkillManifest, skillDir?: string): string {
     const { employee } = manifest;
     let result = template
       .replace(/\{\{ROLE\}\}/g, employee.role)
       .replace(/\{\{ROLE_ZH\}\}/g, employee.roleZh)
       .replace(/\{\{TEAM\}\}/g, employee.team)
       .replace(/\{\{PERSONALITY_STYLE\}\}/g, employee.personality.style);
+
+    // Replace {{SKILL_DIR}} with the absolute path to the skill directory
+    // Use forward slashes for cross-platform compatibility in shell commands
+    if (skillDir && result.includes('{{SKILL_DIR}}')) {
+      const normalizedDir = skillDir.replace(/\\/g, '/');
+      result = result.replace(/\{\{SKILL_DIR\}\}/g, normalizedDir);
+    }
 
     // Replace {{TEAM_ROSTER}} with dynamic employee list (used by Supervisor)
     if (result.includes('{{TEAM_ROSTER}}')) {
@@ -161,9 +165,7 @@ export class SkillCompiler {
       return '(No team roster available — EmployeeManager not configured)';
     }
 
-    const employees = this.employeeManager
-      .list()
-      .filter((e) => e.id !== selfSlug);
+    const employees = this.employeeManager.list().filter((e) => e.id !== selfSlug);
 
     if (employees.length === 0) {
       return '(No employees available for delegation)';
@@ -171,8 +173,7 @@ export class SkillCompiler {
 
     return employees
       .map(
-        (e) =>
-          `- **${e.role}** (${e.roleZh}): slug=\`${e.id}\`, team=${e.team}, status=${e.status}`
+        (e) => `- **${e.role}** (${e.roleZh}): slug=\`${e.id}\`, team=${e.team}, status=${e.status}`
       )
       .join('\n');
   }
