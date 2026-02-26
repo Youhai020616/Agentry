@@ -127,6 +127,13 @@ const electronAPI = {
         'openclaw:getSkillsDir',
         'openclaw:getCliCommand',
         'openclaw:installCliMac',
+        // Extension
+        'extension:check',
+        'extension:install',
+        'extension:installAll',
+        'extension:start',
+        'extension:stop',
+        'extension:health',
         // Employee
         'employee:list',
         'employee:get',
@@ -139,6 +146,7 @@ const electronAPI = {
         'employee:getManifest',
         'employee:setModel',
         'employee:getModel',
+        'employee:checkDeps',
         // Task
         'task:create',
         'task:list',
@@ -281,6 +289,7 @@ const electronAPI = {
         'employee:status-changed',
         'task:changed',
         'ollama:pull-progress',
+        'extension:install-progress',
         'supervisor:delegation-started',
         'supervisor:delegation-completed',
         'supervisor:delegation-failed',

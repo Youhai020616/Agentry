@@ -121,6 +121,26 @@
         "downloadFirst": "Please download Camofox first, then click \"Detect Installation\".",
         "autoDetected": "Auto-detected"
       },
+      "extensions": {
+        "subtitle": "Install required extensions",
+        "heading": "Required Extensions",
+        "description": "This employee needs the following extensions to work properly.",
+        "checking": "Checking extensions...",
+        "allReady": "All extensions are ready!",
+        "installAll": "Install All",
+        "installing": "Installing...",
+        "ready": "Ready",
+        "notInstalled": "Not installed",
+        "needsSetup": "Needs setup",
+        "manualDownload": "Manual download required",
+        "openDownloadPage": "Open Download Page",
+        "recheck": "Re-check",
+        "startService": "Start",
+        "stopService": "Stop",
+        "running": "Running",
+        "stopped": "Stopped",
+        "installFailed": "Installation failed: {{error}}"
+      },
       "login": {
         "subtitle": "Account login",
         "heading": "Sign in to your account",
@@ -157,6 +177,16 @@
         "captured": "captured"
       }
     }
+  },
+  "extensionSetup": {
+    "title": "Required Extensions",
+    "description": "The following extensions need to be installed before this employee can start.",
+    "installAll": "Install All",
+    "installing": "Installing extensions...",
+    "done": "All extensions ready",
+    "retry": "Retry",
+    "skip": "Skip for now",
+    "close": "Close"
   },
   "teams": {
     "marketing": "Marketing",

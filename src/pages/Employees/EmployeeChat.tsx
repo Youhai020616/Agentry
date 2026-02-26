@@ -20,6 +20,7 @@ import { useGatewayStore } from '@/stores/gateway';
 import { Chat } from '@/pages/Chat';
 import { EmployeeHeader } from './EmployeeHeader';
 import { OnboardingWizard } from './OnboardingWizard';
+import { ExtensionSetupDialog } from './ExtensionSetupDialog';
 import type { SkillManifest } from '@/types/manifest';
 
 interface ManifestWithDir extends SkillManifest {
@@ -47,6 +48,10 @@ export function EmployeeChat() {
   // Onboarding gate state
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
   const [manifest, setManifest] = useState<ManifestWithDir | null>(null);
+
+  // Extension dependency gate (for employees without onboarding)
+  const [needsExtensions, setNeedsExtensions] = useState(false);
+  const [missingExtensions, setMissingExtensions] = useState<string[]>([]);
 
   const employee = employees.find((e) => e.slug === slug);
 
@@ -103,14 +108,31 @@ export function EmployeeChat() {
 
   // Auto-activate employee and bind to their session (only when NOT in onboarding)
   useEffect(() => {
-    if (!employee || !isGatewayRunning || needsOnboarding !== false) return;
+    if (!employee || !isGatewayRunning || needsOnboarding !== false || needsExtensions) return;
 
     let cancelled = false;
 
     async function bindSession() {
       try {
-        // If employee is offline, activate first
+        // If employee is offline, check deps first then activate
         if (employee!.status === 'offline') {
+          // Check runtime dependencies before activation
+          const depsResult = (await window.electron.ipcRenderer.invoke(
+            'employee:checkDeps',
+            employee!.id
+          )) as {
+            success: boolean;
+            result?: { satisfied: boolean; missing: Array<{ name: string }>; requires: string[] };
+          };
+
+          if (depsResult.success && depsResult.result && !depsResult.result.satisfied) {
+            if (!cancelled) {
+              setMissingExtensions(depsResult.result.requires);
+              setNeedsExtensions(true);
+            }
+            return;
+          }
+
           setActivating(true);
           setError(null);
           await activateEmployee(employee!.id);
@@ -144,7 +166,7 @@ export function EmployeeChat() {
         bindSession();
       }
     }
-  }, [employee?.id, employee?.status, isGatewayRunning, needsOnboarding]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [employee?.id, employee?.status, isGatewayRunning, needsOnboarding, needsExtensions]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle onboarding completion
   const handleOnboardingComplete = useCallback(() => {
@@ -158,6 +180,18 @@ export function EmployeeChat() {
   const handleOnboardingCancel = useCallback(() => {
     navigate('/employees');
   }, [navigate]);
+
+  // Handle extension setup completion — retry activation
+  const handleExtensionsReady = useCallback(() => {
+    setNeedsExtensions(false);
+    setMissingExtensions([]);
+  }, []);
+
+  // Handle extension setup skip — proceed anyway
+  const handleExtensionsSkip = useCallback(() => {
+    setNeedsExtensions(false);
+    setMissingExtensions([]);
+  }, []);
 
   // Employee not found
   if (!employee && employees.length > 0) {
@@ -180,6 +214,17 @@ export function EmployeeChat() {
         <LoadingSpinner size="lg" />
         <p className="text-sm text-muted-foreground">{t('common:status.loading', 'Loading...')}</p>
       </div>
+    );
+  }
+
+  // Extension dependency gate — show setup dialog
+  if (needsExtensions && missingExtensions.length > 0) {
+    return (
+      <ExtensionSetupDialog
+        requires={missingExtensions}
+        onReady={handleExtensionsReady}
+        onSkip={handleExtensionsSkip}
+      />
     );
   }
 

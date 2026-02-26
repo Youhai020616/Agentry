@@ -121,6 +121,26 @@
         "downloadFirst": "请先下载 Camofox，然后点击「检测安装」。",
         "autoDetected": "自动检测"
       },
+      "extensions": {
+        "subtitle": "安装所需扩展",
+        "heading": "所需扩展",
+        "description": "该员工需要以下扩展才能正常工作。",
+        "checking": "正在检测扩展...",
+        "allReady": "所有扩展已就绪！",
+        "installAll": "全部安装",
+        "installing": "安装中...",
+        "ready": "就绪",
+        "notInstalled": "未安装",
+        "needsSetup": "需要配置",
+        "manualDownload": "需要手动下载",
+        "openDownloadPage": "打开下载页",
+        "recheck": "重新检测",
+        "startService": "启动",
+        "stopService": "停止",
+        "running": "运行中",
+        "stopped": "已停止",
+        "installFailed": "安装失败：{{error}}"
+      },
       "login": {
         "subtitle": "账号登录",
         "heading": "登录你的账号",
@@ -157,6 +177,16 @@
         "captured": "已捕获"
       }
     }
+  },
+  "extensionSetup": {
+    "title": "所需扩展",
+    "description": "需要安装以下扩展后该员工才能开始工作。",
+    "installAll": "全部安装",
+    "installing": "正在安装扩展...",
+    "done": "所有扩展已就绪",
+    "retry": "重试",
+    "skip": "暂时跳过",
+    "close": "关闭"
   },
   "teams": {
     "marketing": "市场营销",

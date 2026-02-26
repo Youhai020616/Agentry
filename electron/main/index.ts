@@ -243,6 +243,15 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', async () => {
   isQuitting = true;
+
+  // Clean up extension child processes
+  try {
+    const { getExtensionInstaller } = await import('../engine/extension-installer');
+    getExtensionInstaller().destroy();
+  } catch {
+    // Non-fatal
+  }
+
   await gatewayManager.stop();
 });
 

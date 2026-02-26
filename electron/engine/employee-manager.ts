@@ -217,6 +217,45 @@ export class EmployeeManager extends EventEmitter {
   }
 
   /**
+   * Check if an employee's runtime.requires are all satisfied.
+   * Returns { satisfied, missing[], requires[] }.
+   */
+  async checkRuntimeRequirements(id: string): Promise<{
+    satisfied: boolean;
+    missing: Array<{ name: string; status: string; message: string }>;
+    requires: string[];
+  }> {
+    const employee = this.requireEmployee(id);
+    const manifest = this.parser.parseFromPath(employee.skillDir);
+    const requires = manifest.capabilities?.runtime?.requires ?? [];
+
+    if (requires.length === 0) {
+      return { satisfied: true, missing: [], requires };
+    }
+
+    const { getExtensionInstaller } = await import('./extension-installer');
+    const installer = getExtensionInstaller();
+    const results = await installer.checkAll(requires);
+
+    const missing: Array<{ name: string; status: string; message: string }> = [];
+    for (const [name, result] of results) {
+      if (!result.ready) {
+        missing.push({
+          name,
+          status: result.installed ? 'installed-not-ready' : 'not-installed',
+          message: result.message,
+        });
+      }
+    }
+
+    return {
+      satisfied: missing.length === 0,
+      missing,
+      requires,
+    };
+  }
+
+  /**
    * Get the parsed manifest for an employee
    */
   getManifest(id: string): SkillManifest & { _skillDir: string } {

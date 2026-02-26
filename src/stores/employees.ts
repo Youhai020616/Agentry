@@ -8,6 +8,12 @@
 import { create } from 'zustand';
 import type { Employee, EmployeeStatus } from '../types/employee';
 
+interface DepsCheckResult {
+  satisfied: boolean;
+  missing: Array<{ name: string; status: string; message: string }>;
+  requires: string[];
+}
+
 interface EmployeesState {
   employees: Employee[];
   loading: boolean;
@@ -19,6 +25,7 @@ interface EmployeesState {
   scanEmployees: () => Promise<void>;
   activateEmployee: (id: string) => Promise<void>;
   deactivateEmployee: (id: string) => Promise<void>;
+  checkDeps: (id: string) => Promise<DepsCheckResult | null>;
 }
 
 export const useEmployeesStore = create<EmployeesState>((set, get) => ({
@@ -115,6 +122,22 @@ export const useEmployeesStore = create<EmployeesState>((set, get) => ({
       }
     } catch (error) {
       set({ error: String(error) });
+    }
+  },
+
+  checkDeps: async (id) => {
+    try {
+      const result = (await window.electron.ipcRenderer.invoke('employee:checkDeps', id)) as {
+        success: boolean;
+        result?: DepsCheckResult;
+        error?: string;
+      };
+      if (result.success && result.result) {
+        return result.result;
+      }
+      return null;
+    } catch {
+      return null;
     }
   },
 }));

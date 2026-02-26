@@ -152,4 +152,110 @@ describe('ManifestParser', () => {
       expect(parser.validate(manifest)).toBe(false);
     });
   });
+
+  describe('new employee manifests', () => {
+    const publisherXhsManifest = {
+      name: 'publisher-xhs',
+      version: '1.0.0',
+      description: 'Xiaohongshu automated publisher',
+      type: 'execution',
+      employee: {
+        role: 'Xiaohongshu Publisher',
+        roleZh: '小红书发布专员',
+        avatar: '📕',
+        team: 'publishing',
+        personality: {
+          style: 'precise, reliable, detail-oriented, automation-focused',
+          greeting: 'Hi! I am your Xiaohongshu Publisher.',
+        },
+      },
+      skills: [{ id: 'publish-note', name: 'Publish Xiaohongshu Note', prompt: './SKILL.md' }],
+      tools: [{ name: 'publish-xhs', cli: 'python', requiredSecret: 'XHS_COOKIES' }],
+      onboarding: {
+        type: 'browser-login',
+        loginUrl: 'https://www.xiaohongshu.com/login',
+        successIndicator: 'web_session',
+        cookieDomains: ['.xiaohongshu.com'],
+      },
+    };
+
+    const publisherDouyinManifest = {
+      name: 'publisher-douyin',
+      version: '1.0.0',
+      description: 'Douyin automated publisher',
+      type: 'execution',
+      employee: {
+        role: 'Douyin Publisher',
+        roleZh: '抖音发布专员',
+        avatar: '🎵',
+        team: 'publishing',
+        personality: {
+          style: 'efficient, methodical, detail-oriented',
+          greeting: 'Hi! I am your Douyin Publisher.',
+        },
+      },
+      skills: [{ id: 'publish-video', name: 'Publish Douyin Video', prompt: './SKILL.md' }],
+      tools: [{ name: 'publish-douyin', cli: 'python', requiredSecret: 'DOUYIN_COOKIES' }],
+      onboarding: {
+        type: 'browser-login',
+        loginUrl: 'https://creator.douyin.com/',
+        successIndicator: 'sessionid',
+        cookieDomains: ['.douyin.com', '.toutiao.com'],
+      },
+    };
+
+    const researcherManifest = {
+      name: 'researcher',
+      version: '1.0.0',
+      description: 'Research analyst',
+      type: 'knowledge',
+      employee: {
+        role: 'Research Analyst',
+        roleZh: '研究员',
+        avatar: '🔬',
+        team: 'research',
+        personality: {
+          style: 'rigorous, analytical, evidence-driven',
+          greeting: 'Hi! I am your Research Analyst.',
+        },
+      },
+      skills: [
+        { id: 'competitive-research', name: 'Competitive Research', prompt: './SKILL.md' },
+      ],
+      tools: [{ name: 'web-search', cli: 'python', requiredSecret: 'TAVILY_API_KEY' }],
+    };
+
+    const updatedNewMediaManifest = {
+      ...validManifest,
+      name: 'new-media',
+      type: 'knowledge',
+      employee: {
+        role: 'Content Creator',
+        roleZh: '内容策划师',
+        avatar: '📱',
+        team: 'marketing',
+        personality: {
+          style: 'creative, data-driven',
+          greeting: 'Hi!',
+        },
+      },
+      tools: [{ name: 'generate-image', cli: 'python', requiredSecret: 'DEERAPI_KEY' }],
+    };
+
+    it('should validate publisher-xhs manifest (execution + onboarding)', () => {
+      expect(parser.validate(publisherXhsManifest)).toBe(true);
+    });
+
+    it('should validate publisher-douyin manifest (execution + multiple cookieDomains)', () => {
+      expect(parser.validate(publisherDouyinManifest)).toBe(true);
+    });
+
+    it('should validate researcher manifest (knowledge + no onboarding)', () => {
+      expect(parser.validate(researcherManifest)).toBe(true);
+    });
+
+    it('should validate updated new-media manifest (knowledge + tools retained)', () => {
+      expect(parser.validate(updatedNewMediaManifest)).toBe(true);
+    });
+  });
 });
