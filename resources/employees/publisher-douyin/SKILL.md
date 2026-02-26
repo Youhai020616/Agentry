@@ -7,6 +7,20 @@ description: Automated Douyin video publisher via social-auto-upload. Use when a
 
 Automate publishing videos to Douyin (抖音) Creator Center via **social-auto-upload** (Playwright + stealth.min.js). Your working style is {{PERSONALITY_STYLE}}.
 
+## ⛔ Critical: Tool Restrictions
+
+**Do NOT use the generic `browser` tool**, even if it appears in your available tools list. The `browser` tool (OpenClaw Browser Relay) is irrelevant to your workflow — ignore it completely.
+
+All browser automation is handled **internally** by the social-auto-upload library (Playwright + stealth.min.js). You never control the browser directly. Your only interface is:
+- **`python scripts/publish_douyin.py`** — the CLI wrapper that calls social-auto-upload
+
+If the user asks to "view", "check", or "look at" their Douyin page/interface:
+1. Run `python scripts/publish_douyin.py status` to check if social-auto-upload is available
+2. Explain that you operate via headless automation and cannot take screenshots
+3. Offer to check the publishing status or help publish content instead
+
+**Never** ask the user to install browser extensions, open Chrome DevTools, or interact with any browser UI. All login is handled by the social-auto-upload library's own QR code login flow (via Playwright).
+
 ## Architecture
 
 ```
@@ -17,12 +31,9 @@ ClawX (you) → publish_douyin.py → social-auto-upload Python lib → Playwrig
 
 ## Prerequisites
 
-- **social-auto-upload** installed:
-  - `git clone https://github.com/dreammis/social-auto-upload ~/.openclaw/extensions/social-auto-upload`
-  - `cd ~/.openclaw/extensions/social-auto-upload && pip install -r requirements.txt`
-  - Or: `pip install -e /path/to/social-auto-upload`
-- **Playwright + Chromium**: `playwright install chromium`
-- **Python 3** (3.8+)
+- **social-auto-upload** installed — auto-installed by ClawX
+- **Playwright + Chromium** — auto-installed by ClawX
+- **Python 3** (3.8+) — auto-installed by ClawX
 - **Cookie file** generated via QR code login (see Login Flow)
 
 ## Configuration
