@@ -7,7 +7,15 @@
  * detect, install, verify, and (optionally) start/stop a service.
  */
 import { spawn, type ChildProcess } from 'child_process';
-import { existsSync, mkdirSync, createWriteStream } from 'fs';
+import {
+  existsSync,
+  mkdirSync,
+  createWriteStream,
+  renameSync,
+  readdirSync,
+  unlinkSync,
+  chmodSync,
+} from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { logger } from '../utils/logger';
@@ -338,32 +346,150 @@ function createCamofoxRecipe(): ExtensionRecipe {
     },
 
     async install(onProgress): Promise<ExtensionInstallResult> {
+      const camofoxDir = join(EXTENSIONS_DIR, 'camofox-browser');
+      const repoUrl = 'https://github.com/nicepkg/camofox-browser';
+      const zipUrl = `${repoUrl}/archive/refs/heads/main.zip`;
+
       try {
         onProgress?.({
           name: 'camofox',
           phase: 'detecting',
-          progress: 10,
+          progress: 5,
           message: 'Detecting Camofox...',
         });
         const { getCamofoxLauncher } = await import('./camofox-launcher');
-        const launcher = getCamofoxLauncher();
-        const detectResult = launcher.detect();
+        let launcher = getCamofoxLauncher();
+        let detectResult = launcher.detect();
 
+        // ── Auto-download if not installed ──────────────────────────
         if (!detectResult.installed) {
-          return {
-            name: 'camofox',
-            success: false,
-            manualRequired: true,
-            error:
-              'Camofox not found. Please download from GitHub: https://github.com/jo-inc/camofox-browser',
-          };
+          ensureExtensionsDir();
+
+          const hasGit = await isGitAvailable();
+
+          if (hasGit) {
+            // Prefer git clone (shallow, faster updates later)
+            onProgress?.({
+              name: 'camofox',
+              phase: 'cloning',
+              progress: 10,
+              message: 'Cloning Camofox repository...',
+            });
+            logger.info(`Cloning camofox-browser from ${repoUrl}`);
+            const cloneResult = await spawnAsync(
+              'git',
+              ['clone', '--depth', '1', repoUrl, camofoxDir],
+              { timeout: 120_000 }
+            );
+            if (cloneResult.code !== 0) {
+              logger.error('git clone camofox failed:', cloneResult.stderr);
+              // Fall through to ZIP fallback
+            }
+          }
+
+          // ZIP fallback if git failed or unavailable
+          if (!existsSync(join(camofoxDir, 'package.json'))) {
+            onProgress?.({
+              name: 'camofox',
+              phase: 'downloading',
+              progress: 15,
+              message: 'Downloading Camofox ZIP...',
+            });
+            logger.info(`Downloading camofox-browser ZIP from ${zipUrl}`);
+
+            const zipPath = join(EXTENSIONS_DIR, 'camofox-browser-main.zip');
+            try {
+              await downloadFile(zipUrl, zipPath);
+
+              onProgress?.({
+                name: 'camofox',
+                phase: 'installing',
+                progress: 30,
+                message: 'Extracting Camofox...',
+              });
+
+              let extracted = false;
+              if (process.platform === 'win32') {
+                const psResult = await spawnAsync(
+                  'powershell',
+                  [
+                    '-NoProfile',
+                    '-Command',
+                    `Expand-Archive -Path '${zipPath}' -DestinationPath '${EXTENSIONS_DIR}' -Force`,
+                  ],
+                  { timeout: 60_000 }
+                );
+                extracted = psResult.code === 0;
+                if (!extracted) logger.error('PowerShell extract camofox failed:', psResult.stderr);
+              } else {
+                const unzipResult = await spawnAsync(
+                  'unzip',
+                  ['-o', zipPath, '-d', EXTENSIONS_DIR],
+                  { timeout: 60_000 }
+                );
+                extracted = unzipResult.code === 0;
+                if (!extracted) logger.error('unzip camofox failed:', unzipResult.stderr);
+              }
+
+              // Clean up ZIP
+              try {
+                unlinkSync(zipPath);
+              } catch {
+                /* non-fatal */
+              }
+
+              if (!extracted) {
+                return {
+                  name: 'camofox',
+                  success: false,
+                  error: 'Failed to extract Camofox ZIP archive',
+                };
+              }
+
+              // GitHub ZIPs extract to <repo>-<branch>/ — rename to canonical name
+              const extractedDir = join(EXTENSIONS_DIR, 'camofox-browser-main');
+              if (existsSync(extractedDir) && !existsSync(camofoxDir)) {
+                renameSync(extractedDir, camofoxDir);
+                logger.info(`Renamed camofox-browser-main → camofox-browser`);
+              }
+            } catch (err) {
+              try {
+                unlinkSync(zipPath);
+              } catch {
+                /* non-fatal */
+              }
+              logger.error('camofox ZIP download/extract failed:', err);
+              return {
+                name: 'camofox',
+                success: false,
+                error: `Failed to download Camofox: ${String(err)}`,
+              };
+            }
+          }
+
+          // Re-detect after download
+          launcher = getCamofoxLauncher();
+          detectResult = launcher.detect();
+
+          if (!detectResult.installed) {
+            return {
+              name: 'camofox',
+              success: false,
+              manualRequired: true,
+              error:
+                'Camofox download succeeded but installation not detected. Please check: ' +
+                camofoxDir,
+            };
+          }
+          logger.info(`Camofox auto-installed at: ${detectResult.path}`);
         }
 
+        // ── Install npm dependencies if needed ─────────────────────
         if (!detectResult.depsInstalled) {
           onProgress?.({
             name: 'camofox',
             phase: 'installing-deps',
-            progress: 30,
+            progress: 60,
             message: 'Installing npm dependencies...',
           });
           const installResult = await launcher.installDeps(detectResult.path);
@@ -445,23 +571,184 @@ function createXiaohongshuMcpRecipe(): ExtensionRecipe {
       };
     },
 
-    async install(_onProgress): Promise<ExtensionInstallResult> {
-      // MVP: manual download fallback
+    async install(onProgress): Promise<ExtensionInstallResult> {
       ensureExtensionsDir();
       if (!existsSync(extensionDir)) {
         mkdirSync(extensionDir, { recursive: true });
       }
 
+      // Already installed
       if (existsSync(binaryPath)) {
         return { name: 'xiaohongshu-mcp', success: true };
       }
 
-      return {
-        name: 'xiaohongshu-mcp',
-        success: false,
-        manualRequired: true,
-        error: `Please download xiaohongshu-mcp binary and place it at: ${extensionDir}`,
-      };
+      // ── Determine platform asset name ──────────────────────────
+      const platform = process.platform;
+      const arch = process.arch;
+
+      let assetName: string;
+      if (platform === 'win32' && arch === 'x64') {
+        assetName = 'xiaohongshu-mcp-windows-amd64.zip';
+      } else if (platform === 'darwin' && arch === 'arm64') {
+        assetName = 'xiaohongshu-mcp-darwin-arm64.tar.gz';
+      } else if (platform === 'darwin' && arch === 'x64') {
+        assetName = 'xiaohongshu-mcp-darwin-amd64.tar.gz';
+      } else if (platform === 'linux' && arch === 'arm64') {
+        assetName = 'xiaohongshu-mcp-linux-arm64.tar.gz';
+      } else if (platform === 'linux' && arch === 'x64') {
+        assetName = 'xiaohongshu-mcp-linux-amd64.tar.gz';
+      } else {
+        return {
+          name: 'xiaohongshu-mcp',
+          success: false,
+          manualRequired: true,
+          error: `Unsupported platform: ${platform}-${arch}. Please download manually from https://github.com/xpzouying/xiaohongshu-mcp/releases and place the binary at: ${extensionDir}`,
+        };
+      }
+
+      const downloadUrl = `https://github.com/xpzouying/xiaohongshu-mcp/releases/latest/download/${assetName}`;
+      const archivePath = join(extensionDir, assetName);
+
+      try {
+        // ── Download ───────────────────────────────────────────────
+        onProgress?.({
+          name: 'xiaohongshu-mcp',
+          phase: 'downloading',
+          progress: 10,
+          message: `Downloading ${assetName}...`,
+        });
+        logger.info(`Downloading xiaohongshu-mcp from ${downloadUrl}`);
+        await downloadFile(downloadUrl, archivePath);
+
+        // ── Extract ────────────────────────────────────────────────
+        onProgress?.({
+          name: 'xiaohongshu-mcp',
+          phase: 'installing',
+          progress: 50,
+          message: 'Extracting archive...',
+        });
+
+        let extracted = false;
+
+        if (platform === 'win32') {
+          // Use PowerShell Expand-Archive for .zip
+          const psResult = await spawnAsync(
+            'powershell',
+            [
+              '-NoProfile',
+              '-Command',
+              `Expand-Archive -Path '${archivePath}' -DestinationPath '${extensionDir}' -Force`,
+            ],
+            { timeout: 60_000 }
+          );
+          extracted = psResult.code === 0;
+          if (!extracted) {
+            logger.error('PowerShell Expand-Archive failed:', psResult.stderr);
+          }
+        } else {
+          // Use tar for .tar.gz
+          const tarResult = await spawnAsync('tar', ['xzf', archivePath, '-C', extensionDir], {
+            timeout: 60_000,
+          });
+          extracted = tarResult.code === 0;
+          if (!extracted) {
+            logger.error('tar extraction failed:', tarResult.stderr);
+          }
+        }
+
+        if (!extracted) {
+          // Clean up archive on failure
+          try {
+            unlinkSync(archivePath);
+          } catch {
+            /* non-fatal */
+          }
+          return {
+            name: 'xiaohongshu-mcp',
+            success: false,
+            error: 'Failed to extract downloaded archive',
+          };
+        }
+
+        // ── Rename platform-specific binary to generic name ──────
+        onProgress?.({
+          name: 'xiaohongshu-mcp',
+          phase: 'installing',
+          progress: 80,
+          message: 'Finalizing installation...',
+        });
+
+        if (!existsSync(binaryPath)) {
+          // Find the extracted binary (e.g. xiaohongshu-mcp-darwin-arm64, xiaohongshu-mcp-windows-amd64.exe)
+          const files = readdirSync(extensionDir);
+          const mcpBinary = files.find(
+            (f) =>
+              f.startsWith('xiaohongshu-mcp-') &&
+              !f.endsWith('.tar.gz') &&
+              !f.endsWith('.zip') &&
+              !f.startsWith('xiaohongshu-login')
+          );
+          if (mcpBinary) {
+            renameSync(join(extensionDir, mcpBinary), binaryPath);
+            logger.info(`Renamed ${mcpBinary} → ${binaryName}`);
+          }
+        }
+
+        // Set executable permission on non-Windows
+        if (platform !== 'win32' && existsSync(binaryPath)) {
+          chmodSync(binaryPath, 0o755);
+        }
+
+        // Also chmod the login tool if present
+        if (platform !== 'win32') {
+          const files = readdirSync(extensionDir);
+          const loginBinary = files.find((f) => f.startsWith('xiaohongshu-login'));
+          if (loginBinary) {
+            try {
+              chmodSync(join(extensionDir, loginBinary), 0o755);
+            } catch {
+              /* non-fatal */
+            }
+          }
+        }
+
+        // ── Clean up archive ───────────────────────────────────────
+        try {
+          unlinkSync(archivePath);
+        } catch {
+          /* non-fatal */
+        }
+
+        if (existsSync(binaryPath)) {
+          onProgress?.({
+            name: 'xiaohongshu-mcp',
+            phase: 'done',
+            progress: 100,
+            message: 'Xiaohongshu MCP installed successfully',
+          });
+          logger.info(`xiaohongshu-mcp installed at ${binaryPath}`);
+          return { name: 'xiaohongshu-mcp', success: true };
+        }
+
+        return {
+          name: 'xiaohongshu-mcp',
+          success: false,
+          error: `Binary not found after extraction. Expected at: ${binaryPath}`,
+        };
+      } catch (err) {
+        // Clean up on error
+        try {
+          unlinkSync(archivePath);
+        } catch {
+          /* non-fatal */
+        }
+        logger.error('xiaohongshu-mcp install failed:', err);
+        return {
+          name: 'xiaohongshu-mcp',
+          success: false,
+          error: `Download/install failed: ${String(err)}`,
+        };
+      }
     },
 
     async verify(): Promise<{ success: boolean; error?: string }> {
@@ -496,7 +783,10 @@ function createXiaohongshuMcpRecipe(): ExtensionRecipe {
 
       return new Promise((resolve) => {
         try {
-          const child = spawn(binaryPath, [], {
+          // Pass explicit flags: -port for binding, -headless for production mode.
+          // The Go binary also auto-downloads a headless browser (~150 MB) on first run,
+          // so the health-check timeout below is generous.
+          const child = spawn(binaryPath, [`-port`, `:${port}`, `-headless=true`], {
             cwd: extensionDir,
             stdio: ['ignore', 'pipe', 'pipe'],
             detached: false,
@@ -527,21 +817,28 @@ function createXiaohongshuMcpRecipe(): ExtensionRecipe {
             serviceProcess = null;
           });
 
-          waitForHealth(port, 15_000, '/health')
+          // First run downloads a headless browser (~150 MB), so allow up to 120 s.
+          waitForHealth(port, 120_000, '/health')
             .then((healthy) => {
               if (healthy) {
                 logger.info(`xiaohongshu-mcp started on port ${port} (PID: ${child.pid})`);
                 resolve({ success: true, pid: child.pid });
               } else {
-                // Kill the child process to avoid resource leak
-                logger.warn('xiaohongshu-mcp health check timed out, killing process');
-                try {
-                  child.kill('SIGTERM');
-                } catch {
-                  // non-fatal
-                }
-                serviceProcess = null;
-                resolve({ success: false, error: 'Health check timed out' });
+                // Don't kill — the process may still be downloading the browser
+                // on first run.  Keep it alive so a subsequent health check can
+                // succeed once the download finishes.
+                logger.warn(
+                  'xiaohongshu-mcp health check timed out (process kept alive, PID: ' +
+                    child.pid +
+                    '). It may still be downloading the headless browser.'
+                );
+                resolve({
+                  success: false,
+                  pid: child.pid,
+                  error:
+                    'Health check timed out — the service may still be starting ' +
+                    '(first run downloads ~150 MB browser). Please retry in a minute.',
+                });
               }
             })
             .catch((err) => {

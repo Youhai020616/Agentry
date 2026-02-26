@@ -18,6 +18,10 @@ const {
   mockExistsSync,
   mockMkdirSync,
   mockCreateWriteStream,
+  mockRenameSync,
+  mockReaddirSync,
+  mockUnlinkSync,
+  mockChmodSync,
 } = vi.hoisted(() => ({
   mockIsPythonReady: vi.fn(),
   mockCheckUvInstalled: vi.fn(),
@@ -30,6 +34,10 @@ const {
   mockExistsSync: vi.fn(),
   mockMkdirSync: vi.fn(),
   mockCreateWriteStream: vi.fn(),
+  mockRenameSync: vi.fn(),
+  mockReaddirSync: vi.fn().mockReturnValue([]),
+  mockUnlinkSync: vi.fn(),
+  mockChmodSync: vi.fn(),
 }));
 
 // ── Module mocks ─────────────────────────────────────────────────
@@ -74,6 +82,10 @@ vi.mock('fs', async (importOriginal) => {
     existsSync: (...args: unknown[]) => mockExistsSync(...args),
     mkdirSync: (...args: unknown[]) => mockMkdirSync(...args),
     createWriteStream: (...args: unknown[]) => mockCreateWriteStream(...args),
+    renameSync: (...args: unknown[]) => mockRenameSync(...args),
+    readdirSync: (...args: unknown[]) => mockReaddirSync(...args),
+    unlinkSync: (...args: unknown[]) => mockUnlinkSync(...args),
+    chmodSync: (...args: unknown[]) => mockChmodSync(...args),
   };
   return { ...mocked, default: mocked };
 });
@@ -349,13 +361,40 @@ describe('ExtensionInstaller', () => {
       expect(result.running).toBe(true);
     });
 
-    it('should return manualRequired when binary not found on install', async () => {
+    it('should attempt auto-download when binary not found', async () => {
+      // existsSync returns false for everything → triggers download path
       mockExistsSync.mockReturnValue(false);
 
       const result = await installer.getRecipe('xiaohongshu-mcp')!.install();
 
+      // Download will fail in test env (no real network), so we expect a failure
+      // but NOT manualRequired — it should attempt the download first
+      expect(result.success).toBe(false);
+      expect(result.error).toBeDefined();
+    });
+
+    it('should return manualRequired for unsupported platform', async () => {
+      mockExistsSync.mockReturnValue(false);
+
+      // Save originals
+      const origPlatform = Object.getOwnPropertyDescriptor(process, 'platform');
+      const origArch = Object.getOwnPropertyDescriptor(process, 'arch');
+
+      // Simulate unsupported platform
+      Object.defineProperty(process, 'platform', { value: 'freebsd', configurable: true });
+      Object.defineProperty(process, 'arch', { value: 'mips', configurable: true });
+
+      // Need a fresh installer to pick up the new platform values
+      const freshInstaller = new ExtensionInstaller();
+      const result = await freshInstaller.getRecipe('xiaohongshu-mcp')!.install();
+
       expect(result.success).toBe(false);
       expect(result.manualRequired).toBe(true);
+      expect(result.error).toContain('Unsupported platform');
+
+      // Restore
+      if (origPlatform) Object.defineProperty(process, 'platform', origPlatform);
+      if (origArch) Object.defineProperty(process, 'arch', origArch);
     });
 
     it('should succeed install when binary already exists', async () => {
