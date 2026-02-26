@@ -59,9 +59,13 @@ const mockManifest = {
   skills: [{ id: 'seo-audit', name: 'SEO Audit', prompt: 'Audit' }],
 };
 
+const { mockParseFromPath } = vi.hoisted(() => ({
+  mockParseFromPath: vi.fn(),
+}));
+
 vi.mock('../../../electron/engine/manifest-parser', () => {
   class MockManifestParser {
-    parseFromPath = vi.fn().mockReturnValue(mockManifest);
+    parseFromPath = mockParseFromPath;
   }
   return { ManifestParser: MockManifestParser };
 });
@@ -94,6 +98,7 @@ describe('EmployeeManager', () => {
     // Default: no directories exist
     vi.mocked(existsSync).mockReturnValue(false);
     vi.mocked(readdirSync).mockReturnValue([]);
+    mockParseFromPath.mockReturnValue(mockManifest);
     manager = new EmployeeManager();
   });
 
@@ -244,6 +249,126 @@ describe('EmployeeManager', () => {
   describe('getStatus', () => {
     it('should return offline for unknown employee', () => {
       expect(manager.getStatus('nonexistent')).toBe('offline');
+    });
+  });
+
+  describe('scan with all employees', () => {
+    const employeeManifests: Record<string, typeof mockManifest> = {
+      supervisor: {
+        ...mockManifest,
+        name: 'supervisor',
+        employee: { ...mockManifest.employee, role: 'Supervisor', roleZh: '主管', team: 'management' },
+      },
+      'new-media': {
+        ...mockManifest,
+        name: 'new-media',
+        type: 'knowledge' as const,
+        employee: {
+          ...mockManifest.employee,
+          role: 'Content Creator',
+          roleZh: '内容策划师',
+          team: 'marketing',
+        },
+      },
+      'reddit-nurture': {
+        ...mockManifest,
+        name: 'reddit-nurture',
+        type: 'execution' as const,
+        employee: {
+          ...mockManifest.employee,
+          role: 'Reddit Growth Specialist',
+          roleZh: 'Reddit 养号专家',
+          team: 'growth',
+        },
+      },
+      'publisher-xhs': {
+        ...mockManifest,
+        name: 'publisher-xhs',
+        type: 'execution' as const,
+        employee: {
+          ...mockManifest.employee,
+          role: 'Xiaohongshu Publisher',
+          roleZh: '小红书发布专员',
+          team: 'publishing',
+        },
+      },
+      'publisher-douyin': {
+        ...mockManifest,
+        name: 'publisher-douyin',
+        type: 'execution' as const,
+        employee: {
+          ...mockManifest.employee,
+          role: 'Douyin Publisher',
+          roleZh: '抖音发布专员',
+          team: 'publishing',
+        },
+      },
+      researcher: {
+        ...mockManifest,
+        name: 'researcher',
+        type: 'knowledge' as const,
+        employee: {
+          ...mockManifest.employee,
+          role: 'Research Analyst',
+          roleZh: '研究员',
+          team: 'research',
+        },
+      },
+    };
+
+    function setupMultiEmployeeScan() {
+      vi.mocked(existsSync).mockReturnValue(true);
+      // Only the builtin dir returns entries; marketplace dir returns empty
+      vi.mocked(readdirSync).mockImplementation((dirPath: unknown) => {
+        const p = String(dirPath);
+        if (p.includes('employees') || p.includes('resources')) {
+          return [
+            { name: 'supervisor', isDirectory: () => true },
+            { name: 'new-media', isDirectory: () => true },
+            { name: 'reddit-nurture', isDirectory: () => true },
+            { name: 'publisher-xhs', isDirectory: () => true },
+            { name: 'publisher-douyin', isDirectory: () => true },
+            { name: 'researcher', isDirectory: () => true },
+          ] as unknown as ReturnType<typeof readdirSync>;
+        }
+        return [] as unknown as ReturnType<typeof readdirSync>;
+      });
+
+      // Dynamic mock: return correct manifest per directory
+      mockParseFromPath.mockImplementation((skillDir: string) => {
+        const dirName = skillDir.split('/').pop() || '';
+        return employeeManifests[dirName] || mockManifest;
+      });
+    }
+
+    it('should discover 6 employees after adding new ones', async () => {
+      setupMultiEmployeeScan();
+
+      const employees = await manager.scan();
+
+      expect(employees).toHaveLength(6);
+      const slugs = employees.map((e) => e.slug);
+      expect(slugs).toContain('supervisor');
+      expect(slugs).toContain('new-media');
+      expect(slugs).toContain('reddit-nurture');
+      expect(slugs).toContain('publisher-xhs');
+      expect(slugs).toContain('publisher-douyin');
+      expect(slugs).toContain('researcher');
+    });
+
+    it('should assign correct team for each employee via manifest', async () => {
+      setupMultiEmployeeScan();
+
+      const employees = await manager.scan();
+
+      expect(employees).toHaveLength(6);
+      const teamMap = new Map(employees.map((e) => [e.slug, e.team]));
+      expect(teamMap.get('supervisor')).toBe('management');
+      expect(teamMap.get('new-media')).toBe('marketing');
+      expect(teamMap.get('reddit-nurture')).toBe('growth');
+      expect(teamMap.get('publisher-xhs')).toBe('publishing');
+      expect(teamMap.get('publisher-douyin')).toBe('publishing');
+      expect(teamMap.get('researcher')).toBe('research');
     });
   });
 });

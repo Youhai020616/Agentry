@@ -121,4 +121,68 @@ describe('SkillCompiler', () => {
       expect(result).toBe('SEO Expert with {{UNKNOWN_VAR}}');
     });
   });
+
+  describe('new employee SKILL.md compilation', () => {
+    const publisherManifest: SkillManifest = {
+      name: 'publisher-xhs',
+      version: '1.0.0',
+      description: 'Xiaohongshu publisher',
+      type: 'execution',
+      employee: {
+        role: 'Xiaohongshu Publisher',
+        roleZh: '小红书发布专员',
+        avatar: '📕',
+        team: 'publishing',
+        personality: {
+          style: 'precise, reliable, detail-oriented, automation-focused',
+          greeting: 'Hi!',
+        },
+      },
+      skills: [{ id: 'publish-note', name: 'Publish Note', prompt: './SKILL.md' }],
+    };
+
+    it('should replace template variables in publisher SKILL.md', () => {
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue(
+        '# {{ROLE}} ({{ROLE_ZH}}) — {{TEAM}} Team\nStyle: {{PERSONALITY_STYLE}}'
+      );
+
+      const result = compiler.compile('/skills/publisher-xhs', publisherManifest);
+
+      expect(result).toBe(
+        '# Xiaohongshu Publisher (小红书发布专员) — publishing Team\nStyle: precise, reliable, detail-oriented, automation-focused'
+      );
+    });
+
+    it('should compile researcher SKILL.md with correct variables', () => {
+      const researcherManifest: SkillManifest = {
+        name: 'researcher',
+        version: '1.0.0',
+        description: 'Research analyst',
+        type: 'knowledge',
+        employee: {
+          role: 'Research Analyst',
+          roleZh: '研究员',
+          avatar: '🔬',
+          team: 'research',
+          personality: {
+            style: 'rigorous, analytical, evidence-driven, thorough, objective',
+            greeting: 'Hi!',
+          },
+        },
+        skills: [{ id: 'research', name: 'Research', prompt: './SKILL.md' }],
+      };
+
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue(
+        '{{ROLE}} on {{TEAM}} team. Style: {{PERSONALITY_STYLE}}'
+      );
+
+      const result = compiler.compile('/skills/researcher', researcherManifest);
+
+      expect(result).toBe(
+        'Research Analyst on research team. Style: rigorous, analytical, evidence-driven, thorough, objective'
+      );
+    });
+  });
 });

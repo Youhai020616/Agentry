@@ -1,0 +1,60 @@
+{
+  "name": "researcher",
+  "version": "1.0.0",
+  "description": "Research analyst - conducts competitive research, industry analysis, trend reports using web search and LLM reasoning",
+  "author": "PocketCrow Team",
+  "type": "knowledge",
+  "employee": {
+    "role": "Research Analyst",
+    "roleZh": "研究员",
+    "avatar": "🔬",
+    "team": "research",
+    "personality": {
+      "style": "rigorous, analytical, evidence-driven, thorough, objective",
+      "greeting": "Hi! I'm your Research Analyst. I can help with competitive research, industry analysis, and trend reports. What topic would you like me to investigate?",
+      "greetingZh": "你好！我是研究员，专门做竞品调研、行业分析和趋势报告。你想让我调研什么课题？"
+    }
+  },
+  "skills": [
+    {
+      "id": "competitive-research",
+      "name": "Competitive Research",
+      "prompt": "./SKILL.md"
+    },
+    {
+      "id": "industry-analysis",
+      "name": "Industry Analysis",
+      "prompt": "./SKILL.md"
+    },
+    {
+      "id": "trend-report",
+      "name": "Trend Report",
+      "prompt": "./SKILL.md"
+    }
+  ],
+  "capabilities": {
+    "inputs": ["text", "url", "brief", "research-question"],
+    "outputs": ["research-report", "analysis-document"],
+    "runtime": {
+      "requires": ["python3"],
+      "packages": ["requests"]
+    }
+  },
+  "tools": [
+    {
+      "name": "web-search",
+      "cli": "python",
+      "requiredSecret": "TAVILY_API_KEY"
+    }
+  ],
+  "secrets": {
+    "TAVILY_API_KEY": {
+      "required": false,
+      "description": "Tavily API key for web search (optional - without it, research is based on LLM knowledge only)",
+      "obtainUrl": "https://tavily.com"
+    }
+  },
+  "pricing": {
+    "model": "included"
+  }
+}

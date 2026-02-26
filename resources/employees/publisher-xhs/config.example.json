@@ -1,0 +1,11 @@
+{
+  "service": {
+    "url": "http://127.0.0.1:18060",
+    "timeout": 120
+  },
+  "publish": {
+    "maxTitleLength": 20,
+    "maxContentLength": 1000,
+    "maxImages": 9
+  }
+}

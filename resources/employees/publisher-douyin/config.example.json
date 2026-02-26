@@ -1,0 +1,10 @@
+{
+  "sau": {
+    "installPath": "~/.openclaw/extensions/social-auto-upload",
+    "cookieDir": "./data/cookies"
+  },
+  "publish": {
+    "maxTitleLength": 30,
+    "defaultAccount": "default"
+  }
+}

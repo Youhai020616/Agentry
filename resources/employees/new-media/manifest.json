@@ -1,12 +1,12 @@
 {
   "name": "new-media",
   "version": "1.0.0",
-  "description": "New media marketing specialist - content strategy, competitor analysis on 小红书/抖音/微信, and AI image generation for marketing materials",
+  "description": "Content strategist and creator - content strategy, competitor analysis on 小红书/抖音/微信, AI image generation. Publishing is handled by dedicated Publisher employees.",
   "author": "PocketCrow Team",
-  "type": "hybrid",
+  "type": "knowledge",
   "employee": {
-    "role": "New Media Marketing Specialist",
-    "roleZh": "新媒体运营专家",
+    "role": "Content Creator",
+    "roleZh": "内容策划师",
     "avatar": "📱",
     "team": "marketing",
     "personality": {
