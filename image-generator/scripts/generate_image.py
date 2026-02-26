@@ -16,7 +16,7 @@ from pathlib import Path
 # 配置
 DEERAPI_BASE_URL = "https://api.deerapi.com/v1"
 MODEL_NAME = "gemini-3-pro-image"
-DEFAULT_OUTPUT_DIR = "."
+DEFAULT_OUTPUT_DIR = os.path.expanduser("~/Desktop/image-generator/image")
 
 
 def get_api_key():
