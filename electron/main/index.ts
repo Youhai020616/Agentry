@@ -192,6 +192,11 @@ async function initialize(): Promise<void> {
     logger.info('Skill Runtime Engine bootstrapped');
   } catch (error) {
     logger.error('Skill Runtime Engine bootstrap failed:', error);
+    // Notify the renderer so the UI can show a meaningful error instead of
+    // silently displaying "Gateway not running".
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('gateway:error', String(error));
+    }
   }
 
   // Start Gateway automatically (after IPC handlers are registered)

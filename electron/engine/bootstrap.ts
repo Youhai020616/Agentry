@@ -50,8 +50,35 @@ export interface LazyEngineContext {
  * Bootstrap the Skill Runtime Engine (Phase 0).
  * Call this once during app initialization, after the Gateway is started.
  */
+/**
+ * Pre-flight check: verify that native modules (better-sqlite3) are compiled
+ * against the correct Node.js ABI version (Electron's embedded Node, not the
+ * system Node). If they mismatch, `require('better-sqlite3')` will throw
+ * with NODE_MODULE_VERSION errors and silently block the entire bootstrap.
+ */
+function checkNativeModules(): void {
+  try {
+    require('better-sqlite3');
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('NODE_MODULE_VERSION')) {
+      const hint =
+        'Native module ABI mismatch detected. ' +
+        'better-sqlite3 was compiled for a different Node.js version than Electron uses. ' +
+        'Run "npx electron-rebuild -f -w better-sqlite3" and restart the app.';
+      logger.error(hint);
+      throw new Error(hint);
+    }
+    // Re-throw other errors (e.g. file not found)
+    throw err;
+  }
+}
+
 export async function bootstrapEngine(): Promise<EngineContext> {
   logger.info('Bootstrapping Skill Runtime Engine (Phase 0)...');
+
+  // Fail fast if native modules are built for the wrong Node ABI
+  checkNativeModules();
 
   // Phase 0: Core components
   const parser = new ManifestParser();

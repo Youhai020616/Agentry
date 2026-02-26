@@ -18,6 +18,7 @@
   "license": "MIT",
   "private": true,
   "scripts": {
+    "postinstall": "electron-rebuild -f -w better-sqlite3",
     "init": "pnpm install && pnpm run uv:download",
     "dev": "vite",
     "build": "vite build && zx scripts/bundle-openclaw.mjs && electron-builder",
