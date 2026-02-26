@@ -252,6 +252,87 @@ describe('EmployeeManager', () => {
     });
   });
 
+  describe('checkRuntimeRequirements', () => {
+    // Mock extension-installer (dynamic import inside the method)
+    const mockCheckAll = vi.fn();
+
+    beforeEach(() => {
+      vi.doMock('../../../electron/engine/extension-installer', () => ({
+        getExtensionInstaller: () => ({
+          checkAll: mockCheckAll,
+        }),
+      }));
+    });
+
+    it('should return satisfied when manifest has no requires', async () => {
+      setupScanMocks();
+      // Manifest without runtime.requires
+      mockParseFromPath.mockReturnValue({
+        ...mockManifest,
+        capabilities: { inputs: [], outputs: [] },
+      });
+      await manager.scan();
+
+      const result = await manager.checkRuntimeRequirements('seo-expert');
+
+      expect(result.satisfied).toBe(true);
+      expect(result.missing).toHaveLength(0);
+      expect(result.requires).toHaveLength(0);
+    });
+
+    it('should return satisfied when all extensions are ready', async () => {
+      setupScanMocks();
+      mockParseFromPath.mockReturnValue({
+        ...mockManifest,
+        capabilities: { inputs: [], outputs: [], runtime: { requires: ['python3'] } },
+      });
+      await manager.scan();
+
+      mockCheckAll.mockResolvedValue(
+        new Map([['python3', { name: 'python3', ready: true, installed: true, message: 'ok' }]])
+      );
+
+      const result = await manager.checkRuntimeRequirements('seo-expert');
+
+      expect(result.satisfied).toBe(true);
+      expect(result.missing).toHaveLength(0);
+    });
+
+    it('should return missing list when extensions are not ready', async () => {
+      setupScanMocks();
+      mockParseFromPath.mockReturnValue({
+        ...mockManifest,
+        capabilities: {
+          inputs: [],
+          outputs: [],
+          runtime: { requires: ['python3', 'camofox'] },
+        },
+      });
+      await manager.scan();
+
+      mockCheckAll.mockResolvedValue(
+        new Map([
+          ['python3', { name: 'python3', ready: true, installed: true, message: 'ok' }],
+          ['camofox', { name: 'camofox', ready: false, installed: false, message: 'not found' }],
+        ])
+      );
+
+      const result = await manager.checkRuntimeRequirements('seo-expert');
+
+      expect(result.satisfied).toBe(false);
+      expect(result.missing).toHaveLength(1);
+      expect(result.missing[0].name).toBe('camofox');
+      expect(result.missing[0].status).toBe('not-installed');
+      expect(result.requires).toEqual(['python3', 'camofox']);
+    });
+
+    it('should throw for non-existent employee', async () => {
+      await expect(manager.checkRuntimeRequirements('nonexistent')).rejects.toThrow(
+        'Employee not found'
+      );
+    });
+  });
+
   describe('scan with all employees', () => {
     const employeeManifests: Record<string, typeof mockManifest> = {
       supervisor: {

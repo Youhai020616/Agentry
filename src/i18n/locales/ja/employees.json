@@ -121,6 +121,26 @@
         "downloadFirst": "まず Camofox をダウンロードしてから「インストールを検出」をクリックしてください。",
         "autoDetected": "自動検出済み"
       },
+      "extensions": {
+        "subtitle": "必要な拡張機能をインストール",
+        "heading": "必要な拡張機能",
+        "description": "この従業員が正常に動作するには、以下の拡張機能が必要です。",
+        "checking": "拡張機能を確認中...",
+        "allReady": "すべての拡張機能が準備完了です！",
+        "installAll": "すべてインストール",
+        "installing": "インストール中...",
+        "ready": "準備完了",
+        "notInstalled": "未インストール",
+        "needsSetup": "セットアップが必要",
+        "manualDownload": "手動ダウンロードが必要",
+        "openDownloadPage": "ダウンロードページを開く",
+        "recheck": "再チェック",
+        "startService": "起動",
+        "stopService": "停止",
+        "running": "実行中",
+        "stopped": "停止中",
+        "installFailed": "インストール失敗：{{error}}"
+      },
       "login": {
         "subtitle": "アカウントログイン",
         "heading": "アカウントにサインイン",
@@ -157,6 +177,16 @@
         "captured": "キャプチャ済み"
       }
     }
+  },
+  "extensionSetup": {
+    "title": "必要な拡張機能",
+    "description": "この従業員が作業を開始する前に、以下の拡張機能をインストールする必要があります。",
+    "installAll": "すべてインストール",
+    "installing": "拡張機能をインストール中...",
+    "done": "すべての拡張機能が準備完了",
+    "retry": "再試行",
+    "skip": "今はスキップ",
+    "close": "閉じる"
   },
   "teams": {
     "marketing": "マーケティング",
