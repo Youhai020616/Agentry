@@ -67,10 +67,7 @@ export class CamofoxClient {
   }
 
   /** Push cookies into a Camofox user session */
-  async pushCookies(
-    userId: string,
-    cookies: unknown[]
-  ): Promise<{ ok: boolean; count?: number }> {
+  async pushCookies(userId: string, cookies: unknown[]): Promise<{ ok: boolean; count?: number }> {
     try {
       const sanitized = sanitizeElectronCookies(cookies);
       const res = await fetch(`${this.baseUrl}/sessions/${userId}/cookies`, {
@@ -88,7 +85,7 @@ export class CamofoxClient {
         return { ok: false };
       }
 
-      const data = await res.json();
+      const data = (await res.json()) as { count?: number };
       return { ok: true, count: data.count ?? cookies.length };
     } catch (err) {
       logger.error(`Camofox pushCookies error: ${err}`);
@@ -106,7 +103,7 @@ export class CamofoxClient {
 
       if (!res.ok) return [];
 
-      const data = await res.json();
+      const data = (await res.json()) as { cookies?: unknown[] };
       return data.cookies ?? [];
     } catch (err) {
       logger.warn(`Camofox getCookies error: ${err}`);

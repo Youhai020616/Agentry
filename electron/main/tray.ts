@@ -6,7 +6,6 @@ import { Tray, Menu, BrowserWindow, app, nativeImage } from 'electron';
 import { join } from 'path';
 
 let tray: Tray | null = null;
-let cachedMainWindow: BrowserWindow | null = null;
 
 /**
  * Lightweight employee info for tray display
@@ -31,7 +30,6 @@ function getIconsDir(): string {
  * Create system tray icon and menu
  */
 export function createTray(mainWindow: BrowserWindow): Tray {
-  cachedMainWindow = mainWindow;
   // Use platform-appropriate icon for system tray
   const iconsDir = getIconsDir();
   let iconPath: string;

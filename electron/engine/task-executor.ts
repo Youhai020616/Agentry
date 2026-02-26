@@ -56,7 +56,6 @@ export interface TaskExecutionResult {
 // ── Constants ────────────────────────────────────────────────────────
 
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
-const _MAX_CONCURRENT_PER_EMPLOYEE = 1;
 
 // ── TaskExecutor ─────────────────────────────────────────────────────
 
