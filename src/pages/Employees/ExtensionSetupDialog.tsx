@@ -91,7 +91,7 @@ export function ExtensionSetupDialog({ requires, onReady, onSkip }: ExtensionSet
             error?: string;
             manualRequired?: boolean;
           }>;
-          allSuccess: boolean;
+          allHandled: boolean;
         };
         error?: string;
       };
@@ -117,18 +117,15 @@ export function ExtensionSetupDialog({ requires, onReady, onSkip }: ExtensionSet
 
   // Listen for progress events
   useEffect(() => {
-    const unsub = window.electron.ipcRenderer.on(
-      'extension:install-progress',
-      (data: unknown) => {
-        const event = data as {
-          name: string;
-          phase: string;
-          progress: number;
-          message: string;
-        };
-        setProgress(event);
-      }
-    );
+    const unsub = window.electron.ipcRenderer.on('extension:install-progress', (data: unknown) => {
+      const event = data as {
+        name: string;
+        phase: string;
+        progress: number;
+        message: string;
+      };
+      setProgress(event);
+    });
     progressListenerRef.current = unsub as (() => void) | null;
     return () => {
       if (typeof progressListenerRef.current === 'function') {

@@ -113,7 +113,10 @@ vi.stubGlobal('fetch', mockFetch);
 
 // ── Import after mocks ────────────────────────────────────────────
 
-import { ExtensionInstaller, getExtensionInstaller } from '../../../electron/engine/extension-installer';
+import {
+  ExtensionInstaller,
+  getExtensionInstaller,
+} from '../../../electron/engine/extension-installer';
 
 // ── Tests ──────────────────────────────────────────────────────────
 
@@ -204,9 +207,7 @@ describe('ExtensionInstaller', () => {
       await installer.getRecipe('python3')!.install(onProgress);
 
       expect(mockInstallUv).toHaveBeenCalled();
-      expect(onProgress).toHaveBeenCalledWith(
-        expect.objectContaining({ phase: 'installing-uv' })
-      );
+      expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({ phase: 'installing-uv' }));
     });
 
     it('should return failure when install throws', async () => {
@@ -527,12 +528,12 @@ describe('ExtensionInstaller', () => {
       expect(result.results[1].manualRequired).toBe(true);
     });
 
-    it('should report allSuccess when all succeed or manualRequired', async () => {
+    it('should report allHandled when all succeed or manualRequired', async () => {
       mockIsPythonReady.mockResolvedValue(true);
 
       const result = await installer.installAll(['python3']);
 
-      expect(result.allSuccess).toBe(true);
+      expect(result.allHandled).toBe(true);
     });
   });
 

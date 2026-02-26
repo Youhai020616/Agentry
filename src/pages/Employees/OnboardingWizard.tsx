@@ -94,14 +94,24 @@ export function OnboardingWizard({
   const [camofoxPort, setCamofoxPort] = useState(
     String(
       onboarding?.configTemplate
-        ? ((onboarding.configTemplate as Record<string, unknown>)?.camofox as Record<string, unknown>)?.port ?? 9377
+        ? ((
+            (onboarding.configTemplate as Record<string, unknown>)?.camofox as Record<
+              string,
+              unknown
+            >
+          )?.port ?? 9377)
         : 9377
     )
   );
   const [camofoxApiKey, setCamofoxApiKey] = useState(
     String(
       onboarding?.configTemplate
-        ? ((onboarding.configTemplate as Record<string, unknown>)?.camofox as Record<string, unknown>)?.apiKey ?? 'pocketai'
+        ? ((
+            (onboarding.configTemplate as Record<string, unknown>)?.camofox as Record<
+              string,
+              unknown
+            >
+          )?.apiKey ?? 'pocketai')
         : 'pocketai'
     )
   );
@@ -114,7 +124,12 @@ export function OnboardingWizard({
   const [extChecking, setExtChecking] = useState(false);
   const [extInstalling, setExtInstalling] = useState(false);
   const [extError, setExtError] = useState<string | null>(null);
-  const [extProgress, setExtProgress] = useState<{ name: string; phase: string; progress: number; message: string } | null>(null);
+  const [extProgress, setExtProgress] = useState<{
+    name: string;
+    phase: string;
+    progress: number;
+    message: string;
+  } | null>(null);
   const progressListenerRef = useRef<(() => void) | null>(null);
 
   const stepIndex = steps.indexOf(step);
@@ -150,9 +165,19 @@ export function OnboardingWizard({
     setExtInstalling(true);
     setExtError(null);
     try {
-      const res = (await window.electron.ipcRenderer.invoke('extension:installAll', { requires })) as {
+      const res = (await window.electron.ipcRenderer.invoke('extension:installAll', {
+        requires,
+      })) as {
         success: boolean;
-        result?: { results: Array<{ name: string; success: boolean; error?: string; manualRequired?: boolean }>; allSuccess: boolean };
+        result?: {
+          results: Array<{
+            name: string;
+            success: boolean;
+            error?: string;
+            manualRequired?: boolean;
+          }>;
+          allHandled: boolean;
+        };
         error?: string;
       };
       if (res.success && res.result) {
@@ -174,23 +199,29 @@ export function OnboardingWizard({
     }
   }, [requires, checkExtensions]);
 
-  const startService = useCallback(async (name: string) => {
-    try {
-      await window.electron.ipcRenderer.invoke('extension:start', { name });
-      await checkExtensions();
-    } catch (err) {
-      setExtError(String(err));
-    }
-  }, [checkExtensions]);
+  const startService = useCallback(
+    async (name: string) => {
+      try {
+        await window.electron.ipcRenderer.invoke('extension:start', { name });
+        await checkExtensions();
+      } catch (err) {
+        setExtError(String(err));
+      }
+    },
+    [checkExtensions]
+  );
 
-  const stopService = useCallback(async (name: string) => {
-    try {
-      await window.electron.ipcRenderer.invoke('extension:stop', { name });
-      await checkExtensions();
-    } catch (err) {
-      setExtError(String(err));
-    }
-  }, [checkExtensions]);
+  const stopService = useCallback(
+    async (name: string) => {
+      try {
+        await window.electron.ipcRenderer.invoke('extension:stop', { name });
+        await checkExtensions();
+      } catch (err) {
+        setExtError(String(err));
+      }
+    },
+    [checkExtensions]
+  );
 
   // Auto-check extensions when entering the step
   useEffect(() => {
@@ -241,7 +272,11 @@ export function OnboardingWizard({
         cookieDomains: onboarding.cookieDomains,
       });
 
-      const { success, result: data, error: err } = result as {
+      const {
+        success,
+        result: data,
+        error: err,
+      } = result as {
         success: boolean;
         result?: { cookies: unknown[] };
         error?: string;
@@ -310,7 +345,16 @@ export function OnboardingWizard({
     } finally {
       setSaving(false);
     }
-  }, [employeeId, capturedCookies, username, camofoxPort, camofoxApiKey, onboarding, requires, onComplete]);
+  }, [
+    employeeId,
+    capturedCookies,
+    username,
+    camofoxPort,
+    camofoxApiKey,
+    onboarding,
+    requires,
+    onComplete,
+  ]);
 
   const configTemplate = onboarding?.configTemplate as Record<string, unknown> | undefined;
   const targets = configTemplate?.targets as { upvotes?: number; comments?: number } | undefined;

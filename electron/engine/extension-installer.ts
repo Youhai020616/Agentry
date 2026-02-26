@@ -51,7 +51,9 @@ export interface ExtensionRecipe {
   detect(): Promise<ExtensionCheckResult>;
   install(onProgress?: (event: ExtensionProgressEvent) => void): Promise<ExtensionInstallResult>;
   verify(): Promise<{ success: boolean; error?: string }>;
-  start?(options?: Record<string, unknown>): Promise<{ success: boolean; pid?: number; error?: string }>;
+  start?(
+    options?: Record<string, unknown>
+  ): Promise<{ success: boolean; pid?: number; error?: string }>;
   stop?(): Promise<{ success: boolean; error?: string }>;
   healthCheck?(): Promise<boolean>;
 }
@@ -185,26 +187,38 @@ async function getUvBin(): Promise<string> {
  * Check if git is available in PATH
  */
 async function isGitAvailable(): Promise<boolean> {
-  const result = await spawnAsync(
-    process.platform === 'win32' ? 'where.exe' : 'which',
-    ['git']
-  );
+  const result = await spawnAsync(process.platform === 'win32' ? 'where.exe' : 'which', ['git']);
   return result.code === 0;
 }
 
 /**
  * Download a file from URL to destPath using Node https
  */
-async function downloadFile(url: string, destPath: string): Promise<void> {
+async function downloadFile(
+  url: string,
+  destPath: string,
+  maxRedirects: number = 10
+): Promise<void> {
+  if (maxRedirects <= 0) {
+    throw new Error('Too many redirects');
+  }
+
   const https = await import('https');
   const http = await import('http');
 
   return new Promise((resolve, reject) => {
     const handler = url.startsWith('https') ? https : http;
     const request = handler.get(url, (response) => {
-      // Follow redirects
-      if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
-        downloadFile(response.headers.location, destPath).then(resolve).catch(reject);
+      // Follow redirects (with depth limit)
+      if (
+        response.statusCode &&
+        response.statusCode >= 300 &&
+        response.statusCode < 400 &&
+        response.headers.location
+      ) {
+        downloadFile(response.headers.location, destPath, maxRedirects - 1)
+          .then(resolve)
+          .catch(reject);
         return;
       }
 
@@ -249,19 +263,40 @@ function createPython3Recipe(): ExtensionRecipe {
 
     async install(onProgress): Promise<ExtensionInstallResult> {
       try {
-        onProgress?.({ name: 'python3', phase: 'checking', progress: 10, message: 'Checking uv...' });
-        const { checkUvInstalled, installUv, setupManagedPython } = await import('../utils/uv-setup');
+        onProgress?.({
+          name: 'python3',
+          phase: 'checking',
+          progress: 10,
+          message: 'Checking uv...',
+        });
+        const { checkUvInstalled, installUv, setupManagedPython } =
+          await import('../utils/uv-setup');
 
         const isUvInstalled = await checkUvInstalled();
         if (!isUvInstalled) {
-          onProgress?.({ name: 'python3', phase: 'installing-uv', progress: 20, message: 'Installing uv...' });
+          onProgress?.({
+            name: 'python3',
+            phase: 'installing-uv',
+            progress: 20,
+            message: 'Installing uv...',
+          });
           await installUv();
         }
 
-        onProgress?.({ name: 'python3', phase: 'installing-python', progress: 40, message: 'Installing Python 3.12...' });
+        onProgress?.({
+          name: 'python3',
+          phase: 'installing-python',
+          progress: 40,
+          message: 'Installing Python 3.12...',
+        });
         await setupManagedPython();
 
-        onProgress?.({ name: 'python3', phase: 'done', progress: 100, message: 'Python 3.12 installed' });
+        onProgress?.({
+          name: 'python3',
+          phase: 'done',
+          progress: 100,
+          message: 'Python 3.12 installed',
+        });
         return { name: 'python3', success: true };
       } catch (err) {
         logger.error('python3 install failed:', err);
@@ -272,7 +307,9 @@ function createPython3Recipe(): ExtensionRecipe {
     async verify(): Promise<{ success: boolean; error?: string }> {
       const { isPythonReady } = await import('../utils/uv-setup');
       const ready = await isPythonReady();
-      return ready ? { success: true } : { success: false, error: 'Python 3.12 not found after install' };
+      return ready
+        ? { success: true }
+        : { success: false, error: 'Python 3.12 not found after install' };
     },
   };
 }
@@ -302,7 +339,12 @@ function createCamofoxRecipe(): ExtensionRecipe {
 
     async install(onProgress): Promise<ExtensionInstallResult> {
       try {
-        onProgress?.({ name: 'camofox', phase: 'detecting', progress: 10, message: 'Detecting Camofox...' });
+        onProgress?.({
+          name: 'camofox',
+          phase: 'detecting',
+          progress: 10,
+          message: 'Detecting Camofox...',
+        });
         const { getCamofoxLauncher } = await import('./camofox-launcher');
         const launcher = getCamofoxLauncher();
         const detectResult = launcher.detect();
@@ -312,15 +354,25 @@ function createCamofoxRecipe(): ExtensionRecipe {
             name: 'camofox',
             success: false,
             manualRequired: true,
-            error: 'Camofox not found. Please download from GitHub: https://github.com/jo-inc/camofox-browser',
+            error:
+              'Camofox not found. Please download from GitHub: https://github.com/jo-inc/camofox-browser',
           };
         }
 
         if (!detectResult.depsInstalled) {
-          onProgress?.({ name: 'camofox', phase: 'installing-deps', progress: 30, message: 'Installing npm dependencies...' });
+          onProgress?.({
+            name: 'camofox',
+            phase: 'installing-deps',
+            progress: 30,
+            message: 'Installing npm dependencies...',
+          });
           const installResult = await launcher.installDeps(detectResult.path);
           if (!installResult.success) {
-            return { name: 'camofox', success: false, error: installResult.error ?? 'Dependency install failed' };
+            return {
+              name: 'camofox',
+              success: false,
+              error: installResult.error ?? 'Dependency install failed',
+            };
           }
         }
 
@@ -481,10 +533,26 @@ function createXiaohongshuMcpRecipe(): ExtensionRecipe {
                 logger.info(`xiaohongshu-mcp started on port ${port} (PID: ${child.pid})`);
                 resolve({ success: true, pid: child.pid });
               } else {
+                // Kill the child process to avoid resource leak
+                logger.warn('xiaohongshu-mcp health check timed out, killing process');
+                try {
+                  child.kill('SIGTERM');
+                } catch {
+                  // non-fatal
+                }
+                serviceProcess = null;
                 resolve({ success: false, error: 'Health check timed out' });
               }
             })
-            .catch((err) => resolve({ success: false, error: String(err) }));
+            .catch((err) => {
+              try {
+                child.kill('SIGTERM');
+              } catch {
+                // non-fatal
+              }
+              serviceProcess = null;
+              resolve({ success: false, error: String(err) });
+            });
         } catch (err) {
           resolve({ success: false, error: String(err) });
         }
@@ -550,30 +618,81 @@ function createSocialAutoUploadRecipe(): ExtensionRecipe {
           const hasGit = await isGitAvailable();
 
           if (hasGit) {
-            onProgress?.({ name: 'social-auto-upload', phase: 'cloning', progress: 10, message: 'Cloning repository...' });
-            const cloneResult = await spawnAsync('git', ['clone', '--depth', '1', repoUrl, extensionDir], {
-              timeout: 120_000,
+            onProgress?.({
+              name: 'social-auto-upload',
+              phase: 'cloning',
+              progress: 10,
+              message: 'Cloning repository...',
             });
+            const cloneResult = await spawnAsync(
+              'git',
+              ['clone', '--depth', '1', repoUrl, extensionDir],
+              {
+                timeout: 120_000,
+              }
+            );
             if (cloneResult.code !== 0) {
-              return { name: 'social-auto-upload', success: false, error: `git clone failed: ${cloneResult.stderr}` };
+              return {
+                name: 'social-auto-upload',
+                success: false,
+                error: `git clone failed: ${cloneResult.stderr}`,
+              };
             }
           } else {
             // Fallback: download ZIP
-            onProgress?.({ name: 'social-auto-upload', phase: 'downloading', progress: 10, message: 'Downloading repository...' });
+            onProgress?.({
+              name: 'social-auto-upload',
+              phase: 'downloading',
+              progress: 10,
+              message: 'Downloading repository...',
+            });
             const zipPath = join(EXTENSIONS_DIR, 'social-auto-upload.zip');
             const zipUrl = `${repoUrl}/archive/refs/heads/main.zip`;
 
             await downloadFile(zipUrl, zipPath);
 
-            onProgress?.({ name: 'social-auto-upload', phase: 'extracting', progress: 25, message: 'Extracting...' });
-            const extractResult = await spawnAsync('unzip', ['-o', zipPath, '-d', EXTENSIONS_DIR], {
-              timeout: 60_000,
+            onProgress?.({
+              name: 'social-auto-upload',
+              phase: 'extracting',
+              progress: 25,
+              message: 'Extracting...',
             });
-            if (extractResult.code !== 0) {
-              // Try python zipfile as fallback
-              const pyExtract = await spawnAsync('python3', ['-m', 'zipfile', '-e', zipPath, EXTENSIONS_DIR]);
+            let extracted = false;
+
+            // On Windows, use PowerShell Expand-Archive; elsewhere use unzip
+            if (process.platform === 'win32') {
+              const psResult = await spawnAsync(
+                'powershell',
+                [
+                  '-NoProfile',
+                  '-Command',
+                  `Expand-Archive -Path '${zipPath}' -DestinationPath '${EXTENSIONS_DIR}' -Force`,
+                ],
+                { timeout: 120_000 }
+              );
+              extracted = psResult.code === 0;
+            } else {
+              const unzipResult = await spawnAsync('unzip', ['-o', zipPath, '-d', EXTENSIONS_DIR], {
+                timeout: 60_000,
+              });
+              extracted = unzipResult.code === 0;
+            }
+
+            if (!extracted) {
+              // Fallback: python zipfile module (cross-platform)
+              const pyExtract = await spawnAsync('python3', [
+                '-m',
+                'zipfile',
+                '-e',
+                zipPath,
+                EXTENSIONS_DIR,
+              ]);
               if (pyExtract.code !== 0) {
-                return { name: 'social-auto-upload', success: false, error: 'Failed to extract ZIP' };
+                return {
+                  name: 'social-auto-upload',
+                  success: false,
+                  error: 'Failed to extract ZIP',
+                };
               }
             }
 
@@ -594,7 +713,12 @@ function createSocialAutoUploadRecipe(): ExtensionRecipe {
         }
 
         // Step 2: Create venv with uv
-        onProgress?.({ name: 'social-auto-upload', phase: 'venv', progress: 40, message: 'Creating virtual environment...' });
+        onProgress?.({
+          name: 'social-auto-upload',
+          phase: 'venv',
+          progress: 40,
+          message: 'Creating virtual environment...',
+        });
         const uvBin = await getUvBin();
         const { getUvMirrorEnv } = await import('../utils/uv-env');
         const mirrorEnv = await getUvMirrorEnv();
@@ -604,11 +728,20 @@ function createSocialAutoUploadRecipe(): ExtensionRecipe {
           env: { ...process.env, ...mirrorEnv },
         });
         if (venvResult.code !== 0) {
-          return { name: 'social-auto-upload', success: false, error: `venv creation failed: ${venvResult.stderr}` };
+          return {
+            name: 'social-auto-upload',
+            success: false,
+            error: `venv creation failed: ${venvResult.stderr}`,
+          };
         }
 
         // Step 3: Install Python dependencies
-        onProgress?.({ name: 'social-auto-upload', phase: 'pip-install', progress: 55, message: 'Installing Python dependencies...' });
+        onProgress?.({
+          name: 'social-auto-upload',
+          phase: 'pip-install',
+          progress: 55,
+          message: 'Installing Python dependencies...',
+        });
         const pipResult = await spawnAsync(uvBin, ['pip', 'install', '-r', 'requirements.txt'], {
           cwd: extensionDir,
           env: { ...process.env, ...mirrorEnv, VIRTUAL_ENV: venvDir },
@@ -622,12 +755,21 @@ function createSocialAutoUploadRecipe(): ExtensionRecipe {
             timeout: 300_000,
           });
           if (pipResult2.code !== 0) {
-            return { name: 'social-auto-upload', success: false, error: `pip install failed: ${pipResult.stderr}` };
+            return {
+              name: 'social-auto-upload',
+              success: false,
+              error: `pip install failed: ${pipResult.stderr}`,
+            };
           }
         }
 
         // Step 4: Install Playwright + Chromium
-        onProgress?.({ name: 'social-auto-upload', phase: 'playwright', progress: 75, message: 'Installing Playwright Chromium (~150MB)...' });
+        onProgress?.({
+          name: 'social-auto-upload',
+          phase: 'playwright',
+          progress: 75,
+          message: 'Installing Playwright Chromium (~150MB)...',
+        });
         const pythonBin = join(venvDir, process.platform === 'win32' ? 'Scripts' : 'bin', 'python');
         const playwrightResult = await spawnAsync(
           pythonBin,
@@ -643,7 +785,12 @@ function createSocialAutoUploadRecipe(): ExtensionRecipe {
           // Non-fatal — some systems have Playwright pre-installed
         }
 
-        onProgress?.({ name: 'social-auto-upload', phase: 'done', progress: 100, message: 'social-auto-upload installed' });
+        onProgress?.({
+          name: 'social-auto-upload',
+          phase: 'done',
+          progress: 100,
+          message: 'social-auto-upload installed',
+        });
         return { name: 'social-auto-upload', success: true };
       } catch (err) {
         logger.error('social-auto-upload install failed:', err);
@@ -656,11 +803,15 @@ function createSocialAutoUploadRecipe(): ExtensionRecipe {
         return { success: false, error: 'Virtual environment not found' };
       }
       const pythonBin = join(venvDir, process.platform === 'win32' ? 'Scripts' : 'bin', 'python');
-      const result = await spawnAsync(pythonBin, ['-c', 'from uploader.douyin_uploader.main import DouYinVideo'], {
-        cwd: extensionDir,
-        env: { ...process.env, VIRTUAL_ENV: venvDir },
-        timeout: 15_000,
-      });
+      const result = await spawnAsync(
+        pythonBin,
+        ['-c', 'from uploader.douyin_uploader.main import DouYinVideo'],
+        {
+          cwd: extensionDir,
+          env: { ...process.env, VIRTUAL_ENV: venvDir },
+          timeout: 15_000,
+        }
+      );
       return result.code === 0
         ? { success: true }
         : { success: false, error: `Import check failed: ${result.stderr}` };
@@ -821,7 +972,7 @@ export class ExtensionInstaller {
   async installAll(
     requires: string[],
     onProgress?: (event: ExtensionProgressEvent) => void
-  ): Promise<{ results: ExtensionInstallResult[]; allSuccess: boolean }> {
+  ): Promise<{ results: ExtensionInstallResult[]; allHandled: boolean }> {
     // First detect which ones are missing
     const checkResults = await this.checkAll(requires);
     const results: ExtensionInstallResult[] = [];
@@ -839,7 +990,7 @@ export class ExtensionInstaller {
 
     return {
       results,
-      allSuccess: results.every((r) => r.success || r.manualRequired),
+      allHandled: results.every((r) => r.success || r.manualRequired),
     };
   }
 
