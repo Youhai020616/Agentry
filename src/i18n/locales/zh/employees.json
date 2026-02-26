@@ -31,6 +31,10 @@
     "confirm": "雇佣",
     "cancel": "取消"
   },
+  "header": {
+    "restart": "重启员工",
+    "restarting": "正在重启..."
+  },
   "detail": {
     "role": "角色",
     "team": "团队",

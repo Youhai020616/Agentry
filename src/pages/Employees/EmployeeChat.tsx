@@ -8,7 +8,7 @@
  * - Binds Chat to the employee's Gateway session
  * - Shows employee info header above the chat
  */
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -41,8 +41,14 @@ export function EmployeeChat() {
   const init = useEmployeesStore((s) => s.init);
 
   const switchSession = useChatStore((s) => s.switchSession);
+  const newSession = useChatStore((s) => s.newSession);
+  const deactivateEmployee = useEmployeesStore((s) => s.deactivateEmployee);
 
   const [activating, setActivating] = useState(false);
+
+  // Guard: when restarting, prevent auto-bind effect from calling switchSession
+  // (which would load old history and override the fresh conversation we just created)
+  const restartingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   // Onboarding gate state
@@ -106,9 +112,28 @@ export function EmployeeChat() {
     fetchManifest();
   }, [employee?.id, employee?.hasOnboarding, employee?.onboardingCompleted]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Restart handler: deactivate → activate → create fresh conversation
+  const handleRestart = useCallback(async () => {
+    if (!employee) return;
+    restartingRef.current = true;
+    try {
+      await deactivateEmployee(employee.id);
+      // Small delay to let Gateway clean up the old session
+      await new Promise((r) => setTimeout(r, 300));
+      await activateEmployee(employee.id);
+      // Create a brand-new empty conversation so the employee starts fresh
+      newSession();
+    } finally {
+      restartingRef.current = false;
+    }
+  }, [employee?.id, deactivateEmployee, activateEmployee, newSession]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Auto-activate employee and bind to their session (only when NOT in onboarding)
   useEffect(() => {
     if (!employee || !isGatewayRunning || needsOnboarding !== false || needsExtensions) return;
+    // Skip auto-bind while a restart is in progress — the restart handler
+    // will create a fresh session itself.
+    if (restartingRef.current) return;
 
     let cancelled = false;
 
@@ -268,7 +293,7 @@ export function EmployeeChat() {
 
   return (
     <div className="flex h-full flex-col -m-6">
-      <EmployeeHeader employee={employee} />
+      <EmployeeHeader employee={employee} onRestart={handleRestart} />
       <div className="flex-1 min-h-0">
         <Chat
           externalSession

@@ -31,6 +31,10 @@
     "confirm": "雇用",
     "cancel": "キャンセル"
   },
+  "header": {
+    "restart": "従業員を再起動",
+    "restarting": "再起動中..."
+  },
   "detail": {
     "role": "役割",
     "team": "チーム",

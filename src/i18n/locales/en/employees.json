@@ -31,6 +31,10 @@
     "confirm": "Hire",
     "cancel": "Cancel"
   },
+  "header": {
+    "restart": "Restart Employee",
+    "restarting": "Restarting..."
+  },
   "detail": {
     "role": "Role",
     "team": "Team",

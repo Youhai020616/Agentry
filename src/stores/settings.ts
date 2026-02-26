@@ -32,6 +32,9 @@ interface SettingsState {
   // Setup
   setupComplete: boolean;
 
+  // BYOK
+  byokEnabled: boolean;
+
   // Actions
   setTheme: (theme: Theme) => void;
   setLanguage: (language: string) => void;
@@ -44,6 +47,7 @@ interface SettingsState {
   setAutoDownloadUpdate: (value: boolean) => void;
   setSidebarCollapsed: (value: boolean) => void;
   setDevModeUnlocked: (value: boolean) => void;
+  setByokEnabled: (value: boolean) => void;
   markSetupComplete: () => void;
   resetSettings: () => void;
 }
@@ -66,6 +70,7 @@ const defaultSettings = {
   sidebarCollapsed: false,
   devModeUnlocked: false,
   setupComplete: false,
+  byokEnabled: false,
 };
 
 export const useSettingsStore = create<SettingsState>()(
@@ -74,7 +79,10 @@ export const useSettingsStore = create<SettingsState>()(
       ...defaultSettings,
 
       setTheme: (theme) => set({ theme }),
-      setLanguage: (language) => { i18n.changeLanguage(language); set({ language }); },
+      setLanguage: (language) => {
+        i18n.changeLanguage(language);
+        set({ language });
+      },
       setStartMinimized: (startMinimized) => set({ startMinimized }),
       setLaunchAtStartup: (launchAtStartup) => set({ launchAtStartup }),
       setGatewayAutoStart: (gatewayAutoStart) => set({ gatewayAutoStart }),
@@ -84,6 +92,7 @@ export const useSettingsStore = create<SettingsState>()(
       setAutoDownloadUpdate: (autoDownloadUpdate) => set({ autoDownloadUpdate }),
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
       setDevModeUnlocked: (devModeUnlocked) => set({ devModeUnlocked }),
+      setByokEnabled: (byokEnabled) => set({ byokEnabled }),
       markSetupComplete: () => set({ setupComplete: true }),
       resetSettings: () => set(defaultSettings),
     }),
