@@ -2435,6 +2435,36 @@ function registerMessageHandlers(engineRef: EngineRef, gatewayManager: GatewayMa
       return { success: false, error: String(error) };
     }
   });
+
+  ipcMain.handle(
+    'message:history',
+    async (_, params: { employeeIds: string[]; limit?: number }) => {
+      try {
+        const lazy = await getLazy();
+        const { employeeIds, limit = 200 } = params;
+        // Aggregate history for all employees, deduplicate by id, sort by timestamp
+        const seen = new Set<string>();
+        const allMessages: import('../../src/types/task').Message[] = [];
+        for (const eid of employeeIds) {
+          const msgs = lazy.messageBus.getHistory(eid, limit);
+          for (const m of msgs) {
+            if (!seen.has(m.id)) {
+              seen.add(m.id);
+              allMessages.push(m);
+            }
+          }
+        }
+        // Filter: only messages between project employees
+        const idSet = new Set(employeeIds);
+        const filtered = allMessages
+          .filter((m) => idSet.has(m.from) && idSet.has(m.recipient))
+          .sort((a, b) => a.timestamp - b.timestamp);
+        return { success: true, result: filtered };
+      } catch (error) {
+        return { success: false, error: String(error) };
+      }
+    }
+  );
 }
 
 // ── Execution Handlers ──────────────────────────────────────────────

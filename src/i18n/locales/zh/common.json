@@ -52,7 +52,8 @@
     "skills": "员工技能包",
     "cron": "定时任务",
     "settings": "设置",
-    "supervisor": "主管"
+    "supervisor": "主管",
+    "projects": "项目"
   },
   "gateway": {
     "notRunning": "网关未运行",

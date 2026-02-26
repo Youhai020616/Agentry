@@ -171,6 +171,7 @@ const electronAPI = {
         'message:send',
         'message:inbox',
         'message:markRead',
+        'message:history',
         // Built-in skills
         'skill:listBuiltin',
         // Onboarding (Browser Login)
