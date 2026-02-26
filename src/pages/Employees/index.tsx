@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PageLoader } from '@/components/common/LoadingSpinner';
 import { useEmployeesStore } from '@/stores/employees';
+import { useTasksStore } from '@/stores/tasks';
 import type { Employee, EmployeeStatus } from '@/types/employee';
 import type { ManifestSecret, SkillManifest } from '@/types/manifest';
 
@@ -428,6 +429,31 @@ function CardScene({ employee }: { employee: Employee }) {
 
 /* ── Employee Card ─────────────────────────────────── */
 
+/* ── Working context strip ─────────────────────────── */
+
+function WorkingContext({ employeeId, status }: { employeeId: string; status: EmployeeStatus }) {
+  const tasks = useTasksStore((s) => s.tasks);
+  const projects = useTasksStore((s) => s.projects);
+
+  if (status !== 'working') return null;
+
+  const activeTask = tasks.find(
+    (t) => t.owner === employeeId && (t.status === 'in_progress' || t.status === 'in_review')
+  );
+  if (!activeTask) return null;
+
+  const project = projects.find((p) => p.id === activeTask.projectId);
+
+  return (
+    <div className="rounded-lg bg-primary/5 dark:bg-primary/10 px-2.5 py-1.5 text-[10px] leading-relaxed">
+      <p className="font-medium text-primary truncate">{activeTask.subject}</p>
+      {project && (
+        <p className="text-muted-foreground truncate">{project.goal}</p>
+      )}
+    </div>
+  );
+}
+
 function EmployeeCard({ employee }: { employee: Employee }) {
   const { t } = useTranslation('employees');
   const activateEmployee = useEmployeesStore((s) => s.activateEmployee);
@@ -513,6 +539,9 @@ function EmployeeCard({ employee }: { employee: Employee }) {
             )}
           </div>
 
+          {/* Working context */}
+          <WorkingContext employeeId={employee.id} status={employee.status} />
+
           {/* Action buttons */}
           <div className="flex items-center gap-1.5 pt-1 border-t border-border/50">
             <NavLink to={`/employees/${employee.id}`} className="flex-1">
@@ -577,12 +606,18 @@ function EmployeeCard({ employee }: { employee: Employee }) {
 export function Employees() {
   const { t } = useTranslation('employees');
   const { employees, loading, error, fetchEmployees, init } = useEmployeesStore();
+  const initTasks = useTasksStore((s) => s.init);
+  const fetchTasks = useTasksStore((s) => s.fetchTasks);
+  const fetchProjects = useTasksStore((s) => s.fetchProjects);
   const [showHire, setShowHire] = useState(false);
 
   useEffect(() => {
     init();
     fetchEmployees();
-  }, [init, fetchEmployees]);
+    initTasks();
+    fetchTasks();
+    fetchProjects();
+  }, [init, fetchEmployees, initTasks, fetchTasks, fetchProjects]);
 
   if (loading && employees.length === 0) {
     return <PageLoader />;

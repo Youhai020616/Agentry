@@ -19,6 +19,8 @@ import { Settings } from './pages/Settings';
 import { Setup } from './pages/Setup';
 import { Supervisor } from './pages/Supervisor';
 import { Tasks } from './pages/Tasks';
+import { Projects } from './pages/Projects';
+import { ProjectDetail } from './pages/Projects/ProjectDetail';
 import { useSettingsStore } from './stores/settings';
 import { useGatewayStore } from './stores/gateway';
 
@@ -165,6 +167,8 @@ function App() {
             <Route path="/" element={<Supervisor />} />
             <Route path="/employees" element={<Employees />} />
             <Route path="/employees/:slug" element={<EmployeeChat />} />
+            <Route path="/projects" element={<Projects />} />
+            <Route path="/projects/:id" element={<ProjectDetail />} />
             <Route path="/tasks" element={<Tasks />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/channels" element={<Channels />} />

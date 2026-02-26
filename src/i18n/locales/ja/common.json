@@ -52,7 +52,8 @@
     "skills": "スキルパック",
     "cron": "スケジュール",
     "settings": "設定",
-    "supervisor": "スーパーバイザー"
+    "supervisor": "スーパーバイザー",
+    "projects": "プロジェクト"
   },
   "gateway": {
     "notRunning": "ゲートウェイが停止中",
