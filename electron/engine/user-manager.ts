@@ -52,6 +52,9 @@ function rowToUser(row: UserRow): User {
  */
 export class UserManager {
   private db!: Database.Database;
+  /** In-memory cache of the current user ID — avoids TOCTOU race on first run
+   *  where `void setCurrentUser()` hasn't persisted to electron-store yet. */
+  private _currentUserId: string | null = null;
 
   /**
    * Initialize the database and seed default admin user if needed
@@ -91,7 +94,9 @@ export class UserManager {
           defaultAdmin.lastLoginAt
         );
 
-      // Set as current user
+      // Set as current user — write to in-memory cache synchronously so
+      // getCurrentUser() works immediately; persist to electron-store async.
+      this._currentUserId = defaultAdmin.id;
       void this.setCurrentUser(defaultAdmin.id);
       logger.info(`Seeded default Admin user: ${defaultAdmin.id}`);
     }
@@ -118,7 +123,15 @@ export class UserManager {
       .prepare(
         'INSERT INTO users (id, name, email, role, avatar, createdAt, lastLoginAt) VALUES (?, ?, ?, ?, ?, ?, ?)'
       )
-      .run(user.id, user.name, user.email, user.role, user.avatar, user.createdAt, user.lastLoginAt);
+      .run(
+        user.id,
+        user.name,
+        user.email,
+        user.role,
+        user.avatar,
+        user.createdAt,
+        user.lastLoginAt
+      );
 
     logger.info(`User created: ${user.id} (${user.name}, ${user.role})`);
     return rowToUser(user);
@@ -168,16 +181,16 @@ export class UserManager {
    * Delete a user by ID. Cannot delete the last admin.
    */
   delete(id: string): void {
-    const user = this.db.prepare('SELECT * FROM users WHERE id = ?').get(id) as
-      | UserRow
-      | undefined;
+    const user = this.db.prepare('SELECT * FROM users WHERE id = ?').get(id) as UserRow | undefined;
     if (!user) {
       throw new Error(`User not found: ${id}`);
     }
 
     // Prevent deleting the last admin
     if (user.role === 'admin') {
-      const adminCount = this.db.prepare("SELECT COUNT(*) as cnt FROM users WHERE role = 'admin'").get() as { cnt: number };
+      const adminCount = this.db
+        .prepare("SELECT COUNT(*) as cnt FROM users WHERE role = 'admin'")
+        .get() as { cnt: number };
       if (adminCount.cnt <= 1) {
         throw new Error('Cannot delete the last admin user');
       }
@@ -192,9 +205,7 @@ export class UserManager {
    */
   async setCurrentUser(id: string): Promise<void> {
     // Verify user exists
-    const user = this.db.prepare('SELECT * FROM users WHERE id = ?').get(id) as
-      | UserRow
-      | undefined;
+    const user = this.db.prepare('SELECT * FROM users WHERE id = ?').get(id) as UserRow | undefined;
     if (!user) {
       throw new Error(`User not found: ${id}`);
     }
@@ -202,7 +213,10 @@ export class UserManager {
     // Update lastLoginAt
     this.db.prepare('UPDATE users SET lastLoginAt = ? WHERE id = ?').run(Date.now(), id);
 
-    // Store current user ID in electron-store
+    // Update in-memory cache immediately (synchronous)
+    this._currentUserId = id;
+
+    // Persist to electron-store (async)
     const store = await this.getStore();
     store.set('currentUserId', id);
     logger.info(`Current user set to: ${id} (${user.name})`);
@@ -212,8 +226,14 @@ export class UserManager {
    * Get the current active user
    */
   async getCurrentUser(): Promise<User | undefined> {
-    const store = await this.getStore();
-    const currentId = store.get('currentUserId') as string | undefined;
+    // Prefer in-memory cache — resolves the race where init() calls
+    // `void setCurrentUser()` (async) but getCurrentUser() is called
+    // before the electron-store write completes.
+    let currentId = this._currentUserId;
+    if (!currentId) {
+      const store = await this.getStore();
+      currentId = store.get('currentUserId') as string | null;
+    }
     if (!currentId) {
       // Fallback: return first admin
       const firstAdmin = this.db

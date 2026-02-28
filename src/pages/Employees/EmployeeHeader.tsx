@@ -6,7 +6,7 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, RotateCcw, Settings, Loader2 } from 'lucide-react';
+import { ArrowLeft, RotateCcw, Settings, Loader2, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PixelAvatar } from '@/components/employees/PixelAvatar';
@@ -128,6 +128,27 @@ export function EmployeeHeader({ employee, onRestart }: EmployeeHeaderProps) {
           </div>
           <p className="truncate text-xs text-muted-foreground">{employee.role}</p>
         </div>
+
+        {/* Browser active indicator */}
+        {employee.browserActive && (
+          <Badge
+            variant="outline"
+            className="animate-pulse gap-1 rounded-full border-blue-500/50 px-2.5 text-blue-500"
+          >
+            <Globe className="h-3 w-3" />
+            <span className="text-[10px]">
+              {employee.lastBrowserAction?.url
+                ? (() => {
+                    try {
+                      return new URL(employee.lastBrowserAction!.url!).hostname;
+                    } catch {
+                      return employee.lastBrowserAction!.url;
+                    }
+                  })()
+                : t('browser.active', 'Browsing')}
+            </span>
+          </Badge>
+        )}
 
         {/* Status badge */}
         <Badge variant={statusVariant[employee.status]} className="rounded-full px-3">

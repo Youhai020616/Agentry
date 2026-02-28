@@ -302,7 +302,8 @@ export class TaskQueue extends EventEmitter {
   }
 
   /**
-   * List available tasks for a project — pending tasks with all dependencies completed
+   * List available tasks for a project — pending tasks with all dependencies completed.
+   * Uses a single batch query for dependency statuses instead of N+1 individual queries.
    */
   listAvailable(projectId: string): Task[] {
     try {
@@ -310,15 +311,37 @@ export class TaskQueue extends EventEmitter {
         .prepare('SELECT * FROM tasks WHERE projectId = ? AND status = ?')
         .all(projectId, 'pending') as TaskRow[];
 
-      return pendingTasks
-        .map((row) => this.rowToTask(row))
-        .filter((task) => {
-          if (task.blockedBy.length === 0) return true;
-          return task.blockedBy.every((depId) => {
-            const dep = this.get(depId);
-            return dep?.status === 'completed';
-          });
-        });
+      const tasks = pendingTasks.map((row) => this.rowToTask(row));
+
+      // Collect all unique dependency IDs across all pending tasks
+      const allDepIds = new Set<string>();
+      for (const task of tasks) {
+        for (const depId of task.blockedBy) {
+          allDepIds.add(depId);
+        }
+      }
+
+      // No dependencies to check — all pending tasks are available
+      if (allDepIds.size === 0) {
+        return tasks;
+      }
+
+      // Batch query: fetch status of all dependency tasks in a single query
+      const depIdList = Array.from(allDepIds);
+      const placeholders = depIdList.map(() => '?').join(',');
+      const depRows = this.db
+        .prepare(`SELECT id, status FROM tasks WHERE id IN (${placeholders})`)
+        .all(...depIdList) as Array<{ id: string; status: string }>;
+
+      const depStatusMap = new Map<string, string>();
+      for (const row of depRows) {
+        depStatusMap.set(row.id, row.status);
+      }
+
+      return tasks.filter((task) => {
+        if (task.blockedBy.length === 0) return true;
+        return task.blockedBy.every((depId) => depStatusMap.get(depId) === 'completed');
+      });
     } catch (err) {
       logger.error(`Failed to list available tasks for project ${projectId}: ${err}`);
       throw err;
@@ -379,7 +402,9 @@ export class TaskQueue extends EventEmitter {
       this.db.prepare(sql).run(values);
 
       const updated = this.get(id)!;
-      logger.debug(`Task updated: ${id} (fields: ${setClauses.map((c) => c.split(' ')[0]).join(', ')})`);
+      logger.debug(
+        `Task updated: ${id} (fields: ${setClauses.map((c) => c.split(' ')[0]).join(', ')})`
+      );
       this.emit('task-changed', updated);
       return updated;
     } catch (err) {
@@ -466,7 +491,10 @@ export class TaskQueue extends EventEmitter {
     stmt.run(rating, feedback ?? null, taskId);
 
     logger.info(`Task rated: ${taskId} (${rating} stars)`);
-    this.emit('task-changed', { id: taskId, action: 'rated' });
+
+    // Re-read the full task so listeners (including renderer forwarding) get a complete object
+    const updated = this.get(taskId)!;
+    this.emit('task-changed', updated);
   }
 
   // ── Project CRUD ─────────────────────────────────────────────────
@@ -573,7 +601,9 @@ export class TaskQueue extends EventEmitter {
       this.db.prepare(sql).run(values);
 
       const updated = this.getProject(id)!;
-      logger.debug(`Project updated: ${id} (fields: ${setClauses.map((c) => c.split(' ')[0]).join(', ')})`);
+      logger.debug(
+        `Project updated: ${id} (fields: ${setClauses.map((c) => c.split(' ')[0]).join(', ')})`
+      );
       this.emit('project-changed', updated);
       return updated;
     } catch (err) {
@@ -604,8 +634,12 @@ export class TaskQueue extends EventEmitter {
 
     this.stmtGetTask = this.db.prepare('SELECT * FROM tasks WHERE id = ?');
     this.stmtListTasks = this.db.prepare('SELECT * FROM tasks ORDER BY createdAt ASC');
-    this.stmtListTasksByProject = this.db.prepare('SELECT * FROM tasks WHERE projectId = ? ORDER BY wave ASC, createdAt ASC');
-    this.stmtListTasksByStatus = this.db.prepare('SELECT * FROM tasks WHERE status = ? ORDER BY createdAt ASC');
+    this.stmtListTasksByProject = this.db.prepare(
+      'SELECT * FROM tasks WHERE projectId = ? ORDER BY wave ASC, createdAt ASC'
+    );
+    this.stmtListTasksByStatus = this.db.prepare(
+      'SELECT * FROM tasks WHERE status = ? ORDER BY createdAt ASC'
+    );
 
     this.stmtInsertProject = this.db.prepare(`
       INSERT INTO projects (id, goal, pmEmployeeId, employees, tasks, status, createdAt, completedAt)

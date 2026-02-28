@@ -23,6 +23,8 @@ interface ActivityState {
   loading: boolean;
   hasMore: boolean;
   error: string | null;
+  /** Whether init() has been called (prevents duplicate IPC listeners) */
+  initialized: boolean;
 
   /** Initial load */
   fetchEvents: () => Promise<void>;
@@ -44,6 +46,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
   loading: false,
   hasMore: true,
   error: null,
+  initialized: false,
 
   fetchEvents: async () => {
     set({ loading: true, error: null });
@@ -107,26 +110,26 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
   },
 
   init: () => {
+    if (get().initialized) return;
+    set({ initialized: true });
+
     const { prependEvent } = get();
 
     // Employee status changes
-    window.electron.ipcRenderer.on(
-      'employee:status-changed',
-      (...args: unknown[]) => {
-        const data = args[0] as { employeeId?: string; status?: string; name?: string };
-        if (!data?.employeeId || !data?.status) return;
+    window.electron.ipcRenderer.on('employee:status-changed', (...args: unknown[]) => {
+      const data = args[0] as { employeeId?: string; status?: string; name?: string };
+      if (!data?.employeeId || !data?.status) return;
 
-        prependEvent({
-          id: `employee-${data.employeeId}-${Date.now()}`,
-          type: 'employee',
-          action: data.status,
-          title: data.status,
-          employeeId: data.employeeId,
-          employeeName: data.name,
-          timestamp: Date.now(),
-        });
-      }
-    );
+      prependEvent({
+        id: `employee-${data.employeeId}-${Date.now()}`,
+        type: 'employee',
+        action: data.status,
+        title: data.status,
+        employeeId: data.employeeId,
+        employeeName: data.name,
+        timestamp: Date.now(),
+      });
+    });
 
     // Task changes
     window.electron.ipcRenderer.on('task:changed', (...args: unknown[]) => {
@@ -156,66 +159,54 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     });
 
     // Gateway status changes
-    window.electron.ipcRenderer.on(
-      'gateway:status-changed',
-      (...args: unknown[]) => {
-        const data = args[0] as { status?: string };
-        if (!data?.status) return;
+    window.electron.ipcRenderer.on('gateway:status-changed', (...args: unknown[]) => {
+      const data = args[0] as { status?: string };
+      if (!data?.status) return;
 
-        prependEvent({
-          id: `gateway-${Date.now()}`,
-          type: 'system',
-          action: data.status,
-          title: data.status,
-          timestamp: Date.now(),
-        });
-      }
-    );
+      prependEvent({
+        id: `gateway-${Date.now()}`,
+        type: 'system',
+        action: data.status,
+        title: data.status,
+        timestamp: Date.now(),
+      });
+    });
 
     // Supervisor delegation events
-    window.electron.ipcRenderer.on(
-      'supervisor:delegation-started',
-      (...args: unknown[]) => {
-        const data = args[0] as { employeeName?: string; taskSubject?: string };
-        prependEvent({
-          id: `delegation-started-${Date.now()}`,
-          type: 'delegation',
-          action: 'started',
-          title: data?.taskSubject ?? '',
-          employeeName: data?.employeeName,
-          timestamp: Date.now(),
-        });
-      }
-    );
+    window.electron.ipcRenderer.on('supervisor:delegation-started', (...args: unknown[]) => {
+      const data = args[0] as { employeeName?: string; taskSubject?: string };
+      prependEvent({
+        id: `delegation-started-${Date.now()}`,
+        type: 'delegation',
+        action: 'started',
+        title: data?.taskSubject ?? '',
+        employeeName: data?.employeeName,
+        timestamp: Date.now(),
+      });
+    });
 
-    window.electron.ipcRenderer.on(
-      'supervisor:delegation-completed',
-      (...args: unknown[]) => {
-        const data = args[0] as { employeeName?: string; taskSubject?: string };
-        prependEvent({
-          id: `delegation-completed-${Date.now()}`,
-          type: 'delegation',
-          action: 'completed',
-          title: data?.taskSubject ?? '',
-          employeeName: data?.employeeName,
-          timestamp: Date.now(),
-        });
-      }
-    );
+    window.electron.ipcRenderer.on('supervisor:delegation-completed', (...args: unknown[]) => {
+      const data = args[0] as { employeeName?: string; taskSubject?: string };
+      prependEvent({
+        id: `delegation-completed-${Date.now()}`,
+        type: 'delegation',
+        action: 'completed',
+        title: data?.taskSubject ?? '',
+        employeeName: data?.employeeName,
+        timestamp: Date.now(),
+      });
+    });
 
-    window.electron.ipcRenderer.on(
-      'supervisor:delegation-failed',
-      (...args: unknown[]) => {
-        const data = args[0] as { employeeName?: string; taskSubject?: string };
-        prependEvent({
-          id: `delegation-failed-${Date.now()}`,
-          type: 'delegation',
-          action: 'failed',
-          title: data?.taskSubject ?? '',
-          employeeName: data?.employeeName,
-          timestamp: Date.now(),
-        });
-      }
-    );
+    window.electron.ipcRenderer.on('supervisor:delegation-failed', (...args: unknown[]) => {
+      const data = args[0] as { employeeName?: string; taskSubject?: string };
+      prependEvent({
+        id: `delegation-failed-${Date.now()}`,
+        type: 'delegation',
+        action: 'failed',
+        title: data?.taskSubject ?? '',
+        employeeName: data?.employeeName,
+        timestamp: Date.now(),
+      });
+    });
   },
 }));

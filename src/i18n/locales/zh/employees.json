@@ -192,6 +192,26 @@
     "skip": "暂时跳过",
     "close": "关闭"
   },
+  "browser": {
+    "active": "浏览中",
+    "browsing": "正在浏览",
+    "inactive": "浏览器空闲",
+    "open": "已导航至 {{url}}",
+    "snapshot": "已获取页面快照",
+    "click": "已点击元素",
+    "type": "已输入文本",
+    "scroll": "已滚动页面",
+    "screenshot": "已截图",
+    "start": "已启动浏览器",
+    "stop": "已关闭浏览器",
+    "unknown": "浏览器操作"
+  },
+  "workspace": {
+    "title": "新媒体团队工作台",
+    "subtitle": "AI 内容制作 · 多平台发布 · 数据分析",
+    "enter": "进入工作台",
+    "online": "{{count}}人在线"
+  },
   "teams": {
     "marketing": "市场营销",
     "development": "开发",

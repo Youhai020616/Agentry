@@ -53,7 +53,9 @@
     "cron": "定时任务",
     "settings": "设置",
     "supervisor": "主管",
-    "projects": "项目"
+    "projects": "项目",
+    "browser": "浏览器",
+    "mediaStudio": "新媒体工作台"
   },
   "gateway": {
     "notRunning": "网关未运行",

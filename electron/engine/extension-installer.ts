@@ -442,6 +442,7 @@ function createCamofoxRecipe(): ExtensionRecipe {
                 return {
                   name: 'camofox',
                   success: false,
+                  manualRequired: true,
                   error: 'Failed to extract Camofox ZIP archive',
                 };
               }
@@ -462,6 +463,7 @@ function createCamofoxRecipe(): ExtensionRecipe {
               return {
                 name: 'camofox',
                 success: false,
+                manualRequired: true,
                 error: `Failed to download Camofox: ${String(err)}`,
               };
             }

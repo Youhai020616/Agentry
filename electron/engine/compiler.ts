@@ -19,6 +19,10 @@ export class SkillCompiler {
   private memoryEngine: MemoryEngine | null = null;
   private prohibitionEngine: ProhibitionEngine | null = null;
   private employeeManager: EmployeeManager | null = null;
+  /** Returns the work loop prompt fragment; set via setSupervisorWorkLoopProvider() */
+  private workLoopPromptProvider: (() => string) | null = null;
+  /** Employee slug(s) that should NOT receive the work loop prompt (e.g. the supervisor itself) */
+  private workLoopExcludeIds = new Set<string>();
 
   /**
    * Set the ToolRegistry instance for tool prompt injection.
@@ -50,6 +54,21 @@ export class SkillCompiler {
    */
   setEmployeeManager(manager: EmployeeManager): void {
     this.employeeManager = manager;
+  }
+
+  /**
+   * Set the work loop prompt provider — a function that returns the work loop
+   * instructions fragment to append to non-supervisor employee system prompts.
+   *
+   * Using a function reference (instead of importing SupervisorEngine directly)
+   * avoids circular dependencies between compiler ↔ supervisor.
+   *
+   * @param provider Function that returns the work loop prompt string
+   * @param excludeIds Employee slugs that should NOT receive the prompt (e.g. 'supervisor')
+   */
+  setSupervisorWorkLoopProvider(provider: () => string, excludeIds: string[] = []): void {
+    this.workLoopPromptProvider = provider;
+    this.workLoopExcludeIds = new Set(excludeIds);
   }
 
   /**
@@ -124,6 +143,21 @@ export class SkillCompiler {
         logger.debug(
           `Appended prohibition rules section for employee ${employeeId ?? 'global'} (${prohibitionSection.length} chars)`
         );
+      }
+    }
+
+    // Append work loop prompt for non-supervisor employees (P0 fix)
+    if (employeeId && this.workLoopPromptProvider && !this.workLoopExcludeIds.has(employeeId)) {
+      try {
+        const workLoopSection = this.workLoopPromptProvider();
+        if (workLoopSection) {
+          systemPrompt += '\n\n' + workLoopSection;
+          logger.debug(
+            `Appended work loop prompt for employee ${employeeId} (${workLoopSection.length} chars)`
+          );
+        }
+      } catch (err) {
+        logger.warn(`Failed to get work loop prompt for ${employeeId}: ${err}`);
       }
     }
 

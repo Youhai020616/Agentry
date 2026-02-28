@@ -1,0 +1,162 @@
+{
+  "title": "ブラウザコントロール",
+  "description": "OpenClaw によるリモートブラウザ自動化",
+  "status": {
+    "idle": "待機中",
+    "starting": "起動中…",
+    "running": "実行中",
+    "stopping": "停止中…",
+    "error": "エラー"
+  },
+  "actions": {
+    "start": "ブラウザを起動",
+    "stop": "ブラウザを停止",
+    "navigate": "ナビゲート",
+    "snapshot": "スナップショット",
+    "screenshot": "スクリーンショット",
+    "click": "クリック",
+    "type": "入力",
+    "scroll": "スクロール",
+    "highlight": "ハイライト",
+    "refresh": "更新",
+    "back": "戻る",
+    "forward": "進む"
+  },
+  "urlBar": {
+    "placeholder": "URL を入力して Enter キーを押してください…",
+    "go": "移動",
+    "invalidUrl": "有効な URL を入力してください"
+  },
+  "snapshot": {
+    "title": "ページスナップショット",
+    "empty": "スナップショットがありません。「スナップショット」をクリックして現在のページをキャプチャしてください。",
+    "format": "フォーマット",
+    "formatAi": "AI（数値参照）",
+    "formatInteractive": "インタラクティブ（ロール参照）",
+    "refs": "{{count}} 個のインタラクティブ要素",
+    "refs_other": "{{count}} 個のインタラクティブ要素",
+    "copyContent": "内容をコピー",
+    "copied": "スナップショットをクリップボードにコピーしました",
+    "labels": "ラベルを表示",
+    "selector": "CSS セレクタ",
+    "selectorPlaceholder": "例: #main-content"
+  },
+  "screenshot": {
+    "title": "スクリーンショット",
+    "empty": "スクリーンショットがありません。「スクリーンショット」をクリックして現在のページをキャプチャしてください。",
+    "fullPage": "ページ全体",
+    "viewportOnly": "表示領域のみ",
+    "zoomIn": "拡大",
+    "zoomOut": "縮小",
+    "zoomReset": "ズームをリセット",
+    "save": "画像を保存",
+    "saved": "スクリーンショットを保存しました"
+  },
+  "interact": {
+    "title": "インタラクション",
+    "clickRef": "要素をクリック",
+    "clickRefPlaceholder": "参照を入力（例: 12 または e12）",
+    "typeRef": "要素に入力",
+    "typeRefPlaceholder": "参照を入力",
+    "typeTextPlaceholder": "入力するテキストを入力…",
+    "clearFirst": "既存のテキストを先にクリア",
+    "scrollUp": "上にスクロール",
+    "scrollDown": "下にスクロール",
+    "highlightRef": "要素をハイライト",
+    "highlightRefPlaceholder": "ハイライトする参照を入力"
+  },
+  "console": {
+    "title": "コンソール",
+    "errors": "エラー",
+    "requests": "ネットワーク",
+    "noErrors": "コンソールエラーはキャプチャされていません。",
+    "noRequests": "ネットワークリクエストはキャプチャされていません。",
+    "clear": "クリア",
+    "filter": "フィルタ",
+    "filterPlaceholder": "タイプでフィルタ（例: xhr、fetch）…",
+    "level": {
+      "error": "エラー",
+      "warning": "警告",
+      "info": "情報"
+    },
+    "columns": {
+      "message": "メッセージ",
+      "source": "ソース",
+      "line": "行",
+      "time": "時刻",
+      "url": "URL",
+      "method": "メソッド",
+      "status": "ステータス",
+      "type": "タイプ",
+      "size": "サイズ",
+      "duration": "所要時間"
+    }
+  },
+  "history": {
+    "title": "操作履歴",
+    "empty": "操作履歴がありません。",
+    "clear": "履歴をクリア",
+    "types": {
+      "start": "ブラウザを起動しました",
+      "stop": "ブラウザを停止しました",
+      "navigate": "{{target}} に移動しました",
+      "click": "要素 {{target}} をクリックしました",
+      "type": "要素 {{target}} に入力しました",
+      "scroll": "{{target}} にスクロールしました",
+      "highlight": "要素 {{target}} をハイライトしました",
+      "snapshot": "ページスナップショットを撮影しました",
+      "screenshot": "スクリーンショットを撮影しました",
+      "trace_start": "トレース録画を開始しました",
+      "trace_stop": "トレース録画を停止しました"
+    },
+    "success": "成功",
+    "failed": "失敗"
+  },
+  "trace": {
+    "title": "トレース録画",
+    "start": "録画を開始",
+    "stop": "録画を停止",
+    "active": "録画中…",
+    "inactive": "録画していません",
+    "saved": "トレースファイルの保存先：{{path}}",
+    "description": "デバッグ用にブラウザ操作の詳細なトレースを記録します。"
+  },
+  "profiles": {
+    "title": "ブラウザプロファイル",
+    "default": "デフォルト（openclaw）",
+    "select": "プロファイルを選択",
+    "description": "各プロファイルには独自の Cookie、ストレージ、ログインセッションがあります。"
+  },
+  "panels": {
+    "snapshot": "スナップショット",
+    "screenshot": "スクリーンショット",
+    "interact": "インタラクション",
+    "console": "コンソール",
+    "history": "履歴"
+  },
+  "empty": {
+    "title": "ブラウザが起動していません",
+    "description": "管理ブラウザを起動して自動化を開始します。ブラウザは専用の Chrome プロファイルを使用し、個人のブラウザとは完全に分離されています。",
+    "startButton": "ブラウザを起動"
+  },
+  "errors": {
+    "notRunning": "ブラウザが起動していません。先に起動してください。",
+    "startFailed": "ブラウザの起動に失敗しました：{{error}}",
+    "commandFailed": "ブラウザコマンドが失敗しました：{{error}}",
+    "snapshotFailed": "スナップショットの撮影に失敗しました：{{error}}",
+    "screenshotFailed": "スクリーンショットの撮影に失敗しました：{{error}}",
+    "navigationFailed": "ナビゲーションに失敗しました：{{error}}",
+    "timeout": "操作がタイムアウトしました。ブラウザが応答していない可能性があります。"
+  },
+  "tooltips": {
+    "startBrowser": "専用の Chrome ブラウザインスタンスを起動",
+    "stopBrowser": "管理ブラウザを閉じる",
+    "takeSnapshot": "インタラクティブ要素の参照を含むページのテキスト表現をキャプチャ",
+    "takeScreenshot": "現在のページのビジュアルスクリーンショットをキャプチャ",
+    "startTrace": "デバッグ用に詳細なインタラクショントレースの録画を開始",
+    "stopTrace": "録画を停止してトレースファイルを保存",
+    "clickElement": "参照番号を使用してインタラクティブ要素をクリック",
+    "typeElement": "参照番号を使用して入力要素にテキストを入力",
+    "scrollPage": "指定した方向にページをスクロール"
+  }
+}

@@ -91,7 +91,6 @@ const electronAPI = {
         'channel:listConfigured',
         'channel:setEnabled',
         'channel:validate',
-        'channel:validate',
         'channel:validateCredentials',
         // WhatsApp
         'channel:requestWhatsAppQr',
@@ -147,6 +146,7 @@ const electronAPI = {
         'employee:setModel',
         'employee:getModel',
         'employee:checkDeps',
+        'employee:browserStatus',
         // Task
         'task:create',
         'task:list',
@@ -186,6 +186,23 @@ const electronAPI = {
         'camofox:installDeps',
         'camofox:start',
         'camofox:stop',
+        // Browser Automation
+        'browser:start',
+        'browser:stop',
+        'browser:status',
+        'browser:open',
+        'browser:snapshot',
+        'browser:screenshot',
+        'browser:click',
+        'browser:type',
+        'browser:scroll',
+        'browser:highlight',
+        'browser:errors',
+        'browser:requests',
+        'browser:trace:start',
+        'browser:trace:stop',
+        'browser:profiles',
+        'browser:history',
         // Execution
         'execution:run',
         'execution:cancel',
@@ -247,6 +264,12 @@ const electronAPI = {
         'supervisor:disable',
         'supervisor:status',
         'supervisor:dispatch',
+        'supervisor:plan',
+        'supervisor:approvePlan',
+        'supervisor:rejectPlan',
+        'supervisor:submitPlan',
+        'supervisor:synthesize',
+        'supervisor:close',
         // Conversations (chat history persistence)
         'conversation:list',
         'conversation:create',
@@ -288,7 +311,10 @@ const electronAPI = {
         'update:error',
         'cron:updated',
         'employee:status-changed',
+        'employee:browser-action',
+        'employee:browser-session',
         'task:changed',
+        'browser:status-changed',
         'ollama:pull-progress',
         'extension:install-progress',
         'supervisor:delegation-started',
@@ -322,6 +348,9 @@ const electronAPI = {
         'gateway:notification',
         'gateway:channel-status',
         'gateway:chat-message',
+        'channel:whatsapp-qr',
+        'channel:whatsapp-success',
+        'channel:whatsapp-error',
         'gateway:exit',
         'gateway:error',
         'navigate',
@@ -332,6 +361,17 @@ const electronAPI = {
         'update:progress',
         'update:downloaded',
         'update:error',
+        'cron:updated',
+        'employee:status-changed',
+        'employee:browser-action',
+        'employee:browser-session',
+        'task:changed',
+        'browser:status-changed',
+        'ollama:pull-progress',
+        'extension:install-progress',
+        'supervisor:delegation-started',
+        'supervisor:delegation-completed',
+        'supervisor:delegation-failed',
       ];
 
       if (validChannels.includes(channel)) {
@@ -346,6 +386,42 @@ const electronAPI = {
      * Remove all listeners for a channel
      */
     off: (channel: string, callback?: (...args: unknown[]) => void) => {
+      const validChannels = [
+        'gateway:status-changed',
+        'gateway:message',
+        'gateway:notification',
+        'gateway:channel-status',
+        'gateway:chat-message',
+        'channel:whatsapp-qr',
+        'channel:whatsapp-success',
+        'channel:whatsapp-error',
+        'gateway:exit',
+        'gateway:error',
+        'navigate',
+        'update:status-changed',
+        'update:checking',
+        'update:available',
+        'update:not-available',
+        'update:progress',
+        'update:downloaded',
+        'update:error',
+        'cron:updated',
+        'employee:status-changed',
+        'employee:browser-action',
+        'employee:browser-session',
+        'task:changed',
+        'browser:status-changed',
+        'ollama:pull-progress',
+        'extension:install-progress',
+        'supervisor:delegation-started',
+        'supervisor:delegation-completed',
+        'supervisor:delegation-failed',
+      ];
+
+      if (!validChannels.includes(channel)) {
+        throw new Error(`Invalid IPC channel: ${channel}`);
+      }
+
       if (callback) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ipcRenderer.removeListener(channel, callback as any);

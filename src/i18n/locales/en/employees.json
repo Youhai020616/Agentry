@@ -192,6 +192,26 @@
     "skip": "Skip for now",
     "close": "Close"
   },
+  "browser": {
+    "active": "Browsing",
+    "browsing": "Browsing",
+    "inactive": "Browser idle",
+    "open": "Navigated to {{url}}",
+    "snapshot": "Took a page snapshot",
+    "click": "Clicked element",
+    "type": "Typed text",
+    "scroll": "Scrolled page",
+    "screenshot": "Took a screenshot",
+    "start": "Started browser",
+    "stop": "Stopped browser",
+    "unknown": "Browser action"
+  },
+  "workspace": {
+    "title": "Media Studio",
+    "subtitle": "AI Content Creation · Multi-platform Publishing · Analytics",
+    "enter": "Open Workspace",
+    "online": "{{count}} online"
+  },
   "teams": {
     "marketing": "Marketing",
     "development": "Development",

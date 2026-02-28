@@ -22,6 +22,8 @@ interface TasksState {
   selectedProjectId: string | null;
   /** Task IDs currently being executed by the TaskExecutor */
   executingTaskIds: string[];
+  /** Whether init() has been called (prevents duplicate IPC listeners) */
+  initialized: boolean;
 
   fetchTasks: (projectId?: string) => Promise<void>;
   fetchProjects: () => Promise<void>;
@@ -64,6 +66,7 @@ export const useTasksStore = create<TasksState>((set, get) => ({
   error: null,
   selectedProjectId: null,
   executingTaskIds: [],
+  initialized: false,
 
   fetchTasks: async (projectId?: string) => {
     if (get().tasks.length === 0) {
@@ -337,8 +340,12 @@ export const useTasksStore = create<TasksState>((set, get) => ({
   },
 
   init: () => {
-    window.electron.ipcRenderer.on('task:changed', (_event: unknown, task: unknown) => {
-      const t = task as Task;
+    if (get().initialized) return;
+    set({ initialized: true });
+
+    window.electron.ipcRenderer.on('task:changed', (...args: unknown[]) => {
+      const t = args[0] as Task;
+      if (!t?.id) return;
       set((state) => {
         const exists = state.tasks.some((existing) => existing.id === t.id);
         if (exists) {

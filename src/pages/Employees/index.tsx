@@ -4,9 +4,18 @@
  * Each card shows a pixel character at a desk matching the isometric office aesthetic.
  */
 import { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Users, UserPlus, Play, Pause, MessageSquare, Settings } from 'lucide-react';
+import {
+  Users,
+  UserPlus,
+  Play,
+  Pause,
+  MessageSquare,
+  Settings,
+  Globe,
+  ArrowRight,
+} from 'lucide-react';
 import { motion } from 'framer-motion';
 import { HireDialog } from './HireDialog';
 import { EmployeeSecrets } from './EmployeeSecrets';
@@ -178,12 +187,8 @@ function MiniPixelCharacter({ employee }: { employee: Employee }) {
 
       {/* Legs */}
       <div className="flex gap-[3px]" style={{ marginTop: -1, zIndex: 1 }}>
-        <div
-          style={{ width: 8, height: 10, background: '#374151', borderRadius: '0 0 2px 2px' }}
-        />
-        <div
-          style={{ width: 8, height: 10, background: '#374151', borderRadius: '0 0 2px 2px' }}
-        />
+        <div style={{ width: 8, height: 10, background: '#374151', borderRadius: '0 0 2px 2px' }} />
+        <div style={{ width: 8, height: 10, background: '#374151', borderRadius: '0 0 2px 2px' }} />
       </div>
     </div>
   );
@@ -447,9 +452,7 @@ function WorkingContext({ employeeId, status }: { employeeId: string; status: Em
   return (
     <div className="rounded-lg bg-primary/5 dark:bg-primary/10 px-2.5 py-1.5 text-[10px] leading-relaxed">
       <p className="font-medium text-primary truncate">{activeTask.subject}</p>
-      {project && (
-        <p className="text-muted-foreground truncate">{project.goal}</p>
-      )}
+      {project && <p className="text-muted-foreground truncate">{project.goal}</p>}
     </div>
   );
 }
@@ -516,9 +519,23 @@ function EmployeeCard({ employee }: { employee: Employee }) {
         <div className="flex flex-col gap-2.5 p-4">
           {/* Name + Status row */}
           <div className="flex items-center justify-between gap-2">
-            <h3 className="truncate font-pixel text-sm font-semibold tracking-wide">
-              {employee.name}
-            </h3>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <h3 className="truncate font-pixel text-sm font-semibold tracking-wide">
+                {employee.name}
+              </h3>
+              {employee.browserActive && (
+                <span
+                  className="shrink-0 animate-pulse text-blue-500"
+                  title={
+                    employee.lastBrowserAction?.url
+                      ? `${t('browser.browsing', 'Browsing')} ${employee.lastBrowserAction.url}`
+                      : t('browser.active', 'Browser active')
+                  }
+                >
+                  <Globe className="h-3.5 w-3.5" />
+                </span>
+              )}
+            </div>
             <span
               className={cn(
                 'shrink-0 text-[10px] font-pixel font-medium uppercase tracking-widest',
@@ -601,6 +618,44 @@ function EmployeeCard({ employee }: { employee: Employee }) {
   );
 }
 
+/* ── Team Workspace Banner ─────────────────────────── */
+
+function WorkspaceBanner() {
+  const { t } = useTranslation('employees');
+  const navigate = useNavigate();
+
+  return (
+    <button
+      onClick={() => navigate('/media-studio')}
+      className={cn(
+        'group flex w-full items-center gap-4 rounded-xl p-4',
+        'bg-gradient-to-r from-violet-500/10 via-pink-500/10 to-orange-500/10',
+        'border border-violet-500/20 hover:border-violet-500/40',
+        'transition-all duration-300 hover:shadow-lg hover:shadow-violet-500/5',
+        'text-left'
+      )}
+    >
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-500/15 text-xl">
+        {'\uD83D\uDCF1'}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold">{t('workspace.title')}</h3>
+          <span className="flex items-center gap-1 text-[10px] text-green-500">
+            <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+            {t('workspace.online', { count: 6 })}
+          </span>
+        </div>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t('workspace.subtitle')}</p>
+      </div>
+      <div className="flex shrink-0 items-center gap-1 text-xs font-medium text-violet-500 opacity-0 transition-opacity group-hover:opacity-100">
+        {t('workspace.enter')}
+        <ArrowRight className="h-3.5 w-3.5" />
+      </div>
+    </button>
+  );
+}
+
 /* ── Page ──────────────────────────────────────────── */
 
 export function Employees() {
@@ -675,6 +730,9 @@ export function Employees() {
           </Button>
         </div>
       )}
+
+      {/* Team workspace entry */}
+      <WorkspaceBanner />
 
       {/* Employee card grid */}
       {employees.length > 0 && (

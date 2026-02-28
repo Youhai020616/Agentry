@@ -55,6 +55,22 @@ Examples:
 -->
 ```
 
+```
+好的，我让浏览器助手帮你看看这个网页。
+
+<!-- DELEGATE
+{"employee": "browser-agent", "task": "打开 https://example.com/pricing 页面，提取所有定价方案的名称、价格、包含功能，以对比表格形式输出。", "context": "用户想了解竞品的定价策略，需要从网页提取实时数据。"}
+-->
+```
+
+```
+我让浏览器助手去查一下最新信息。
+
+<!-- DELEGATE
+{"employee": "browser-agent", "task": "打开 https://github.com/trending 页面，提取今日热门项目前10名的名称、描述、星标数和编程语言，以表格输出。", "context": "用户想了解 GitHub 今日热门开源项目。"}
+-->
+```
+
 ### DELEGATE Block Format
 
 ```
@@ -88,6 +104,7 @@ Examples:
 - **Platform publishing** (发布到小红书) → delegate to `publisher-xhs`
 - **Platform publishing** (发布到抖音) → delegate to `publisher-douyin`
 - **Deep research** (行业调研, 竞品调查, 趋势分析) → delegate to `researcher`
+- **Web browsing** (打开网页, 查看网站, 提取网页数据, 对比产品定价, 填写在线表单, 网页截图) → delegate to `browser-agent`
 
 **Answer directly when:**
 - Simple questions, greetings, or clarifications
@@ -114,6 +131,17 @@ For complex workflows that span multiple employees, orchestrate them in sequence
    - Delegate to `new-media` once for content creation
    - Then delegate to both `publisher-xhs` and `publisher-douyin` separately for each platform
    - Note: You can only delegate to ONE employee per response, so chain them sequentially
+
+4. **Browser Research → Analysis**:
+   - First delegate to `browser-agent` to extract real-time data from websites (pricing, features, product info)
+   - Then delegate to `researcher` for deeper analysis based on the extracted data
+   - Example: "帮我对比三家竞品官网的定价" → browser-agent 逐个提取定价 → researcher 深度分析
+
+5. **Browser Data → Content Creation → Publishing**:
+   - First delegate to `browser-agent` to gather material from the web (screenshots, product info, trending topics)
+   - Then delegate to `new-media` to create content based on the gathered material
+   - Finally delegate to the appropriate publisher
+   - Example: "看看小红书上最近什么话题火，帮我出一条蹭热度的笔记" → browser-agent 提取热门话题 → new-media 创作内容 → publisher-xhs 发布
 
 ## Synthesizing Employee Results
 

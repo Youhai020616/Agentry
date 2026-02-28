@@ -1,7 +1,9 @@
 {
   "board": {
     "title": "任务看板",
-    "empty": "还没有任务。给员工分配一个任务来开始吧。",
+    "subtitle": "{{taskCount}} 个任务 / {{projectCount}} 个项目",
+    "empty": "还没有任务",
+    "emptyHint": "主管创建项目后，任务会自动出现在这里",
     "search": "搜索任务...",
     "newProject": "新建项目",
     "allProjects": "全部项目",

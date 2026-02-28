@@ -59,11 +59,26 @@ export interface ManifestCapabilities {
 }
 
 /**
- * Tool declaration within manifest
+ * Well-known built-in tool names.
+ * When a manifest declares a tool with one of these names, the `cli` field
+ * is optional — the system knows how to generate the appropriate prompt section
+ * and handle execution automatically.
+ *
+ * - `browser`: Web browser automation via `openclaw browser` CLI commands
+ */
+export type ManifestBuiltinToolName = 'browser';
+
+/**
+ * Tool declaration within manifest.
+ *
+ * For built-in tools (e.g. `name: "browser"`), `cli` is optional — the system
+ * generates specialized prompt instructions automatically.
+ * For custom tools, `cli` is required to tell the employee how to invoke it.
  */
 export interface ManifestTool {
   name: string;
-  cli: string;
+  /** CLI command to execute. Optional for built-in tools (name === 'browser'). */
+  cli?: string;
   requiredSecret?: string;
 }
 

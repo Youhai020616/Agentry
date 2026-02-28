@@ -76,6 +76,9 @@ export class TaskExecutor extends EventEmitter {
   /** Currently executing tasks keyed by taskId */
   private executing: Map<string, AbortController> = new Map();
 
+  /** Stored reference to the task-changed listener so we can remove it in destroy() */
+  private onTaskChanged: ((task: Task) => void) | null = null;
+
   /** Track which employees are busy (taskId they're working on) */
   private employeeBusy: Map<string, string> = new Map();
 
@@ -95,8 +98,9 @@ export class TaskExecutor extends EventEmitter {
     this.employeeManager = employeeManager;
     this.gateway = gateway;
 
-    // Listen for task state changes to auto-execute claimed tasks
-    this.taskQueue.on('task-changed', (task: Task) => {
+    // Listen for task state changes to auto-execute claimed tasks.
+    // Store the callback reference so we can remove it in destroy().
+    this.onTaskChanged = (task: Task) => {
       if (
         this.autoExecuteEnabled &&
         task.status === 'in_progress' &&
@@ -108,7 +112,8 @@ export class TaskExecutor extends EventEmitter {
           logger.error(`[TaskExecutor] Auto-execute failed for task ${task.id}: ${err}`);
         });
       }
-    });
+    };
+    this.taskQueue.on('task-changed', this.onTaskChanged);
   }
 
   // ── Configuration ──────────────────────────────────────────────
@@ -458,6 +463,12 @@ export class TaskExecutor extends EventEmitter {
     this.cancelAll();
     this.pendingQueue.length = 0;
     this.employeeBusy.clear();
+    // Remove the listener we placed on taskQueue to prevent a reference leak
+    // (this.removeAllListeners() only removes listeners ON this emitter, not FROM taskQueue)
+    if (this.onTaskChanged) {
+      this.taskQueue.removeListener('task-changed', this.onTaskChanged);
+      this.onTaskChanged = null;
+    }
     this.removeAllListeners();
   }
 

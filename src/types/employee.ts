@@ -56,6 +56,16 @@ export interface Employee {
   /** Per-employee model override (e.g., "anthropic/claude-3.5-haiku"). When set, this model is used instead of the global default. */
   modelOverride?: string;
 
+  // Browser automation state (populated by BrowserEventDetector)
+  /** Whether this employee currently has an active browser session */
+  browserActive?: boolean;
+  /** Last detected browser action (set by BrowserEventDetector, cleared on timeout) */
+  lastBrowserAction?: {
+    action: string;
+    url?: string;
+    timestamp: number;
+  };
+
   createdAt: number;
   updatedAt: number;
 }
