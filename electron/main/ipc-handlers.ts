@@ -18,6 +18,19 @@ import crypto from 'node:crypto';
 import { GatewayManager } from '../gateway/manager';
 import { BrowserLoginManager } from '../engine/browser-login';
 import { CamofoxClient } from '../engine/camofox-client';
+import { getBrowserManager } from '../engine/browser-manager';
+import type {
+  BrowserStartParams,
+  BrowserOpenParams,
+  BrowserSnapshotParams,
+  BrowserClickParams,
+  BrowserTypeParams,
+  BrowserScrollParams,
+  BrowserHighlightParams,
+  BrowserScreenshotParams,
+  BrowserErrorsParams,
+  BrowserRequestsParams,
+} from '../../src/types/browser';
 import {
   ClawHubService,
   ClawHubSearchParams,
@@ -137,44 +150,80 @@ export function registerIpcHandlers(
   // Employee handlers (use engine context if available, fallback to standalone)
   // Note: engineRef.current may be null at registration time but will be set later.
   // EmployeeManager is accessed lazily via engineRef inside handlers.
-  let _employeeManager: EmployeeManager | null = engineRef.current?.employeeManager ?? null;
-  if (!_employeeManager) {
+  let _standaloneEmployeeManager: EmployeeManager | null = null;
+  if (!engineRef.current?.employeeManager) {
     // Engine not ready yet — create a standalone EmployeeManager as fallback.
-    // Once engine bootstraps, handlers that need engine will use engineRef.current.
+    // Once engine bootstraps, getEmployeeManager() will switch to the engine's instance.
     logger.warn('Engine context not yet available, initializing standalone EmployeeManager');
-    _employeeManager = new EmployeeManager();
-    void _employeeManager.init();
+    _standaloneEmployeeManager = new EmployeeManager();
+    void _standaloneEmployeeManager.init();
   }
-  const employeeManager = _employeeManager;
+
+  // Getter that prefers the engine's EmployeeManager (single source of truth)
+  // once it becomes available, falling back to the standalone instance.
+  // When the engine's EmployeeManager becomes available, migrate the forwardStatus
+  // listener from the standalone instance to the engine instance to avoid event loss.
+  let _lastBoundManager: EmployeeManager | null = null;
+
+  const getEmployeeManager = (): EmployeeManager => {
+    const current = engineRef.current?.employeeManager ?? _standaloneEmployeeManager!;
+
+    // Migrate forwardStatus listener when switching from standalone to engine instance
+    if (current !== _lastBoundManager) {
+      if (_lastBoundManager) {
+        _lastBoundManager.removeListener('status', forwardStatus);
+      }
+      current.on('status', forwardStatus);
+      _lastBoundManager = current;
+
+      // Destroy standalone instance once engine is available to prevent leaks
+      if (
+        engineRef.current?.employeeManager &&
+        _standaloneEmployeeManager &&
+        _standaloneEmployeeManager !== engineRef.current.employeeManager
+      ) {
+        void _standaloneEmployeeManager.destroy();
+        _standaloneEmployeeManager = null;
+      }
+    }
+
+    return current;
+  };
 
   // Forward employee status changes to renderer
-  employeeManager.on('status', (employeeId: string, status: string) => {
+  const forwardStatus = (employeeId: string, status: string) => {
     if (!mainWindow.isDestroyed()) {
       mainWindow.webContents.send('employee:status-changed', { employeeId, status });
     }
-  });
+  };
 
-  registerEmployeeHandlers(employeeManager);
-  registerBuiltinSkillHandlers(employeeManager);
-  registerTaskHandlers(engineRef, gatewayManager);
+  // Initialize: bind forwardStatus to the current manager (side-effect only)
+  void getEmployeeManager();
+
+  registerEmployeeHandlers(getEmployeeManager);
+  registerBuiltinSkillHandlers(getEmployeeManager);
+  registerTaskHandlers(engineRef, gatewayManager, mainWindow);
   registerProjectHandlers(engineRef, gatewayManager);
   registerMessageHandlers(engineRef, gatewayManager);
   registerCreditsHandlers(engineRef);
-  registerActivityHandlers(engineRef, gatewayManager, employeeManager);
+  registerActivityHandlers(engineRef, gatewayManager, getEmployeeManager);
   registerExecutionHandlers(engineRef, gatewayManager);
   registerMemoryHandlers(engineRef, gatewayManager);
   registerProhibitionHandlers(engineRef, gatewayManager);
   registerLicenseHandlers();
   registerUserHandlers();
   registerOllamaHandlers(mainWindow);
-  registerOnboardingHandlers(mainWindow, employeeManager);
+  registerOnboardingHandlers(mainWindow, getEmployeeManager);
   registerExtensionHandlers(mainWindow);
   registerSupervisorHandlers(engineRef, gatewayManager, mainWindow);
   registerConversationHandlers();
   registerChatMessageHandlers(engineRef, gatewayManager);
 
-  // Note: task:changed event forwarding happens lazily when Phase 1 initializes.
-  // The task-changed listener is set up inside registerTaskHandlers via getLazy().
+  // Browser automation handlers (OpenClaw browser tool wrapper)
+  registerBrowserHandlers(mainWindow);
+
+  // Browser event forwarding (employee → browser action detection)
+  registerBrowserEventForwarding(engineRef, gatewayManager, mainWindow);
 }
 
 /**
@@ -558,6 +607,196 @@ function registerLogHandlers(): void {
   });
 }
 
+// ── Browser Automation Handlers ─────────────────────────────────────
+
+function registerBrowserHandlers(mainWindow: BrowserWindow): void {
+  const manager = getBrowserManager();
+
+  // Forward browser status changes to renderer
+  manager.on('status-changed', (state: unknown) => {
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('browser:status-changed', state);
+    }
+  });
+
+  // browser:start — Launch the managed browser
+  ipcMain.handle('browser:start', async (_, params?: BrowserStartParams) => {
+    try {
+      const state = await manager.start(params?.profile);
+      return { success: true, result: state };
+    } catch (error) {
+      logger.error('browser:start failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // browser:stop — Close the managed browser
+  ipcMain.handle('browser:stop', async () => {
+    try {
+      await manager.stop();
+      return { success: true };
+    } catch (error) {
+      logger.error('browser:stop failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // browser:status — Get current browser state
+  ipcMain.handle('browser:status', async () => {
+    try {
+      const state = manager.getState();
+      return { success: true, result: state };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // browser:open — Navigate to a URL
+  ipcMain.handle('browser:open', async (_, params: BrowserOpenParams) => {
+    try {
+      await manager.open(params.url);
+      return { success: true };
+    } catch (error) {
+      logger.error('browser:open failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // browser:snapshot — Take a page snapshot (text with element refs)
+  ipcMain.handle('browser:snapshot', async (_, params?: BrowserSnapshotParams) => {
+    try {
+      const snapshot = await manager.snapshot(params?.format ?? 'ai', {
+        labels: params?.labels,
+        selector: params?.selector,
+      });
+      return { success: true, result: snapshot };
+    } catch (error) {
+      logger.error('browser:snapshot failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // browser:screenshot — Take a visual screenshot
+  ipcMain.handle('browser:screenshot', async (_, params?: BrowserScreenshotParams) => {
+    try {
+      const screenshot = await manager.screenshot(params?.fullPage);
+      return { success: true, result: screenshot };
+    } catch (error) {
+      logger.error('browser:screenshot failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // browser:click — Click an element by ref
+  ipcMain.handle('browser:click', async (_, params: BrowserClickParams) => {
+    try {
+      await manager.click(params.ref);
+      return { success: true };
+    } catch (error) {
+      logger.error('browser:click failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // browser:type — Type text into an element
+  ipcMain.handle('browser:type', async (_, params: BrowserTypeParams) => {
+    try {
+      await manager.type(params.ref, params.text, params.clear);
+      return { success: true };
+    } catch (error) {
+      logger.error('browser:type failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // browser:scroll — Scroll the page
+  ipcMain.handle('browser:scroll', async (_, params: BrowserScrollParams) => {
+    try {
+      await manager.scroll(params.direction, params.amount);
+      return { success: true };
+    } catch (error) {
+      logger.error('browser:scroll failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // browser:highlight — Highlight an element (visual debugging)
+  ipcMain.handle('browser:highlight', async (_, params: BrowserHighlightParams) => {
+    try {
+      await manager.highlight(params.ref);
+      return { success: true };
+    } catch (error) {
+      logger.error('browser:highlight failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // browser:errors — Get console errors
+  ipcMain.handle('browser:errors', async (_, params?: BrowserErrorsParams) => {
+    try {
+      const errors = await manager.getErrors(params?.clear);
+      return { success: true, result: errors };
+    } catch (error) {
+      logger.error('browser:errors failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // browser:requests — Get network requests
+  ipcMain.handle('browser:requests', async (_, params?: BrowserRequestsParams) => {
+    try {
+      const requests = await manager.getRequests(params?.filter, params?.clear);
+      return { success: true, result: requests };
+    } catch (error) {
+      logger.error('browser:requests failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // browser:trace:start — Start recording a trace
+  ipcMain.handle('browser:trace:start', async () => {
+    try {
+      await manager.traceStart();
+      return { success: true };
+    } catch (error) {
+      logger.error('browser:trace:start failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // browser:trace:stop — Stop recording and return trace path
+  ipcMain.handle('browser:trace:stop', async () => {
+    try {
+      const result = await manager.traceStop();
+      return { success: true, result };
+    } catch (error) {
+      logger.error('browser:trace:stop failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // browser:profiles — List available browser profiles
+  ipcMain.handle('browser:profiles', async () => {
+    try {
+      const profiles = await manager.listProfiles();
+      return { success: true, result: profiles };
+    } catch (error) {
+      logger.error('browser:profiles failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // browser:history — Get action history
+  ipcMain.handle('browser:history', async () => {
+    try {
+      const history = manager.getActionHistory();
+      return { success: true, result: history };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
+}
+
 /**
  * Gateway-related IPC handlers
  */
@@ -858,47 +1097,60 @@ function registerGatewayHandlers(
     }
   });
 
-  // Forward Gateway events to renderer
-  gatewayManager.on('status', (status) => {
+  // Forward Gateway events to renderer (named functions for proper cleanup)
+  const onGatewayStatus = (status: unknown) => {
     if (!mainWindow.isDestroyed()) {
       mainWindow.webContents.send('gateway:status-changed', status);
     }
-  });
-
-  gatewayManager.on('message', (message) => {
+  };
+  const onGatewayMessage = (message: unknown) => {
     if (!mainWindow.isDestroyed()) {
       mainWindow.webContents.send('gateway:message', message);
     }
-  });
-
-  gatewayManager.on('notification', (notification) => {
+  };
+  const onGatewayNotification = (notification: unknown) => {
     if (!mainWindow.isDestroyed()) {
       mainWindow.webContents.send('gateway:notification', notification);
     }
-  });
-
-  gatewayManager.on('channel:status', (data) => {
+  };
+  const onGatewayChannelStatus = (data: unknown) => {
     if (!mainWindow.isDestroyed()) {
       mainWindow.webContents.send('gateway:channel-status', data);
     }
-  });
-
-  gatewayManager.on('chat:message', (data) => {
+  };
+  const onGatewayChatMessage = (data: unknown) => {
     if (!mainWindow.isDestroyed()) {
       mainWindow.webContents.send('gateway:chat-message', data);
     }
-  });
-
-  gatewayManager.on('exit', (code) => {
+  };
+  const onGatewayExit = (code: unknown) => {
     if (!mainWindow.isDestroyed()) {
       mainWindow.webContents.send('gateway:exit', code);
     }
-  });
-
-  gatewayManager.on('error', (error) => {
+  };
+  const onGatewayError = (error: Error) => {
     if (!mainWindow.isDestroyed()) {
       mainWindow.webContents.send('gateway:error', error.message);
     }
+  };
+
+  gatewayManager.on('status', onGatewayStatus);
+  gatewayManager.on('message', onGatewayMessage);
+  gatewayManager.on('notification', onGatewayNotification);
+  gatewayManager.on('channel:status', onGatewayChannelStatus);
+  gatewayManager.on('chat:message', onGatewayChatMessage);
+  gatewayManager.on('exit', onGatewayExit);
+  gatewayManager.on('error', onGatewayError);
+
+  // Clean up Gateway event listeners when mainWindow is destroyed
+  mainWindow.on('closed', () => {
+    gatewayManager.removeListener('status', onGatewayStatus);
+    gatewayManager.removeListener('message', onGatewayMessage);
+    gatewayManager.removeListener('notification', onGatewayNotification);
+    gatewayManager.removeListener('channel:status', onGatewayChannelStatus);
+    gatewayManager.removeListener('chat:message', onGatewayChatMessage);
+    gatewayManager.removeListener('exit', onGatewayExit);
+    gatewayManager.removeListener('error', onGatewayError);
   });
 }
 
@@ -1953,11 +2205,11 @@ function registerFileHandlers(): void {
 
 // ── Employee Handlers ──────────────────────────────────────────────
 
-function registerEmployeeHandlers(employeeManager: EmployeeManager): void {
+function registerEmployeeHandlers(getEmployeeManager: () => EmployeeManager): void {
   ipcMain.handle('employee:list', async (_event, params?: { status?: string }) => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const employees = employeeManager.list(params?.status as any);
+      const employees = getEmployeeManager().list(params?.status as any);
       return { success: true, result: employees };
     } catch (error) {
       logger.error('employee:list failed:', error);
@@ -1967,7 +2219,7 @@ function registerEmployeeHandlers(employeeManager: EmployeeManager): void {
 
   ipcMain.handle('employee:get', async (_event, id: string) => {
     try {
-      const employee = employeeManager.get(id);
+      const employee = getEmployeeManager().get(id);
       if (!employee) {
         return { success: false, error: `Employee not found: ${id}` };
       }
@@ -1979,7 +2231,7 @@ function registerEmployeeHandlers(employeeManager: EmployeeManager): void {
 
   ipcMain.handle('employee:activate', async (_event, id: string) => {
     try {
-      const employee = await employeeManager.activate(id);
+      const employee = await getEmployeeManager().activate(id);
       return { success: true, result: employee };
     } catch (error) {
       logger.error('employee:activate failed:', error);
@@ -1989,7 +2241,7 @@ function registerEmployeeHandlers(employeeManager: EmployeeManager): void {
 
   ipcMain.handle('employee:deactivate', async (_event, id: string) => {
     try {
-      const employee = employeeManager.deactivate(id);
+      const employee = getEmployeeManager().deactivate(id);
       return { success: true, result: employee };
     } catch (error) {
       logger.error('employee:deactivate failed:', error);
@@ -1999,7 +2251,7 @@ function registerEmployeeHandlers(employeeManager: EmployeeManager): void {
 
   ipcMain.handle('employee:status', async (_event, id: string) => {
     try {
-      const status = employeeManager.getStatus(id);
+      const status = getEmployeeManager().getStatus(id);
       return { success: true, result: status };
     } catch (error) {
       return { success: false, error: String(error) };
@@ -2009,7 +2261,7 @@ function registerEmployeeHandlers(employeeManager: EmployeeManager): void {
   // employee:scan — Re-scan skill directories, returns refreshed employee list
   ipcMain.handle('employee:scan', async () => {
     try {
-      const employees = await employeeManager.scan();
+      const employees = await getEmployeeManager().scan();
       return { success: true, result: employees };
     } catch (error) {
       logger.error('employee:scan failed:', error);
@@ -2019,7 +2271,7 @@ function registerEmployeeHandlers(employeeManager: EmployeeManager): void {
 
   ipcMain.handle('employee:getManifest', async (_event, id: string) => {
     try {
-      const manifest = employeeManager.getManifest(id);
+      const manifest = getEmployeeManager().getManifest(id);
       return { success: true, result: manifest };
     } catch (error) {
       logger.error('employee:getManifest failed:', error);
@@ -2089,7 +2341,7 @@ function registerEmployeeHandlers(employeeManager: EmployeeManager): void {
   // employee:checkDeps — Check if employee's runtime.requires are satisfied
   ipcMain.handle('employee:checkDeps', async (_event, employeeId: string) => {
     try {
-      const result = await employeeManager.checkRuntimeRequirements(employeeId);
+      const result = await getEmployeeManager().checkRuntimeRequirements(employeeId);
       return { success: true, result };
     } catch (error) {
       logger.error('employee:checkDeps failed:', error);
@@ -2114,12 +2366,12 @@ async function getEmployeeSecretsStore(): Promise<{
 
 // ── Built-in Skill Handlers ────────────────────────────────────────
 
-function registerBuiltinSkillHandlers(employeeManager: EmployeeManager): void {
+function registerBuiltinSkillHandlers(getEmployeeManager: () => EmployeeManager): void {
   const parser = new ManifestParser();
 
   ipcMain.handle('skill:listBuiltin', async () => {
     try {
-      const builtinDir = employeeManager.getBuiltinDirPath();
+      const builtinDir = getEmployeeManager().getBuiltinDirPath();
 
       if (!existsSync(builtinDir)) {
         return { success: true, result: [] };
@@ -2149,14 +2401,40 @@ function registerBuiltinSkillHandlers(employeeManager: EmployeeManager): void {
 
 // ── Task Handlers ──────────────────────────────────────────────────
 
-function registerTaskHandlers(engineRef: EngineRef, gatewayManager: GatewayManager): void {
+function registerTaskHandlers(
+  engineRef: EngineRef,
+  gatewayManager: GatewayManager,
+  mainWindow: BrowserWindow
+): void {
   const getLazy = async () => {
     if (!engineRef.current) throw new Error('Engine not initialized');
     return engineRef.current.getLazy(gatewayManager);
   };
 
+  // Forward task-changed events from TaskQueue (EventEmitter) to Renderer (IPC)
+  // This is done lazily because TaskQueue is initialized after engine bootstrap.
+  let taskChangedListenerAttached = false;
+  const ensureTaskChangedForwarding = async () => {
+    if (taskChangedListenerAttached) return;
+    try {
+      const lazy = await getLazy();
+      lazy.taskQueue.on('task-changed', (task: unknown) => {
+        if (!mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('task:changed', task);
+        }
+      });
+      taskChangedListenerAttached = true;
+    } catch {
+      // Engine not ready yet — will retry on next handler call
+    }
+  };
+
+  // Attempt to attach the listener immediately (may fail if engine not ready)
+  void ensureTaskChangedForwarding();
+
   ipcMain.handle('task:create', async (_, input: unknown) => {
     try {
+      await ensureTaskChangedForwarding();
       const lazy = await getLazy();
       const task = lazy.taskQueue.create(input as Parameters<typeof lazy.taskQueue.create>[0]);
       return { success: true, result: task };
@@ -2640,10 +2918,105 @@ function registerCreditsHandlers(engineRef: EngineRef): void {
 
 // ── Activity Handlers ────────────────────────────────────────────────
 
+/**
+ * Forward BrowserEventDetector events to the renderer process.
+ * Subscribes to `browser-action`, `session-active`, and `session-inactive` events
+ * from the lazy-initialized BrowserEventDetector and sends them as IPC events.
+ *
+ * This is registered once at startup but attaches to the detector lazily
+ * (when Phase 1 engine components are initialized).
+ */
+function registerBrowserEventForwarding(
+  engineRef: EngineRef,
+  gatewayManager: GatewayManager,
+  mainWindow: BrowserWindow
+): void {
+  let _attached = false;
+
+  // We can't attach immediately because the BrowserEventDetector is lazy-initialized.
+  // Instead, we hook into the first gateway:rpc or gateway:status call to trigger lazy init.
+  // Alternatively, try to attach periodically until the detector is available.
+  const tryAttach = async () => {
+    if (_attached || !engineRef.current) return;
+
+    try {
+      const lazy = await engineRef.current.getLazy(gatewayManager);
+      const detector = lazy.browserEventDetector;
+
+      detector.on(
+        'browser-action',
+        (event: import('../engine/browser-event-detector').BrowserActionEvent) => {
+          if (!mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('employee:browser-action', event);
+          }
+        }
+      );
+
+      detector.on('session-active', (employeeId: string) => {
+        if (!mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('employee:browser-session', {
+            employeeId,
+            active: true,
+          });
+        }
+      });
+
+      detector.on('session-inactive', (employeeId: string) => {
+        if (!mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('employee:browser-session', {
+            employeeId,
+            active: false,
+          });
+        }
+      });
+
+      _attached = true;
+      logger.info('[BrowserEventForwarding] Attached to BrowserEventDetector');
+    } catch {
+      // Detector not yet available — will retry
+    }
+  };
+
+  // Try to attach when engine status changes or on a short delay after startup
+  gatewayManager.on('status', () => void tryAttach());
+  // Also try after a short delay to catch early events
+  setTimeout(() => void tryAttach(), 3000);
+
+  // Expose an IPC handler to query active browser sessions
+  ipcMain.handle('employee:browserStatus', async (_event, employeeId?: string) => {
+    try {
+      if (!engineRef.current) {
+        return { success: true, result: { active: false } };
+      }
+      const lazy = await engineRef.current.getLazy(gatewayManager);
+      const detector = lazy.browserEventDetector;
+      if (employeeId) {
+        const session = detector.getSession(employeeId);
+        return {
+          success: true,
+          result: {
+            active: detector.isEmployeeBrowsing(employeeId),
+            session: session ?? null,
+          },
+        };
+      }
+      return {
+        success: true,
+        result: {
+          activeEmployees: detector.getActiveEmployees(),
+        },
+      };
+    } catch (error) {
+      logger.error('employee:browserStatus failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+}
+
 function registerActivityHandlers(
   engineRef: EngineRef,
   gatewayManager: GatewayManager,
-  employeeManager: EmployeeManager
+  getEmployeeManager: () => EmployeeManager
 ): void {
   // Lazily create the aggregator on first call
   let _aggregator: import('../engine/activity-aggregator').ActivityAggregator | null = null;
@@ -2658,10 +3031,17 @@ function registerActivityHandlers(
 
     // Populate employee names
     const names = new Map<string, string>();
-    for (const emp of employeeManager.list()) {
+    for (const emp of getEmployeeManager().list()) {
       names.set(emp.id, emp.name);
     }
     _aggregator.setEmployeeNames(names);
+
+    // Wire BrowserEventDetector into the aggregator for browser activity feed
+    try {
+      _aggregator.attachBrowserDetector(lazy.browserEventDetector);
+    } catch (err) {
+      logger.warn('Failed to attach BrowserEventDetector to ActivityAggregator:', err);
+    }
 
     return _aggregator;
   };
@@ -3169,7 +3549,7 @@ const browserLoginManager = new BrowserLoginManager();
 
 function registerOnboardingHandlers(
   mainWindow: BrowserWindow,
-  employeeManager: EmployeeManager
+  getEmployeeManager: () => EmployeeManager
 ): void {
   // onboarding:browserLogin — Open a BrowserWindow for the user to log in
   ipcMain.handle(
@@ -3222,7 +3602,7 @@ function registerOnboardingHandlers(
           completedAt: Date.now(),
         });
         // Mark onboarding as completed on the employee record
-        await employeeManager.markOnboardingComplete(employeeId);
+        await getEmployeeManager().markOnboardingComplete(employeeId);
         return { success: true };
       } catch (error) {
         logger.error('onboarding:saveData failed:', error);
@@ -3541,6 +3921,81 @@ function registerSupervisorHandlers(
       }
     }
   );
+
+  // supervisor:plan — Ask PM to decompose a goal into a task DAG
+  ipcMain.handle('supervisor:plan', async (_, params: { goal: string; pmEmployeeId: string }) => {
+    try {
+      const lazy = await getLazy();
+      const project = await lazy.supervisor.planProject(params.goal, params.pmEmployeeId);
+      return { success: true, result: project };
+    } catch (error) {
+      logger.error('supervisor:plan failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // supervisor:approvePlan — PM approves a submitted plan for a task
+  ipcMain.handle('supervisor:approvePlan', async (_, taskId: string) => {
+    try {
+      const lazy = await getLazy();
+      await lazy.supervisor.approvePlan(taskId);
+      return { success: true };
+    } catch (error) {
+      logger.error('supervisor:approvePlan failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // supervisor:rejectPlan — PM rejects a submitted plan with feedback
+  ipcMain.handle(
+    'supervisor:rejectPlan',
+    async (_, params: { taskId: string; feedback: string }) => {
+      try {
+        const lazy = await getLazy();
+        await lazy.supervisor.rejectPlan(params.taskId, params.feedback);
+        return { success: true };
+      } catch (error) {
+        logger.error('supervisor:rejectPlan failed:', error);
+        return { success: false, error: String(error) };
+      }
+    }
+  );
+
+  // supervisor:submitPlan — Employee submits a plan for PM review
+  ipcMain.handle('supervisor:submitPlan', async (_, params: { taskId: string; plan: string }) => {
+    try {
+      const lazy = await getLazy();
+      await lazy.supervisor.handlePlanSubmission(params.taskId, params.plan);
+      return { success: true };
+    } catch (error) {
+      logger.error('supervisor:submitPlan failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // supervisor:synthesize — Manually trigger PM synthesis for a project
+  ipcMain.handle('supervisor:synthesize', async (_, projectId: string) => {
+    try {
+      const lazy = await getLazy();
+      const synthesis = await lazy.supervisor.synthesizeResults(projectId);
+      return { success: true, result: synthesis };
+    } catch (error) {
+      logger.error('supervisor:synthesize failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // supervisor:close — Gracefully close a project
+  ipcMain.handle('supervisor:close', async (_, projectId: string) => {
+    try {
+      const lazy = await getLazy();
+      await lazy.supervisor.closeProject(projectId);
+      return { success: true };
+    } catch (error) {
+      logger.error('supervisor:close failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -3549,7 +4004,7 @@ function registerSupervisorHandlers(
 
 /** Lazy-loaded electron-store for conversation persistence */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _conversationStore: any = null;
+let _conversationStore: any;
 
 interface ConversationRecord {
   id: string;

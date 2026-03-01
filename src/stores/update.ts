@@ -19,7 +19,7 @@ export interface ProgressInfo {
   bytesPerSecond: number;
 }
 
-export type UpdateStatus = 
+export type UpdateStatus =
   | 'idle'
   | 'checking'
   | 'available'
@@ -67,7 +67,7 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
 
     // Get current status
     try {
-      const status = await window.electron.ipcRenderer.invoke('update:status') as {
+      const status = (await window.electron.ipcRenderer.invoke('update:status')) as {
         status: UpdateStatus;
         info?: UpdateInfo;
         progress?: ProgressInfo;
@@ -114,19 +114,23 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
     // Auto-check for updates on startup (respects user toggle)
     if (autoCheckUpdate) {
       setTimeout(() => {
-        get().checkForUpdates().catch(() => {});
+        get()
+          .checkForUpdates()
+          .catch(() => {});
       }, 10000);
     }
   },
 
   checkForUpdates: async () => {
     set({ status: 'checking', error: null });
-    
+
     try {
-      const result = await Promise.race([
+      const result = (await Promise.race([
         window.electron.ipcRenderer.invoke('update:check'),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Update check timed out')), 30000))
-      ]) as {
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Update check timed out')), 30000)
+        ),
+      ])) as {
         success: boolean;
         error?: string;
         status?: {
@@ -136,7 +140,7 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
           error?: string;
         };
       };
-      
+
       if (result.status) {
         set({
           status: result.status.status,
@@ -151,23 +155,29 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
       set({ status: 'error', error: String(error) });
     } finally {
       // In dev mode autoUpdater skips without emitting events, so the
-      // status may still be 'checking' or even 'idle'. Catch both.
+      // status may still be 'checking'. Only reset if it's still the value
+      // WE set — don't overwrite statuses updated by event listeners
+      // (e.g. 'available', 'downloaded', 'not-available').
       const currentStatus = get().status;
-      if (currentStatus === 'checking' || currentStatus === 'idle') {
-        set({ status: 'error', error: 'Update check completed without a result. This usually means the app is running in dev mode.' });
+      if (currentStatus === 'checking') {
+        set({
+          status: 'error',
+          error:
+            'Update check completed without a result. This usually means the app is running in dev mode.',
+        });
       }
     }
   },
 
   downloadUpdate: async () => {
     set({ status: 'downloading', error: null });
-    
+
     try {
-      const result = await window.electron.ipcRenderer.invoke('update:download') as {
+      const result = (await window.electron.ipcRenderer.invoke('update:download')) as {
         success: boolean;
         error?: string;
       };
-      
+
       if (!result.success) {
         set({ status: 'error', error: result.error || 'Failed to download update' });
       }

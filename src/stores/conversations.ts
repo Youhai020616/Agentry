@@ -166,24 +166,23 @@ function applyFilter(conversations: Conversation[], filter?: ConversationFilter)
       );
     }
 
-    // Sort
+    // Sort: pinned first, then by sortBy field
     const sortBy = filter.sortBy || 'updatedAt';
     const sortDir = filter.sortDirection || 'desc';
     result.sort((a, b) => {
-      const cmp =
-        sortBy === 'title'
-          ? a.title.localeCompare(b.title)
-          : sortBy === 'createdAt'
-            ? a.createdAt - b.createdAt
-            : a.updatedAt - b.updatedAt;
-      return sortDir === 'asc' ? cmp : -cmp;
-    });
-
-    // Pinned conversations always on top
-    result.sort((a, b) => {
+      // Pinned conversations always on top
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
-      return 0;
+
+      let cmp = 0;
+      if (sortBy === 'title') {
+        cmp = a.title.localeCompare(b.title);
+      } else if (sortBy === 'createdAt') {
+        cmp = a.createdAt - b.createdAt;
+      } else {
+        cmp = a.updatedAt - b.updatedAt;
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
     });
 
     // Limit
@@ -193,11 +192,11 @@ function applyFilter(conversations: Conversation[], filter?: ConversationFilter)
   } else {
     // Default: non-archived, sorted by updatedAt desc, pinned first
     result = result.filter((c) => !c.archived);
-    result.sort((a, b) => b.updatedAt - a.updatedAt);
     result.sort((a, b) => {
+      // Pinned conversations always on top
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
-      return 0;
+      return b.updatedAt - a.updatedAt;
     });
     result = result.slice(0, DEFAULT_LIMIT);
   }

@@ -8,16 +8,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Star,
-  CheckCircle2,
-  Circle,
-  Loader2,
-  User,
-  Inbox,
-  LayoutGrid,
-  List,
-} from 'lucide-react';
+import { Star, CheckCircle2, Circle, Loader2, User, Inbox, LayoutGrid, List } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -175,9 +166,7 @@ function TaskCard({ task, onClick }: { task: Task; onClick?: () => void }) {
                 {task.owner}
               </span>
             ) : (
-              <span className="text-[10px] text-muted-foreground">
-                {t('card.unassigned', '未分配')}
-              </span>
+              <span className="text-[10px] text-muted-foreground">{t('card.unassigned')}</span>
             )}
             {task.priority !== 'medium' && (
               <Badge
@@ -192,7 +181,7 @@ function TaskCard({ task, onClick }: { task: Task; onClick?: () => void }) {
           {/* Dependencies */}
           {task.blockedBy.length > 0 && (
             <p className="text-[10px] text-muted-foreground">
-              {task.blockedBy.length} 个依赖
+              {t('card.dependencies', { count: task.blockedBy.length })}
             </p>
           )}
 
@@ -234,7 +223,12 @@ function KanbanColumn({
           {tasks.length}
         </Badge>
       </div>
-      <motion.div variants={listVariants} initial="hidden" animate="show" className="flex flex-col gap-2">
+      <motion.div
+        variants={listVariants}
+        initial="hidden"
+        animate="show"
+        className="flex flex-col gap-2"
+      >
         <AnimatePresence mode="popLayout">
           {tasks.map((task) => (
             <TaskCard
@@ -316,24 +310,27 @@ function ProjectGroup({
 
           let WaveIcon = Circle;
           let waveColor = 'text-zinc-400';
-          if (allDone) { WaveIcon = CheckCircle2; waveColor = 'text-emerald-500'; }
-          else if (anyRunning) { WaveIcon = Loader2; waveColor = 'text-sky-500'; }
+          if (allDone) {
+            WaveIcon = CheckCircle2;
+            waveColor = 'text-emerald-500';
+          } else if (anyRunning) {
+            WaveIcon = Loader2;
+            waveColor = 'text-sky-500';
+          }
 
           return (
             <div key={wave} className="min-w-[200px] flex-1">
               <div className="flex items-center gap-1.5 mb-2">
-                <WaveIcon className={cn('h-3.5 w-3.5', waveColor, anyRunning && !allDone && 'animate-spin')} />
+                <WaveIcon
+                  className={cn('h-3.5 w-3.5', waveColor, anyRunning && !allDone && 'animate-spin')}
+                />
                 <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                   Wave {wave}
                 </span>
               </div>
               <div className="flex flex-col gap-1.5">
                 {waveTasks.map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    onClick={() => onTaskClick(task.id)}
-                  />
+                  <TaskCard key={task.id} task={task} onClick={() => onTaskClick(task.id)} />
                 ))}
               </div>
             </div>
@@ -402,7 +399,7 @@ export function Tasks() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t('board.title')}</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {tasks.length} 个任务 / {projects.length} 个项目
+            {t('board.subtitle', { taskCount: tasks.length, projectCount: projects.length })}
           </p>
         </div>
 
@@ -414,7 +411,7 @@ export function Tasks() {
               onChange={(e) => setFilterProjectId(e.target.value || null)}
               className="h-7 rounded-lg border border-border/50 bg-card px-2 text-xs text-foreground"
             >
-              <option value="">全部项目</option>
+              <option value="">{t('board.allProjects')}</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.goal.length > 30 ? p.goal.slice(0, 30) + '...' : p.goal}
@@ -458,16 +455,19 @@ export function Tasks() {
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-zinc-800/60">
             <Inbox className="h-6 w-6 text-muted-foreground" />
           </div>
-          <p className="text-sm font-medium">还没有任务</p>
-          <p className="max-w-xs text-xs text-muted-foreground">
-            {t('board.empty', '主管创建项目后，任务会自动出现在这里')}
-          </p>
+          <p className="text-sm font-medium">{t('board.empty')}</p>
+          <p className="max-w-xs text-xs text-muted-foreground">{t('board.emptyHint')}</p>
         </div>
       )}
 
       {/* Content */}
       {tasks.length > 0 && viewMode === 'projects' && (
-        <motion.div variants={listVariants} initial="hidden" animate="show" className="flex flex-col gap-4">
+        <motion.div
+          variants={listVariants}
+          initial="hidden"
+          animate="show"
+          className="flex flex-col gap-4"
+        >
           <AnimatePresence mode="popLayout">
             {projectGroups.map(([projectId, group]) => (
               <ProjectGroup

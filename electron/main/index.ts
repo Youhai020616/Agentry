@@ -28,6 +28,7 @@ let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
 const gatewayManager = new GatewayManager();
 const clawHubService = new ClawHubService();
+let engineContext: EngineContext | null = null;
 
 /**
  * Resolve the icons directory path (works in both dev and packaged mode)
@@ -188,10 +189,9 @@ async function initialize(): Promise<void> {
 
   // Bootstrap Skill Runtime Engine (after IPC handlers are registered)
   // Once bootstrapped, set engineRef.current so all IPC handlers can access it.
-  let engine: EngineContext | null = null;
   try {
-    engine = await bootstrapEngine();
-    engineRef.current = engine;
+    engineContext = await bootstrapEngine();
+    engineRef.current = engineContext;
     logger.info('Skill Runtime Engine bootstrapped');
   } catch (error) {
     logger.error('Skill Runtime Engine bootstrap failed:', error);
@@ -212,11 +212,12 @@ async function initialize(): Promise<void> {
     mainWindow?.webContents.send('gateway:error', String(error));
   }
 
-  // Bind employee status changes to system tray
-  if (engine) {
+  // Bind employee status changes to system tray and forward to renderer
+  if (engineContext) {
+    const engine = engineContext;
     const refreshTray = () => {
       if (!mainWindow || mainWindow.isDestroyed()) return;
-      const employees = engine!.employeeManager.list();
+      const employees = engine.employeeManager.list();
       const trayInfos: EmployeeTrayInfo[] = employees.map((e) => ({
         id: e.id,
         name: e.name,
@@ -226,12 +227,17 @@ async function initialize(): Promise<void> {
     };
     engine.employeeManager.on('status', refreshTray);
     refreshTray();
+
+    // NOTE: employee:status-changed forwarding to renderer is handled by
+    // the `forwardStatus` listener in ipc-handlers.ts (via getEmployeeManager()
+    // migration). Do NOT add a duplicate listener here — it would cause the
+    // renderer to receive every status change event twice.
   }
 }
 
 // Application lifecycle
-app.whenReady().then(() => {
-  initialize();
+app.whenReady().then(async () => {
+  await initialize();
 
   // Register activate handler AFTER app is ready to prevent
   // "Cannot create BrowserWindow before app is ready" on macOS.
@@ -249,18 +255,62 @@ app.on('window-all-closed', () => {
   // The tray icon keeps the app process running on all platforms.
 });
 
-app.on('before-quit', async () => {
+let cleanupDone = false;
+
+app.on('before-quit', (event) => {
   isQuitting = true;
 
-  // Clean up extension child processes
-  try {
-    const { getExtensionInstaller } = await import('../engine/extension-installer');
-    getExtensionInstaller().destroy();
-  } catch {
-    // Non-fatal
-  }
+  if (cleanupDone) return; // Already cleaned up, allow quit to proceed
 
-  await gatewayManager.stop();
+  // Prevent immediate quit to allow async cleanup
+  event.preventDefault();
+
+  (async () => {
+    // Clean up extension child processes
+    try {
+      const { getExtensionInstaller } = await import('../engine/extension-installer');
+      getExtensionInstaller().destroy();
+    } catch {
+      // Non-fatal
+    }
+
+    // Clean up engine components (SQLite connections, event listeners)
+    if (engineContext) {
+      try {
+        await engineContext.employeeManager.destroy();
+      } catch {
+        // Non-fatal
+      }
+      try {
+        engineContext.creditsEngine.destroy();
+      } catch {
+        // Non-fatal
+      }
+      // Clean up lazy-initialized components if they were created
+      try {
+        const lazy = await engineContext.getLazy(gatewayManager);
+        // Destroy supervisor first — clears setInterval monitor loops that
+        // would otherwise keep the event loop alive and delay process exit.
+        lazy.supervisor.destroy();
+        // Cancel all running task executions and remove the orphaned
+        // task-changed listener from taskQueue.
+        lazy.taskExecutor.destroy();
+        // Clean up any running child processes in the execution worker.
+        lazy.executionWorker.removeAllListeners();
+        lazy.taskQueue.destroy();
+        lazy.messageBus.destroy();
+        lazy.memoryEngine.destroy();
+        lazy.prohibitionEngine.destroy();
+        lazy.messageStore.destroy();
+      } catch {
+        // Non-fatal — lazy components may not have been initialized
+      }
+    }
+
+    await gatewayManager.stop();
+    cleanupDone = true;
+    app.quit(); // Re-trigger quit now that cleanup is done
+  })();
 });
 
 // Export for testing

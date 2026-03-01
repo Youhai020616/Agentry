@@ -47,6 +47,14 @@ export class SupervisorEngine extends EventEmitter {
   /** Threshold to consider a task stuck (ms) */
   private static readonly STUCK_THRESHOLD = 300_000;
 
+  // ── Dedup tracking (P0 fix) ─────────────────────────────────────
+  /** Task IDs already reported as stuck — avoids spamming PM every 30s tick */
+  private notifiedStuckTasks = new Set<string>();
+  /** Task IDs already notified as unblocked — avoids repeated "unblocked" messages */
+  private notifiedUnblockedTasks = new Set<string>();
+  /** Reusable "feishu-delegations" project ID for persisting delegation tasks */
+  private feishuDelegationProjectId: string | null = null;
+
   constructor(
     taskQueue: TaskQueue,
     messageBus: MessageBus,
@@ -246,6 +254,16 @@ Do NOT include any text outside the JSON array.`;
     const tasks = this.taskQueue.list(projectId);
     if (tasks.length === 0) return;
 
+    // Prune dedup sets: remove tasks that are no longer stuck (status changed)
+    for (const task of tasks) {
+      if (task.status !== 'in_progress' && this.notifiedStuckTasks.has(task.id)) {
+        this.notifiedStuckTasks.delete(task.id);
+      }
+      if (task.status !== 'pending' && this.notifiedUnblockedTasks.has(task.id)) {
+        this.notifiedUnblockedTasks.delete(task.id);
+      }
+    }
+
     // Check for stuck tasks
     for (const task of tasks) {
       if (task.status === 'in_progress' && task.startedAt) {
@@ -256,7 +274,7 @@ Do NOT include any text outside the JSON array.`;
       }
     }
 
-    // Auto-unblock: notify employees when dependencies are resolved
+    // Auto-unblock: notify employees and auto-dispatch when dependencies resolve
     await this.checkAutoUnblock(tasks, projectId);
 
     // Check if all tasks are completed
@@ -272,7 +290,8 @@ Do NOT include any text outside the JSON array.`;
   }
 
   /**
-   * When dependencies resolve, notify the assigned employee
+   * When dependencies resolve, auto-dispatch (if owned) or notify PM (if unassigned).
+   * Dedup: only processes each task once via notifiedUnblockedTasks set.
    */
   private async checkAutoUnblock(tasks: Task[], projectId: string): Promise<void> {
     const completedIds = new Set(tasks.filter((t) => t.status === 'completed').map((t) => t.id));
@@ -281,31 +300,63 @@ Do NOT include any text outside the JSON array.`;
     if (!project) return;
 
     for (const task of tasks) {
-      if (task.status === 'pending' && task.blockedBy.length > 0) {
-        const allDepsCompleted = task.blockedBy.every((dep) => completedIds.has(dep));
-        if (allDepsCompleted) {
-          if (task.owner) {
-            this.messageBus.send({
-              type: 'message',
-              from: project.pmEmployeeId,
-              recipient: task.owner,
-              content: `Task "${task.subject}" is now unblocked. You can start working on it.`,
-              summary: `Task unblocked: ${task.subject}`,
-            });
-          }
+      if (task.status !== 'pending' || task.blockedBy.length === 0) continue;
+      if (this.notifiedUnblockedTasks.has(task.id)) continue;
+
+      const allDepsCompleted = task.blockedBy.every((dep) => completedIds.has(dep));
+      if (!allDepsCompleted) continue;
+
+      // Mark as notified BEFORE acting to prevent re-entry on next tick
+      this.notifiedUnblockedTasks.add(task.id);
+
+      if (task.owner) {
+        // Auto-claim → triggers TaskExecutor auto-execute via task-changed event
+        try {
+          this.taskQueue.claim(task.id, task.owner);
+          logger.info(`Auto-dispatched unblocked task "${task.subject}" to owner ${task.owner}`);
+        } catch (err) {
+          // Remove from dedup set so it can be retried on next tick
+          this.notifiedUnblockedTasks.delete(task.id);
+          logger.error(`Failed to auto-claim unblocked task ${task.id}: ${err}`);
+          continue;
         }
+
+        this.messageBus.send({
+          type: 'message',
+          from: project.pmEmployeeId,
+          recipient: task.owner,
+          content: `Task "${task.subject}" is now unblocked and has been dispatched to you.`,
+          summary: `Task unblocked & dispatched: ${task.subject}`,
+        });
+      } else {
+        // No owner — ask PM to assign
+        logger.warn(`Unblocked task "${task.subject}" (${task.id}) has no owner — notifying PM`);
+        this.messageBus.send({
+          type: 'message',
+          from: 'system',
+          recipient: project.pmEmployeeId,
+          content: `Task "${task.subject}" is now unblocked but has no assigned employee. Please assign it to an available team member.`,
+          summary: `Unblocked & unassigned: ${task.subject}`,
+        });
       }
     }
   }
 
   /**
-   * Handle a task that has been in_progress too long
+   * Handle a task that has been in_progress too long.
+   * Dedup: only notifies PM once per stuck task via notifiedStuckTasks set.
    */
   private async handleStuckTask(task: Task, projectId: string): Promise<void> {
+    // Dedup: skip if already notified for this task
+    if (this.notifiedStuckTasks.has(task.id)) return;
+
     logger.warn(`Task stuck: ${task.id} "${task.subject}" — elapsed since start`);
 
     const project = this.taskQueue.getProject(projectId);
     if (!project) return;
+
+    // Mark as notified BEFORE sending to prevent re-entry
+    this.notifiedStuckTasks.add(task.id);
 
     // Notify PM about the stuck task
     this.messageBus.send({
@@ -383,13 +434,21 @@ Do NOT include any text outside the JSON array.`;
   // ── Synthesis ───────────────────────────────────────────────────
 
   /**
-   * All tasks done → PM synthesizes results into a final deliverable
+   * All tasks done → PM synthesizes results into a final deliverable.
+   * Also clears dedup sets for the completed project's tasks.
    */
   private async onProjectComplete(projectId: string): Promise<void> {
     logger.info(`All tasks completed for project: ${projectId}`);
 
     const project = this.taskQueue.getProject(projectId);
     if (!project) return;
+
+    // Clear dedup tracking for this project's tasks
+    const projectTasks = this.taskQueue.list(projectId);
+    for (const task of projectTasks) {
+      this.notifiedStuckTasks.delete(task.id);
+      this.notifiedUnblockedTasks.delete(task.id);
+    }
 
     this.taskQueue.updateProject(projectId, { status: 'reviewing' });
 
@@ -514,7 +573,7 @@ After each task, check the task board for more work:
   }
 
   /**
-   * Clean up: stop all monitors
+   * Clean up: stop all monitors, clear dedup sets
    */
   destroy(): void {
     for (const [projectId, interval] of this.monitors) {
@@ -522,6 +581,9 @@ After each task, check the task board for more work:
       logger.debug(`Stopped monitor for project: ${projectId}`);
     }
     this.monitors.clear();
+    this.notifiedStuckTasks.clear();
+    this.notifiedUnblockedTasks.clear();
+    this.feishuDelegationProjectId = null;
     this.disableFeishuDelegation();
     this.removeAllListeners();
   }
@@ -636,9 +698,7 @@ After each task, check the task board for more work:
    * -->
    * ```
    */
-  parseDelegation(
-    response: string
-  ): {
+  parseDelegation(response: string): {
     acknowledgment: string;
     delegation: { employee: string; task: string; context?: string };
   } | null {
@@ -739,9 +799,30 @@ After each task, check the task board for more work:
   ): Promise<void> {
     logger.info(`Feishu delegation: dispatching to ${delegation.employee}`);
 
+    // ── Persist delegation as a Task in TaskQueue (P0 fix) ──────
+    // Gracefully degrade: if persistence fails, still dispatch the delegation.
+    let persistedTaskId: string | null = null;
+    try {
+      const projectId = this.getOrCreateFeishuDelegationProject();
+      const persistedTask = this.taskQueue.create({
+        projectId,
+        subject: `[Delegation] ${delegation.task.substring(0, 100)}`,
+        description: delegation.task,
+        owner: delegation.employee,
+        assignedBy: this.supervisorSlug ?? 'supervisor',
+        priority: 'medium',
+      });
+      persistedTaskId = persistedTask.id;
+      // Claim the task so it shows as in_progress on the TaskBoard
+      this.taskQueue.claim(persistedTask.id, delegation.employee);
+    } catch (persistErr) {
+      logger.warn(`Failed to persist delegation task (non-fatal): ${persistErr}`);
+    }
+
     this.emit('delegation-started', {
       employee: delegation.employee,
       task: delegation.task,
+      taskId: persistedTaskId,
     });
 
     try {
@@ -750,6 +831,15 @@ After each task, check the task board for more work:
         delegation.task,
         delegation.context
       );
+
+      // Mark the persisted task as completed with the employee's output
+      if (persistedTaskId) {
+        try {
+          this.taskQueue.complete(persistedTaskId, employeeResponse);
+        } catch (completeErr) {
+          logger.warn(`Failed to mark delegation task completed: ${completeErr}`);
+        }
+      }
 
       // Send result back to Supervisor session for synthesis
       const synthesisPrompt = `[Employee Result — ${delegation.employee}]
@@ -771,9 +861,22 @@ Please present this result to the user. Be concise and helpful. If the result is
       this.emit('delegation-completed', {
         employee: delegation.employee,
         task: delegation.task,
+        taskId: persistedTaskId,
       });
     } catch (err) {
       logger.error(`Feishu delegation to ${delegation.employee} failed: ${err}`);
+
+      // Mark the persisted task as failed
+      if (persistedTaskId) {
+        try {
+          this.taskQueue.update(persistedTaskId, {
+            status: 'cancelled',
+            output: `Error: ${String(err)}`,
+          });
+        } catch (updateErr) {
+          logger.warn(`Failed to mark delegation task cancelled: ${updateErr}`);
+        }
+      }
 
       // Inform the Supervisor so it can tell the user
       const errorMsg = `[System] Delegation to ${delegation.employee} failed: ${String(err)}. Please inform the user and suggest alternatives.`;
@@ -785,8 +888,31 @@ Please present this result to the user. Be concise and helpful. If the result is
       this.emit('delegation-failed', {
         employee: delegation.employee,
         error: String(err),
+        taskId: persistedTaskId,
       });
     }
+  }
+
+  /**
+   * Get or create a reusable project for Feishu delegation tasks.
+   * All ad-hoc delegations are grouped under one project for visibility.
+   */
+  private getOrCreateFeishuDelegationProject(): string {
+    if (this.feishuDelegationProjectId) {
+      const existing = this.taskQueue.getProject(this.feishuDelegationProjectId);
+      if (existing) return this.feishuDelegationProjectId;
+    }
+
+    const project = this.taskQueue.createProject({
+      goal: 'Feishu Delegations',
+      pmEmployeeId: this.supervisorSlug ?? 'supervisor',
+      employees: [],
+    });
+    this.feishuDelegationProjectId = project.id;
+    // Set to executing so tasks can be tracked
+    this.taskQueue.updateProject(project.id, { status: 'executing' });
+    logger.info(`Created Feishu delegation project: ${project.id}`);
+    return project.id;
   }
 
   // ── Private Helpers ─────────────────────────────────────────────

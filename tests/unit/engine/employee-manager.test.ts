@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * EmployeeManager Tests (Scan-based discovery)
  */
@@ -338,7 +339,12 @@ describe('EmployeeManager', () => {
       supervisor: {
         ...mockManifest,
         name: 'supervisor',
-        employee: { ...mockManifest.employee, role: 'Supervisor', roleZh: '主管', team: 'management' },
+        employee: {
+          ...mockManifest.employee,
+          role: 'Supervisor',
+          roleZh: '主管',
+          team: 'management',
+        },
       },
       'new-media': {
         ...mockManifest,
@@ -416,8 +422,9 @@ describe('EmployeeManager', () => {
       });
 
       // Dynamic mock: return correct manifest per directory
+      // Split on both / and \ to work on Windows and Unix
       mockParseFromPath.mockImplementation((skillDir: string) => {
-        const dirName = skillDir.split('/').pop() || '';
+        const dirName = skillDir.split(/[/\\]/).pop() || '';
         return employeeManifests[dirName] || mockManifest;
       });
     }

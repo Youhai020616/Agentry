@@ -168,6 +168,15 @@ export class MessageBus extends EventEmitter {
     }
   }
 
+  /**
+   * Destroy — remove event listeners.
+   * Note: the DB connection is shared with TaskQueue and closed there.
+   */
+  destroy(): void {
+    logger.info('MessageBus destroying...');
+    this.removeAllListeners();
+  }
+
   // ── Private helpers ─────────────────────────────────────────────────
 
   /**

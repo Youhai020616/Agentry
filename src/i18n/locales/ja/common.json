@@ -53,7 +53,9 @@
     "cron": "スケジュール",
     "settings": "設定",
     "supervisor": "スーパーバイザー",
-    "projects": "プロジェクト"
+    "projects": "プロジェクト",
+    "browser": "ブラウザ",
+    "mediaStudio": "メディアスタジオ"
   },
   "gateway": {
     "notRunning": "ゲートウェイが停止中",

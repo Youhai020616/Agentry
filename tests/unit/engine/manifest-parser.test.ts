@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 /**
  * ManifestParser Tests
  */
@@ -42,9 +44,7 @@ const validManifest = {
       greeting: 'Hello, ready for SEO analysis!',
     },
   },
-  skills: [
-    { id: 'seo-audit', name: 'SEO Audit', prompt: 'Perform an SEO audit' },
-  ],
+  skills: [{ id: 'seo-audit', name: 'SEO Audit', prompt: 'Perform an SEO audit' }],
 };
 
 describe('ManifestParser', () => {
@@ -73,27 +73,19 @@ describe('ManifestParser', () => {
         throw new Error('ENOENT: no such file or directory');
       });
 
-      expect(() => parser.parseFromPath('/nonexistent')).toThrow(
-        'Failed to read manifest.json'
-      );
+      expect(() => parser.parseFromPath('/nonexistent')).toThrow('Failed to read manifest.json');
     });
 
     it('should throw on invalid JSON', () => {
       mockReadFileSync.mockReturnValue('not valid json {{{');
 
-      expect(() => parser.parseFromPath('/skills/bad')).toThrow(
-        'Invalid JSON in manifest.json'
-      );
+      expect(() => parser.parseFromPath('/skills/bad')).toThrow('Invalid JSON in manifest.json');
     });
 
     it('should throw on manifest missing required fields', () => {
-      mockReadFileSync.mockReturnValue(
-        JSON.stringify({ name: 'test' })
-      );
+      mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'test' }));
 
-      expect(() => parser.parseFromPath('/skills/incomplete')).toThrow(
-        'missing required fields'
-      );
+      expect(() => parser.parseFromPath('/skills/incomplete')).toThrow('missing required fields');
     });
   });
 
@@ -219,9 +211,7 @@ describe('ManifestParser', () => {
           greeting: 'Hi! I am your Research Analyst.',
         },
       },
-      skills: [
-        { id: 'competitive-research', name: 'Competitive Research', prompt: './SKILL.md' },
-      ],
+      skills: [{ id: 'competitive-research', name: 'Competitive Research', prompt: './SKILL.md' }],
       tools: [{ name: 'web-search', cli: 'python', requiredSecret: 'TAVILY_API_KEY' }],
     };
 

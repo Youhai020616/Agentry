@@ -44,6 +44,7 @@ export interface LazyEngineContext {
   prohibitionEngine: import('./prohibition').ProhibitionEngine;
   messageStore: import('./message-store').MessageStore;
   taskExecutor: import('./task-executor').TaskExecutor;
+  browserEventDetector: import('./browser-event-detector').BrowserEventDetector;
 }
 
 /**
@@ -81,7 +82,7 @@ export async function bootstrapEngine(): Promise<EngineContext> {
   // Fail fast if native modules are built for the wrong Node ABI
   checkNativeModules();
 
-  // Phase 0: Core components
+  // Phase 0: Core components — track initialized components for cleanup on failure
   const parser = new ManifestParser();
   const compiler = new SkillCompiler();
   const toolRegistry = new ToolRegistry();
@@ -95,10 +96,31 @@ export async function bootstrapEngine(): Promise<EngineContext> {
   compiler.setEmployeeManager(employeeManager);
   employeeManager.setCompiler(compiler);
   employeeManager.setToolRegistry(toolRegistry);
-  await employeeManager.init();
 
-  const creditsEngine = new CreditsEngine();
-  creditsEngine.init();
+  let creditsEngine: CreditsEngine | null = null;
+
+  try {
+    await employeeManager.init();
+
+    creditsEngine = new CreditsEngine();
+    creditsEngine.init();
+  } catch (err) {
+    // Clean up already-initialized components to prevent resource leaks
+    logger.error('Phase 0 bootstrap failed, cleaning up initialized components...');
+    try {
+      await employeeManager.destroy();
+    } catch (cleanupErr) {
+      logger.error('Failed to destroy EmployeeManager during cleanup:', cleanupErr);
+    }
+    if (creditsEngine) {
+      try {
+        creditsEngine.destroy();
+      } catch (cleanupErr) {
+        logger.error('Failed to destroy CreditsEngine during cleanup:', cleanupErr);
+      }
+    }
+    throw err;
+  }
 
   logger.info('Skill Runtime Engine Phase 0 bootstrap complete');
 
@@ -132,6 +154,13 @@ export async function bootstrapEngine(): Promise<EngineContext> {
 
     const supervisor = new SupervisorEngine(taskQueue, messageBus, employeeManager, gateway);
 
+    // Wire work loop prompt into the compiler so non-supervisor employees
+    // receive task-board instructions in their system prompts (P0 fix)
+    compiler.setSupervisorWorkLoopProvider(
+      () => supervisor.getEmployeeWorkLoopPrompt(),
+      ['supervisor'] // exclude the supervisor employee itself
+    );
+
     const executionWorker = new ExecutionWorker();
 
     const memoryEngine = new MemoryEngine();
@@ -151,6 +180,10 @@ export async function bootstrapEngine(): Promise<EngineContext> {
 
     const taskExecutor = new TaskExecutor(taskQueue, employeeManager, gateway);
 
+    const { BrowserEventDetector } = await import('./browser-event-detector');
+    const browserEventDetector = new BrowserEventDetector(gateway);
+    browserEventDetector.init();
+
     _lazy = {
       taskQueue,
       messageBus,
@@ -160,6 +193,7 @@ export async function bootstrapEngine(): Promise<EngineContext> {
       prohibitionEngine,
       messageStore,
       taskExecutor,
+      browserEventDetector,
     };
 
     logger.info('Phase 1 engine components initialized');

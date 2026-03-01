@@ -4,9 +4,27 @@
  *
  * Employees are discovered by scanning installed skill directories.
  * Hiring = skill install + scan, Firing = skill uninstall + scan.
+ *
+ * Also subscribes to browser-action events from BrowserEventDetector
+ * to track which employees are actively using browser automation.
  */
 import { create } from 'zustand';
 import type { Employee, EmployeeStatus } from '../types/employee';
+
+/** Payload shape for `employee:browser-action` IPC events */
+interface BrowserActionPayload {
+  employeeId: string;
+  action: string;
+  params?: { url?: string; ref?: string; text?: string };
+  timestamp: number;
+  success: boolean | null;
+}
+
+/** Payload shape for `employee:browser-session` IPC events */
+interface BrowserSessionPayload {
+  employeeId: string;
+  active: boolean;
+}
 
 interface DepsCheckResult {
   satisfied: boolean;
@@ -47,6 +65,43 @@ export const useEmployeesStore = create<EmployeesState>((set, get) => ({
       set((s) => ({
         employees: s.employees.map((e) =>
           e.id === employeeId ? { ...e, status, updatedAt: Date.now() } : e
+        ),
+      }));
+    });
+
+    // Subscribe to browser action events (individual actions)
+    window.electron.ipcRenderer.on('employee:browser-action', (data: unknown) => {
+      const payload = data as BrowserActionPayload;
+      set((s) => ({
+        employees: s.employees.map((e) =>
+          e.id === payload.employeeId
+            ? {
+                ...e,
+                browserActive: true,
+                lastBrowserAction: {
+                  action: payload.action,
+                  url: payload.params?.url,
+                  timestamp: payload.timestamp,
+                },
+              }
+            : e
+        ),
+      }));
+    });
+
+    // Subscribe to browser session state changes (active/inactive)
+    window.electron.ipcRenderer.on('employee:browser-session', (data: unknown) => {
+      const payload = data as BrowserSessionPayload;
+      set((s) => ({
+        employees: s.employees.map((e) =>
+          e.id === payload.employeeId
+            ? {
+                ...e,
+                browserActive: payload.active,
+                // Clear lastBrowserAction when session becomes inactive
+                lastBrowserAction: payload.active ? e.lastBrowserAction : undefined,
+              }
+            : e
         ),
       }));
     });

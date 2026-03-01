@@ -87,14 +87,7 @@ export class ExecutionWorker extends EventEmitter {
       throw new Error(`Execution ${id} is already running`);
     }
 
-    const {
-      scriptPath,
-      args = [],
-      env = {},
-      cwd,
-      timeout = 300000,
-      outputDir,
-    } = options;
+    const { scriptPath, args = [], env = {}, cwd, timeout = 300000, outputDir } = options;
 
     if (!existsSync(scriptPath)) {
       throw new Error(`Script not found: ${scriptPath}`);
@@ -203,8 +196,16 @@ export class ExecutionWorker extends EventEmitter {
           this.statuses.set(id, 'timeout');
 
           proc.kill('SIGTERM');
+          // Use proc.exitCode === null instead of !settled to check whether
+          // the process is still alive. `finish()` below sets settled = true
+          // synchronously, so `!settled` would always be false by the time
+          // this inner timeout fires — meaning SIGKILL would never be sent.
+          // This matches the pattern used in Gateway stop() (Bug 2 fix).
           setTimeout(() => {
-            if (!settled) {
+            if (proc.exitCode === null) {
+              logger.warn(
+                `[ExecutionWorker] Process ${id} did not exit after SIGTERM, sending SIGKILL`
+              );
               proc.kill('SIGKILL');
             }
           }, 5000);

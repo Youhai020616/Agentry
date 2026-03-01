@@ -1,0 +1,162 @@
+{
+  "title": "浏览器控制",
+  "description": "基于 OpenClaw 的远程浏览器自动化",
+  "status": {
+    "idle": "空闲",
+    "starting": "启动中…",
+    "running": "运行中",
+    "stopping": "停止中…",
+    "error": "错误"
+  },
+  "actions": {
+    "start": "启动浏览器",
+    "stop": "停止浏览器",
+    "navigate": "导航",
+    "snapshot": "快照",
+    "screenshot": "截图",
+    "click": "点击",
+    "type": "输入",
+    "scroll": "滚动",
+    "highlight": "高亮",
+    "refresh": "刷新",
+    "back": "后退",
+    "forward": "前进"
+  },
+  "urlBar": {
+    "placeholder": "输入网址后按回车…",
+    "go": "前往",
+    "invalidUrl": "请输入有效的网址"
+  },
+  "snapshot": {
+    "title": "页面快照",
+    "empty": "暂无快照。点击「快照」捕获当前页面。",
+    "format": "格式",
+    "formatAi": "AI（数字引用）",
+    "formatInteractive": "交互式（角色引用）",
+    "refs": "{{count}} 个可交互元素",
+    "refs_other": "{{count}} 个可交互元素",
+    "copyContent": "复制内容",
+    "copied": "快照已复制到剪贴板",
+    "labels": "显示标签",
+    "selector": "CSS 选择器",
+    "selectorPlaceholder": "例如 #main-content"
+  },
+  "screenshot": {
+    "title": "截图",
+    "empty": "暂无截图。点击「截图」捕获当前页面。",
+    "fullPage": "完整页面",
+    "viewportOnly": "仅可视区域",
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "zoomReset": "重置缩放",
+    "save": "保存图片",
+    "saved": "截图已保存"
+  },
+  "interact": {
+    "title": "交互",
+    "clickRef": "点击元素",
+    "clickRefPlaceholder": "输入引用（如 12 或 e12）",
+    "typeRef": "输入到元素",
+    "typeRefPlaceholder": "输入引用",
+    "typeTextPlaceholder": "输入要键入的文本…",
+    "clearFirst": "先清除已有文本",
+    "scrollUp": "向上滚动",
+    "scrollDown": "向下滚动",
+    "highlightRef": "高亮元素",
+    "highlightRefPlaceholder": "输入要高亮的引用"
+  },
+  "console": {
+    "title": "控制台",
+    "errors": "错误",
+    "requests": "网络",
+    "noErrors": "未捕获到控制台错误。",
+    "noRequests": "未捕获到网络请求。",
+    "clear": "清除",
+    "filter": "筛选",
+    "filterPlaceholder": "按类型筛选（如 xhr、fetch）…",
+    "level": {
+      "error": "错误",
+      "warning": "警告",
+      "info": "信息"
+    },
+    "columns": {
+      "message": "消息",
+      "source": "来源",
+      "line": "行号",
+      "time": "时间",
+      "url": "地址",
+      "method": "方法",
+      "status": "状态",
+      "type": "类型",
+      "size": "大小",
+      "duration": "耗时"
+    }
+  },
+  "history": {
+    "title": "操作历史",
+    "empty": "暂无操作记录。",
+    "clear": "清除历史",
+    "types": {
+      "start": "浏览器已启动",
+      "stop": "浏览器已停止",
+      "navigate": "导航至 {{target}}",
+      "click": "点击元素 {{target}}",
+      "type": "输入到元素 {{target}}",
+      "scroll": "滚动 {{target}}",
+      "highlight": "高亮元素 {{target}}",
+      "snapshot": "已拍摄页面快照",
+      "screenshot": "已拍摄截图",
+      "trace_start": "开始录制追踪",
+      "trace_stop": "停止录制追踪"
+    },
+    "success": "成功",
+    "failed": "失败"
+  },
+  "trace": {
+    "title": "追踪录制",
+    "start": "开始录制",
+    "stop": "停止录制",
+    "active": "录制中…",
+    "inactive": "未在录制",
+    "saved": "追踪文件已保存至：{{path}}",
+    "description": "录制详细的浏览器操作追踪，用于调试。"
+  },
+  "profiles": {
+    "title": "浏览器配置",
+    "default": "默认（openclaw）",
+    "select": "选择配置",
+    "description": "每个配置都有独立的 Cookie、存储和登录会话。"
+  },
+  "panels": {
+    "snapshot": "快照",
+    "screenshot": "截图",
+    "interact": "交互",
+    "console": "控制台",
+    "history": "历史"
+  },
+  "empty": {
+    "title": "浏览器未运行",
+    "description": "启动托管浏览器以开始自动化操作。浏览器使用独立的 Chrome 配置，与你的个人浏览器完全隔离。",
+    "startButton": "启动浏览器"
+  },
+  "errors": {
+    "notRunning": "浏览器未运行，请先启动。",
+    "startFailed": "浏览器启动失败：{{error}}",
+    "commandFailed": "浏览器命令失败：{{error}}",
+    "snapshotFailed": "快照拍摄失败：{{error}}",
+    "screenshotFailed": "截图拍摄失败：{{error}}",
+    "navigationFailed": "导航失败：{{error}}",
+    "timeout": "操作超时，浏览器可能无响应。"
+  },
+  "tooltips": {
+    "startBrowser": "启动一个独立的 Chrome 浏览器实例",
+    "stopBrowser": "关闭托管浏览器",
+    "takeSnapshot": "捕获页面的文本表示，包含可交互元素引用",
+    "takeScreenshot": "捕获当前页面的可视截图",
+    "startTrace": "开始录制详细的交互追踪，用于调试",
+    "stopTrace": "停止录制并保存追踪文件",
+    "clickElement": "使用引用编号点击可交互元素",
+    "typeElement": "使用引用编号向输入框键入文本",
+    "scrollPage": "向指定方向滚动页面"
+  }
+}

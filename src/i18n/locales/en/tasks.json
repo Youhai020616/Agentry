@@ -1,7 +1,9 @@
 {
   "board": {
     "title": "Task Board",
-    "empty": "No tasks yet. Assign a task to an employee to get started.",
+    "subtitle": "{{taskCount}} tasks / {{projectCount}} projects",
+    "empty": "No tasks yet",
+    "emptyHint": "Tasks will appear here once the supervisor creates a project.",
     "search": "Search tasks...",
     "newProject": "New Project",
     "allProjects": "All Projects",

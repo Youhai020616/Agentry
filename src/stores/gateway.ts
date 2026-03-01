@@ -139,8 +139,8 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
       // (e.g., Reddit account nurturing). Now we intelligently infer the state
       // from the message content: stopReason → final, otherwise → delta.
       window.electron.ipcRenderer.on('gateway:chat-message', (data) => {
-        try {
-          import('./chat').then(({ useChatStore }) => {
+        import('./chat')
+          .then(({ useChatStore }) => {
             const chatData = data as Record<string, unknown>;
 
             // Unwrap: handleProtocolEvent wraps as { message: payload }
@@ -178,10 +178,10 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
             };
             if (isDuplicateEvent(syntheticEvent)) return;
             useChatStore.getState().handleChatEvent(syntheticEvent);
+          })
+          .catch((err) => {
+            console.warn('Failed to forward chat event:', err);
           });
-        } catch (err) {
-          console.warn('Failed to forward chat event:', err);
-        }
       });
 
       // Fetch initial gateway status. This may fail if the main process
@@ -198,10 +198,14 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
 
       // Mark initialized even if initial fetch failed — listeners are active.
       set({ isInitialized: true });
-      gatewayInitPromise = null;
     })();
 
     await gatewayInitPromise;
+    // Clear the promise AFTER the await resolves — prevents a race where a
+    // concurrent caller sees gatewayInitPromise as null (cleared inside the IIFE)
+    // while this outer await hasn't yet returned, potentially allowing duplicate
+    // event listener registration.
+    gatewayInitPromise = null;
   },
 
   start: async () => {

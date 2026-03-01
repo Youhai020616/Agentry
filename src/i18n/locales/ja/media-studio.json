@@ -1,0 +1,110 @@
+{
+  "page": {
+    "title": "メディアスタジオ",
+    "back": "社員ホール"
+  },
+  "nav": {
+    "dashboard": "概要",
+    "workflow": "ワークフロー",
+    "chat": "チャット",
+    "content": "コンテンツ",
+    "studio": "制作",
+    "crm": "顧客管理",
+    "cost": "費用",
+    "reports": "レポート"
+  },
+  "team": {
+    "name": "SNSオフィス",
+    "brand": "フレッシュビューティー",
+    "online": "{{count}}人オンライン",
+    "members": "チームメンバー"
+  },
+  "mode": {
+    "label": "実行モード",
+    "auto": "自動",
+    "manual": "手動",
+    "pauseAll": "全停止"
+  },
+  "status": {
+    "online": "オンライン",
+    "busy": "ビジー",
+    "idle": "待機中",
+    "offline": "オフライン"
+  },
+  "dashboard": {
+    "contentOutput": "本日のコンテンツ",
+    "pendingApproval": "承認待ち",
+    "publishedToday": "公開済み",
+    "newFollowers": "新規フォロワー",
+    "teamStatus": "チーム状況",
+    "timeline": "タイムライン",
+    "approvals": "承認待ちコンテンツ",
+    "approvalsCount": "{{count}}件待ち",
+    "platforms": "プラットフォーム概要",
+    "actionRequired": "{{count}}件の承認が必要です",
+    "goToApproval": "承認へ →",
+    "approve": "承認",
+    "reject": "却下",
+    "viewAll": "すべて表示",
+    "today": "今日",
+    "thisWeek": "今週",
+    "thisMonth": "今月",
+    "needsAction": "対応",
+    "posts": "投稿",
+    "views": "表示",
+    "plays": "再生",
+    "reads": "閲覧",
+    "engagement": "反応",
+    "followers": "フォロワー"
+  },
+  "studio": {
+    "title": "AIコンテンツ制作",
+    "subtitle": "企画から公開まで、フルAI協働パイプライン",
+    "accept": "採用して続行 →",
+    "regenerate": "再生成",
+    "start": "開始",
+    "step0": { "title": "ブランド分析", "engine": "競合分析" },
+    "step1": { "title": "AIコピー", "engine": "Claude API" },
+    "step2": { "title": "AI画像", "engine": "即夢 AI" },
+    "step3": { "title": "AI動画", "engine": "Seedance 2.0" },
+    "step4": { "title": "自動公開", "engine": "Playwright MCP" }
+  },
+  "content": {
+    "title": "コンテンツライブラリ",
+    "all": "すべて",
+    "draft": "下書き",
+    "review": "レビュー",
+    "approved": "承認済み",
+    "published": "公開済み",
+    "allPlatforms": "全プラットフォーム",
+    "preview": "プレビュー",
+    "edit": "編集",
+    "publish": "公開",
+    "submitReview": "レビュー依頼",
+    "approve": "承認",
+    "reject": "却下",
+    "viewStats": "統計を見る",
+    "author": "作成者",
+    "createdAt": "作成日",
+    "tags": "タグ",
+    "views": "表示回数",
+    "likes": "いいね",
+    "comments": "コメント",
+    "shares": "共有",
+    "stats": "パフォーマンス",
+    "noResults": "現在のフィルターに一致するコンテンツはありません",
+    "typeGraphic": "画像投稿",
+    "typeVideo": "動画",
+    "typeArticle": "記事"
+  },
+  "workflow": {
+    "title": "ワークフロー",
+    "all": "すべて",
+    "newTask": "+ 新規タスク",
+    "columns": { "topic": "企画", "creating": "制作中", "reviewing": "レビュー", "scheduled": "予定", "published": "公開済み" }
+  },
+  "crm": { "title": "顧客管理", "dm": "DM", "comments": "コメント", "leads": "リード", "selectDm": "会話を選択" },
+  "reports": { "title": "レポート", "daily": "日報", "weekly": "週報", "monthly": "月報" },
+  "cost": { "title": "費用", "placeholder": "費用追跡は近日公開" },
+  "platforms": { "xhs": "小紅書", "douyin": "Douyin", "wechat": "WeChat" }
+}

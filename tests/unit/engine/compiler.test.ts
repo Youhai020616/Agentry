@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 /**
  * SkillCompiler Tests
  */
@@ -99,22 +101,16 @@ describe('SkillCompiler', () => {
 
     it('should replace multiple occurrences of the same variable', () => {
       mockExistsSync.mockReturnValue(true);
-      mockReadFileSync.mockReturnValue(
-        '{{ROLE}} is {{ROLE}}. Team: {{TEAM}} and {{TEAM}}'
-      );
+      mockReadFileSync.mockReturnValue('{{ROLE}} is {{ROLE}}. Team: {{TEAM}} and {{TEAM}}');
 
       const result = compiler.compile('/skills/seo', mockManifest);
 
-      expect(result).toBe(
-        'SEO Expert is SEO Expert. Team: Marketing and Marketing'
-      );
+      expect(result).toBe('SEO Expert is SEO Expert. Team: Marketing and Marketing');
     });
 
     it('should leave unrecognized template variables as-is', () => {
       mockExistsSync.mockReturnValue(true);
-      mockReadFileSync.mockReturnValue(
-        '{{ROLE}} with {{UNKNOWN_VAR}}'
-      );
+      mockReadFileSync.mockReturnValue('{{ROLE}} with {{UNKNOWN_VAR}}');
 
       const result = compiler.compile('/skills/seo', mockManifest);
 
@@ -174,9 +170,7 @@ describe('SkillCompiler', () => {
       };
 
       mockExistsSync.mockReturnValue(true);
-      mockReadFileSync.mockReturnValue(
-        '{{ROLE}} on {{TEAM}} team. Style: {{PERSONALITY_STYLE}}'
-      );
+      mockReadFileSync.mockReturnValue('{{ROLE}} on {{TEAM}} team. Style: {{PERSONALITY_STYLE}}');
 
       const result = compiler.compile('/skills/researcher', researcherManifest);
 

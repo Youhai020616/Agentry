@@ -53,7 +53,9 @@
     "cron": "Scheduled",
     "settings": "Settings",
     "supervisor": "Supervisor",
-    "projects": "Projects"
+    "projects": "Projects",
+    "browser": "Browser",
+    "mediaStudio": "Media Studio"
   },
   "gateway": {
     "notRunning": "Gateway Not Running",

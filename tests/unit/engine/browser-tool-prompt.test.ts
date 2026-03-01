@@ -1,0 +1,192 @@
+/**
+ * Unit tests for browser-tool-prompt.ts
+ *
+ * Verifies that the browser tool prompt template:
+ * 1. Contains behavioral workflow guidance (navigate → observe → act → verify)
+ * 2. Includes safety rules
+ * 3. Includes error handling guidance
+ * 4. Does NOT contain exec-wrapper instructions (native browser tool is used)
+ * 5. Built-in tool detection works correctly
+ */
+import { describe, it, expect } from 'vitest';
+import {
+  generateBrowserToolPrompt,
+  generateBuiltinToolPrompt,
+  isBuiltinTool,
+  BUILTIN_TOOL_NAMES,
+} from '../../../electron/engine/browser-tool-prompt';
+
+describe('generateBrowserToolPrompt', () => {
+  const prompt = generateBrowserToolPrompt();
+
+  it('returns a non-empty string', () => {
+    expect(prompt).toBeTruthy();
+    expect(prompt.length).toBeGreaterThan(100);
+  });
+
+  // ── Workflow Guidance ───────────────────────────────────────────────
+
+  describe('contains workflow pattern guidance', () => {
+    it('includes the navigate → observe → act → verify cycle', () => {
+      expect(prompt).toContain('Navigate');
+      expect(prompt).toContain('Observe');
+      expect(prompt).toContain('Act');
+      expect(prompt).toContain('Verify');
+    });
+
+    it('mentions snapshot for observation', () => {
+      expect(prompt).toContain('snapshot');
+    });
+
+    it('mentions ref numbers for interaction', () => {
+      expect(prompt).toContain('ref');
+    });
+
+    it('explains that refs are ephemeral', () => {
+      expect(prompt.toLowerCase()).toContain('ephemeral');
+    });
+
+    it('advises one action at a time', () => {
+      expect(prompt.toLowerCase()).toContain('one action at a time');
+    });
+
+    it('advises snapshot after navigation', () => {
+      expect(prompt.toLowerCase()).toContain('snapshot');
+      expect(prompt.toLowerCase()).toContain('navigation');
+    });
+  });
+
+  // ── Native Tool Usage ──────────────────────────────────────────────
+
+  describe('references native browser tool (not exec wrapper)', () => {
+    it('mentions the native `browser` tool', () => {
+      expect(prompt).toContain('`browser`');
+    });
+
+    it('explicitly says NOT to use exec wrapper', () => {
+      expect(prompt.toLowerCase()).toContain('do not');
+      expect(prompt).toContain('exec');
+    });
+
+    it('does NOT contain exec-based CLI command tables', () => {
+      // Old prompt had a full command table with `openclaw browser open "<url>"`
+      expect(prompt).not.toContain('openclaw browser open');
+      expect(prompt).not.toContain('openclaw browser snapshot');
+      expect(prompt).not.toContain('openclaw browser click');
+      expect(prompt).not.toContain('openclaw browser type');
+      expect(prompt).not.toContain('openclaw browser scroll');
+    });
+
+    it('does NOT contain exec-based workflow steps', () => {
+      // Old prompt had code blocks like: ```\nopenclaw browser start\n```
+      expect(prompt).not.toContain('openclaw browser start');
+      expect(prompt).not.toContain('openclaw browser stop');
+    });
+  });
+
+  // ── Error Handling ─────────────────────────────────────────────────
+
+  describe('contains error handling guidance', () => {
+    it('mentions extension not connected error', () => {
+      expect(prompt).toContain('no tab is connected');
+    });
+
+    it('mentions extension not installed error', () => {
+      expect(prompt).toContain('extension is not installed');
+    });
+
+    it('mentions browser not running error', () => {
+      expect(prompt).toContain('not running');
+    });
+
+    it('advises not to guess recovery steps', () => {
+      expect(prompt.toLowerCase()).toContain('do not guess');
+    });
+
+    it('mentions element not found → re-snapshot', () => {
+      expect(prompt.toLowerCase()).toContain('element not found');
+      expect(prompt.toLowerCase()).toContain('snapshot');
+    });
+  });
+
+  // ── Safety Rules ───────────────────────────────────────────────────
+
+  describe('contains safety rules', () => {
+    it('prohibits entering credentials', () => {
+      expect(prompt).toContain('passwords');
+      expect(prompt).toContain('API keys');
+      expect(prompt).toContain('credit card');
+    });
+
+    it('prohibits financial transactions without approval', () => {
+      expect(prompt.toLowerCase()).toContain('financial transactions');
+      expect(prompt.toLowerCase()).toContain('user approval');
+    });
+
+    it('prohibits form submission without confirmation', () => {
+      expect(prompt.toLowerCase()).toContain('user confirmation');
+    });
+
+    it('prohibits CAPTCHA interaction', () => {
+      expect(prompt).toContain('CAPTCHA');
+    });
+
+    it('mentions login page handling', () => {
+      expect(prompt.toLowerCase()).toContain('login');
+      expect(prompt.toLowerCase()).toContain('authentication');
+    });
+  });
+
+  // ── Token Efficiency ───────────────────────────────────────────────
+
+  it('is reasonably concise (behavioral guidance, not API docs)', () => {
+    // The new prompt should be significantly shorter than the old exec-based one
+    // Old prompt was ~3500 chars; new behavioral prompt should be under 2500
+    expect(prompt.length).toBeLessThan(2500);
+    expect(prompt.length).toBeGreaterThan(300);
+  });
+});
+
+describe('generateBuiltinToolPrompt', () => {
+  it('returns browser prompt for "browser" tool name', () => {
+    const result = generateBuiltinToolPrompt('browser');
+    expect(result).toBe(generateBrowserToolPrompt());
+  });
+
+  it('returns empty string for unknown tool name', () => {
+    expect(generateBuiltinToolPrompt('unknown-tool')).toBe('');
+    expect(generateBuiltinToolPrompt('')).toBe('');
+    expect(generateBuiltinToolPrompt('exec')).toBe('');
+  });
+
+  it('returns non-empty string only for recognized built-in tools', () => {
+    for (const name of BUILTIN_TOOL_NAMES) {
+      expect(generateBuiltinToolPrompt(name).length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('isBuiltinTool', () => {
+  it('returns true for "browser"', () => {
+    expect(isBuiltinTool('browser')).toBe(true);
+  });
+
+  it('returns false for non-builtin tool names', () => {
+    expect(isBuiltinTool('web-search')).toBe(false);
+    expect(isBuiltinTool('exec')).toBe(false);
+    expect(isBuiltinTool('python')).toBe(false);
+    expect(isBuiltinTool('')).toBe(false);
+    expect(isBuiltinTool('Browser')).toBe(false); // case-sensitive
+  });
+});
+
+describe('BUILTIN_TOOL_NAMES', () => {
+  it('is a non-empty readonly array', () => {
+    expect(Array.isArray(BUILTIN_TOOL_NAMES)).toBe(true);
+    expect(BUILTIN_TOOL_NAMES.length).toBeGreaterThan(0);
+  });
+
+  it('contains "browser"', () => {
+    expect(BUILTIN_TOOL_NAMES).toContain('browser');
+  });
+});

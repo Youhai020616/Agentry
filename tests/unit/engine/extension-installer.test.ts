@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 /**
  * ExtensionInstaller Tests
  * Tests recipe registration, detection, installation, service lifecycle, and cleanup.
@@ -98,15 +100,39 @@ vi.mock('fs', async (importOriginal) => {
   return { ...mocked, default: mocked };
 });
 
-vi.mock('https', () => ({
-  get: (...args: unknown[]) => mockHttpGet(...args),
-  default: { get: (...args: unknown[]) => mockHttpGet(...args) },
-}));
+// Mock https/http to prevent real network requests from downloadFile().
+// downloadFile uses dynamic `await import('https')` so we must mock the module.
+function createMockHttpModule() {
+  return {
+    get: vi.fn((_url: string, cb: (res: unknown) => void) => {
+      // Simulate a failed response so download paths return errors gracefully
+      const mockResponse = {
+        statusCode: 500,
+        headers: {},
+        on: vi.fn(),
+        pipe: vi.fn(),
+      };
+      // Fire callback on next tick to mimic async behavior
+      setTimeout(() => cb(mockResponse), 5);
+      const request = {
+        on: vi.fn(),
+        setTimeout: vi.fn(),
+        destroy: vi.fn(),
+      };
+      return request;
+    }),
+  };
+}
 
-vi.mock('http', () => ({
-  get: (...args: unknown[]) => mockHttpGet(...args),
-  default: { get: (...args: unknown[]) => mockHttpGet(...args) },
-}));
+vi.mock('https', () => {
+  const mod = createMockHttpModule();
+  return { ...mod, default: mod };
+});
+
+vi.mock('http', () => {
+  const mod = createMockHttpModule();
+  return { ...mod, default: mod };
+});
 
 // Mock child_process — spawn is used by spawnAsync helper.
 // We mock it to immediately emit 'exit' with code 0 by default.
@@ -157,24 +183,14 @@ describe('ExtensionInstaller', () => {
     vi.clearAllMocks();
     mockExistsSync.mockReturnValue(false);
     mockFetch.mockRejectedValue(new Error('fetch error'));
+    // Return a mock writable stream from createWriteStream to prevent pipe() errors
     mockCreateWriteStream.mockReturnValue({
-      on: vi.fn(),
+      on: vi.fn((event: string, cb: () => void) => {
+        if (event === 'finish') setTimeout(cb, 5);
+      }),
       close: vi.fn(),
-      write: vi.fn(),
       end: vi.fn(),
-      destroy: vi.fn(),
-    });
-    mockHttpGet.mockImplementation((_url: unknown, _cb: unknown) => {
-      const req = {
-        on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
-          if (event === 'error') {
-            setTimeout(() => handler(new Error('mocked network error')), 5);
-          }
-        }),
-        setTimeout: vi.fn(),
-        destroy: vi.fn(),
-      };
-      return req;
+      write: vi.fn(),
     });
     installer = new ExtensionInstaller();
   });

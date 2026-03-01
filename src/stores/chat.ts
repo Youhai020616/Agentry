@@ -229,10 +229,13 @@ async function loadMissingPreviews(messages: RawMessage[]): Promise<boolean> {
         const file = msg._attachedFiles[i];
         const thumb = thumbnails[refs[i]?.filePath];
         if (file && thumb && (thumb.preview || thumb.fileSize)) {
-          if (thumb.preview) file.preview = thumb.preview;
-          if (thumb.fileSize) file.fileSize = thumb.fileSize;
+          // Build updated file entry immutably — don't mutate state objects directly
+          const updatedFile = { ...file };
+          if (thumb.preview) updatedFile.preview = thumb.preview;
+          if (thumb.fileSize) updatedFile.fileSize = thumb.fileSize;
+          msg._attachedFiles[i] = updatedFile;
           // Update cache for future loads
-          _imageCache.set(refs[i].filePath, { ...file });
+          _imageCache.set(refs[i].filePath, { ...updatedFile });
           updated = true;
         }
       }

@@ -1,0 +1,162 @@
+{
+  "title": "Browser Control",
+  "description": "Remote browser automation powered by OpenClaw",
+  "status": {
+    "idle": "Idle",
+    "starting": "Starting…",
+    "running": "Running",
+    "stopping": "Stopping…",
+    "error": "Error"
+  },
+  "actions": {
+    "start": "Start Browser",
+    "stop": "Stop Browser",
+    "navigate": "Navigate",
+    "snapshot": "Snapshot",
+    "screenshot": "Screenshot",
+    "click": "Click",
+    "type": "Type",
+    "scroll": "Scroll",
+    "highlight": "Highlight",
+    "refresh": "Refresh",
+    "back": "Back",
+    "forward": "Forward"
+  },
+  "urlBar": {
+    "placeholder": "Enter URL and press Enter…",
+    "go": "Go",
+    "invalidUrl": "Please enter a valid URL"
+  },
+  "snapshot": {
+    "title": "Page Snapshot",
+    "empty": "No snapshot yet. Click \"Snapshot\" to capture the current page.",
+    "format": "Format",
+    "formatAi": "AI (numeric refs)",
+    "formatInteractive": "Interactive (role refs)",
+    "refs": "{{count}} interactive element",
+    "refs_other": "{{count}} interactive elements",
+    "copyContent": "Copy Content",
+    "copied": "Snapshot copied to clipboard",
+    "labels": "Show Labels",
+    "selector": "CSS Selector",
+    "selectorPlaceholder": "e.g. #main-content"
+  },
+  "screenshot": {
+    "title": "Screenshot",
+    "empty": "No screenshot yet. Click \"Screenshot\" to capture the current page.",
+    "fullPage": "Full Page",
+    "viewportOnly": "Viewport Only",
+    "zoomIn": "Zoom In",
+    "zoomOut": "Zoom Out",
+    "zoomReset": "Reset Zoom",
+    "save": "Save Image",
+    "saved": "Screenshot saved"
+  },
+  "interact": {
+    "title": "Interact",
+    "clickRef": "Click Element",
+    "clickRefPlaceholder": "Enter ref (e.g. 12 or e12)",
+    "typeRef": "Type Into Element",
+    "typeRefPlaceholder": "Enter ref",
+    "typeTextPlaceholder": "Enter text to type…",
+    "clearFirst": "Clear existing text first",
+    "scrollUp": "Scroll Up",
+    "scrollDown": "Scroll Down",
+    "highlightRef": "Highlight Element",
+    "highlightRefPlaceholder": "Enter ref to highlight"
+  },
+  "console": {
+    "title": "Console",
+    "errors": "Errors",
+    "requests": "Network",
+    "noErrors": "No console errors captured.",
+    "noRequests": "No network requests captured.",
+    "clear": "Clear",
+    "filter": "Filter",
+    "filterPlaceholder": "Filter by type (e.g. xhr, fetch)…",
+    "level": {
+      "error": "Error",
+      "warning": "Warning",
+      "info": "Info"
+    },
+    "columns": {
+      "message": "Message",
+      "source": "Source",
+      "line": "Line",
+      "time": "Time",
+      "url": "URL",
+      "method": "Method",
+      "status": "Status",
+      "type": "Type",
+      "size": "Size",
+      "duration": "Duration"
+    }
+  },
+  "history": {
+    "title": "Action History",
+    "empty": "No actions recorded yet.",
+    "clear": "Clear History",
+    "types": {
+      "start": "Browser Started",
+      "stop": "Browser Stopped",
+      "navigate": "Navigated to {{target}}",
+      "click": "Clicked element {{target}}",
+      "type": "Typed into element {{target}}",
+      "scroll": "Scrolled {{target}}",
+      "highlight": "Highlighted element {{target}}",
+      "snapshot": "Page Snapshot Taken",
+      "screenshot": "Screenshot Taken",
+      "trace_start": "Trace Recording Started",
+      "trace_stop": "Trace Recording Stopped"
+    },
+    "success": "Success",
+    "failed": "Failed"
+  },
+  "trace": {
+    "title": "Trace Recording",
+    "start": "Start Trace",
+    "stop": "Stop Trace",
+    "active": "Recording…",
+    "inactive": "Not recording",
+    "saved": "Trace saved to: {{path}}",
+    "description": "Record a detailed trace of browser actions for debugging."
+  },
+  "profiles": {
+    "title": "Browser Profile",
+    "default": "Default (openclaw)",
+    "select": "Select Profile",
+    "description": "Each profile has its own cookies, storage, and login sessions."
+  },
+  "panels": {
+    "snapshot": "Snapshot",
+    "screenshot": "Screenshot",
+    "interact": "Interact",
+    "console": "Console",
+    "history": "History"
+  },
+  "empty": {
+    "title": "Browser Not Running",
+    "description": "Launch the managed browser to start automating. The browser uses a dedicated Chrome profile, separate from your personal browser.",
+    "startButton": "Launch Browser"
+  },
+  "errors": {
+    "notRunning": "Browser is not running. Please start it first.",
+    "startFailed": "Failed to start browser: {{error}}",
+    "commandFailed": "Browser command failed: {{error}}",
+    "snapshotFailed": "Failed to take snapshot: {{error}}",
+    "screenshotFailed": "Failed to take screenshot: {{error}}",
+    "navigationFailed": "Failed to navigate: {{error}}",
+    "timeout": "Operation timed out. The browser may be unresponsive."
+  },
+  "tooltips": {
+    "startBrowser": "Launch a dedicated Chrome browser instance",
+    "stopBrowser": "Close the managed browser",
+    "takeSnapshot": "Capture a text representation of the page with interactive element references",
+    "takeScreenshot": "Capture a visual screenshot of the current page",
+    "startTrace": "Start recording a detailed interaction trace for debugging",
+    "stopTrace": "Stop recording and save the trace file",
+    "clickElement": "Click an interactive element using its reference number",
+    "typeElement": "Type text into an input element using its reference number",
+    "scrollPage": "Scroll the page in the specified direction"
+  }
+}

@@ -148,6 +148,14 @@ export class EmployeeManager extends EventEmitter {
       // Register tools from manifest so the compiler can append them to the system prompt
       if (this.toolRegistry) {
         this.toolRegistry.registerFromManifest(id, manifest);
+
+        // Log built-in tool capabilities (e.g. browser automation)
+        const builtinTools = this.toolRegistry.getBuiltinTools(id);
+        if (builtinTools.length > 0) {
+          logger.info(
+            `Employee ${id} has built-in tools: ${builtinTools.join(', ')} — prompt sections will be injected`
+          );
+        }
       }
 
       employee.systemPrompt = this.compiler.compile(employee.skillDir, manifest, id);
@@ -410,9 +418,8 @@ export class EmployeeManager extends EventEmitter {
         | { port?: number; apiKey?: string }
         | undefined;
       const userId =
-        (
-          (onboardingData.config as Record<string, unknown>)?.account as Record<string, unknown>
-        )?.camofoxUserId ?? `reddit-${employee.slug.slice(0, 8)}`;
+        ((onboardingData.config as Record<string, unknown>)?.account as Record<string, unknown>)
+          ?.camofoxUserId ?? `reddit-${employee.slug.slice(0, 8)}`;
 
       const { CamofoxClient } = await import('./camofox-client');
       const client = new CamofoxClient({

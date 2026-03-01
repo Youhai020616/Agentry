@@ -413,9 +413,12 @@ export class GatewayManager extends EventEmitter {
     // Kill process
     if (this.process && this.ownsProcess) {
       const child = this.process;
+      this.process = null;
+      this.ownsProcess = false;
       logger.info(`Sending SIGTERM to Gateway (pid=${child.pid ?? 'unknown'})`);
       child.kill('SIGTERM');
-      // Force kill after timeout
+      // Force kill after timeout — use captured `child` reference (this.process
+      // is already null at this point to allow immediate restart without conflict).
       setTimeout(() => {
         if (child.exitCode === null) {
           logger.warn(
@@ -423,13 +426,10 @@ export class GatewayManager extends EventEmitter {
           );
           child.kill('SIGKILL');
         }
-        if (this.process === child) {
-          this.process = null;
-        }
       }, 5000);
-      this.process = null;
+    } else {
+      this.ownsProcess = false;
     }
-    this.ownsProcess = false;
 
     // Reject all pending requests
     for (const [, request] of this.pendingRequests) {

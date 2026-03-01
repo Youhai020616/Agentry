@@ -142,7 +142,7 @@ export const AIInputButton = ({
   size,
   ...props
 }: AIInputButtonProps) => {
-  const newSize = (size ?? Children.count(props.children) > 1) ? 'default' : 'icon';
+  const newSize = size ?? (Children.count(props.children) > 1 ? 'default' : 'icon');
 
   return (
     <Button
@@ -205,14 +205,12 @@ export const AIInputModelSelectContent = ({
 
 export type AIInputModelSelectItemProps = ComponentProps<typeof SelectItem>;
 
-export const AIInputModelSelectItem = ({
-  className,
-  ...props
-}: AIInputModelSelectItemProps) => <SelectItem className={cn(className)} {...props} />;
+export const AIInputModelSelectItem = ({ className, ...props }: AIInputModelSelectItemProps) => (
+  <SelectItem className={cn(className)} {...props} />
+);
 
 export type AIInputModelSelectValueProps = ComponentProps<typeof SelectValue>;
 
-export const AIInputModelSelectValue = ({
-  className,
-  ...props
-}: AIInputModelSelectValueProps) => <SelectValue className={cn(className)} {...props} />;
+export const AIInputModelSelectValue = ({ className, ...props }: AIInputModelSelectValueProps) => (
+  <SelectValue className={cn(className)} {...props} />
+);

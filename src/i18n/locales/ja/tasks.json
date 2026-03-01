@@ -1,7 +1,9 @@
 {
   "board": {
     "title": "タスクボード",
+    "subtitle": "{{taskCount}} 件のタスク / {{projectCount}} 件のプロジェクト",
     "empty": "タスクはまだありません。従業員にタスクを割り当てて始めましょう。",
+    "emptyHint": "スーパーバイザーがプロジェクトを作成すると、タスクがここに表示されます。",
     "search": "タスクを検索...",
     "newProject": "新規プロジェクト",
     "allProjects": "全プロジェクト",
