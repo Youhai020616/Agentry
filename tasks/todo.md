@@ -789,3 +789,57 @@ Phase 5: Feishu delegation 升级     (1 天)      ✅ COMPLETE
 - [x] `pnpm test` 全部通过 *(429 tests, 16 files, 0 failures)*
 - [x] `pnpm lint` 无新增错误 *(所有变更文件 ESLint 通过)*
 
+---
+
+## Bug Fix Batch — 4 Issues
+
+### Issue 1: Supervisor deactivate 不清 bindings (**中**)
+
+**问题**: `deactivate()` 不清除 `openclaw.json` 中的 `bindings` 数组。关掉 supervisor 后，channel 消息仍路由到 offline 的 supervisor agent。
+
+**修复**:
+- [x] `electron/engine/employee-manager.ts` — `deactivate()` 中当 `id === 'supervisor'` 时清除 bindings
+- [x] 添加 `clearChannelBindings()` 私有方法，从 openclaw.json 删除 `bindings` 数组
+- [x] `syncChannelBindings()` 中当 supervisor offline 时主动清除已有 bindings
+
+### Issue 2: `DEFAULT_SESSION_KEY` 还是 `agent:main:main` (**低**)
+
+**问题**: `src/stores/chat.ts` 中 `DEFAULT_SESSION_KEY = 'agent:main:main'`，应为 `agent:supervisor:main`。
+
+**修复**:
+- [x] `src/stores/chat.ts` — 修改 `DEFAULT_CANONICAL_PREFIX` 为 `'agent:supervisor'`
+
+### Issue 3: `chatDedupTimer` 不在 `clearAllTimers` (**低**)
+
+**问题**: `GatewayManager.clearAllTimers()` 遗漏了 `chatDedupTimer`，stop 后 timer 泄漏。
+
+**修复**:
+- [x] `electron/gateway/manager.ts` — 在 `clearAllTimers()` 末尾添加清除 `chatDedupTimer` 逻辑
+
+### Issue 4: `console.log` 残留 (**低**)
+
+**问题**: ~60 处 `console.log/error/warn` 应使用 `logger` 或删除。
+
+**修复范围**:
+- [x] `electron/gateway/clawhub.ts` — console.log/error → logger
+- [x] `electron/main/ipc-handlers.ts` — console.log/error/warn → logger
+- [x] `electron/utils/channel-config.ts` — 删除重复的 console.log（已有 logger 调用）
+- [x] `electron/utils/openclaw-auth.ts` — console.log/warn → logger (添加 import)
+- [x] `electron/utils/secure-storage.ts` — console.error → logger
+- [x] `electron/utils/skill-config.ts` — console.error → logger
+- [x] `electron/utils/whatsapp-login.ts` — console.* → logger (添加 import)
+- [x] `src/stores/chat.ts` — 删除 console.log 调试残留
+- [x] `src/stores/cron.ts` — 删除 console.log 调试残留
+- [x] `src/pages/Chat/ChatInput.tsx` — 删除 console.log 调试残留
+- [x] 跳过: `updater.ts`（intentional）、`logger.ts`（实现层）、`scripts/`、`cloud/`
+- [x] 跳过: renderer 侧 `console.error/warn` in catch blocks（无 logger 可用，属合理用法）
+
+### Verification ✅
+
+- [x] `pnpm typecheck` — 零错误
+- [x] `pnpm test` — 429 tests passed, 16 files, 0 failures
+- [x] `pnpm lint` — 无新增错误（4 pre-existing errors in unrelated files）
+- [x] `console.log` in `electron/` — 仅剩 2 处（`updater.ts`，intentional）
+- [x] `console.log` in `src/` — 仅剩 1 处（`cloud/src/index.ts`，separate project）
+- [x] `console.log` in `*.tsx` — 0 处
+

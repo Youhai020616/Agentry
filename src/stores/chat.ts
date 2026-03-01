@@ -110,7 +110,7 @@ interface ChatState {
   clearError: () => void;
 }
 
-const DEFAULT_CANONICAL_PREFIX = 'agent:main';
+const DEFAULT_CANONICAL_PREFIX = 'agent:supervisor';
 const DEFAULT_SESSION_KEY = `${DEFAULT_CANONICAL_PREFIX}:main`;
 
 // ── Local image cache ─────────────────────────────────────────
@@ -947,15 +947,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
     try {
       const idempotencyKey = crypto.randomUUID();
       const hasMedia = attachments && attachments.length > 0;
-      console.log(
-        `[sendMessage] hasMedia=${hasMedia}, attachmentCount=${attachments?.length ?? 0}`
-      );
-      if (hasMedia) {
-        console.log(
-          '[sendMessage] Media paths:',
-          attachments!.map((a) => a.stagedPath)
-        );
-      }
 
       // Cache image attachments BEFORE the IPC call to avoid race condition:
       // history may reload (via Gateway event) before the RPC returns.
@@ -997,10 +988,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
           idempotencyKey,
         })) as { success: boolean; result?: { runId?: string }; error?: string };
       }
-
-      console.log(
-        `[sendMessage] RPC result: success=${result.success}, error=${result.error || 'none'}, runId=${result.result?.runId || 'none'}`
-      );
 
       if (!result.success) {
         set({ error: result.error || 'Failed to send message', sending: false });

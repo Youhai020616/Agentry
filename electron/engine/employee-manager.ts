@@ -225,6 +225,12 @@ export class EmployeeManager extends EventEmitter {
     // Update agentToAgent allow list (employee is now offline, so excluded)
     await this.syncAgentToAgentConfig();
 
+    // Clear channel→agent bindings when supervisor goes offline so channel
+    // messages are no longer routed to a non-existent agent.
+    if (id === 'supervisor') {
+      await this.clearChannelBindings();
+    }
+
     logger.info(`Employee deactivated: ${id}`);
     return employee;
   }
@@ -675,11 +681,14 @@ export class EmployeeManager extends EventEmitter {
    * Public helper: sync channel bindings for the supervisor.
    * Call this when a channel is saved/enabled AFTER the supervisor is already active,
    * so the new channel is immediately routed to the supervisor.
+   * If the supervisor is offline, clears existing bindings to prevent routing to a dead agent.
    */
   async syncChannelBindings(): Promise<void> {
     const supervisor = this.employees.get('supervisor');
     if (!supervisor || supervisor.status === 'offline') {
-      logger.debug('[syncChannelBindings] Supervisor not active — skipping');
+      // Supervisor is offline — clear stale bindings so channel messages
+      // are not routed to a non-existent agent.
+      await this.clearChannelBindings();
       return;
     }
 
@@ -688,6 +697,24 @@ export class EmployeeManager extends EventEmitter {
       this.writeChannelBindings(config as Record<string, unknown>, 'supervisor');
       writeOpenClawConfig(config);
       logger.info('[syncChannelBindings] Channel bindings synced for supervisor');
+    });
+  }
+
+  /**
+   * Remove all channel→agent bindings from openclaw.json.
+   * Called when the supervisor is deactivated so channel messages
+   * fall back to the default agent rather than routing to an offline one.
+   */
+  private async clearChannelBindings(): Promise<void> {
+    await configUpdateQueue.enqueue(async () => {
+      const config = readOpenClawConfig() as Record<string, unknown>;
+      if (!config.bindings) {
+        logger.debug('[clearChannelBindings] No bindings to clear');
+        return;
+      }
+      delete config.bindings;
+      writeOpenClawConfig(config);
+      logger.info('[clearChannelBindings] Cleared channel bindings (supervisor offline)');
     });
   }
 

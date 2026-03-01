@@ -484,6 +484,11 @@ export class GatewayManager extends EventEmitter {
       clearInterval(this.healthCheckInterval);
       this.healthCheckInterval = null;
     }
+    if (this.chatDedupTimer) {
+      clearTimeout(this.chatDedupTimer);
+      this.chatDedupTimer = null;
+      this.recentChatHashes.clear();
+    }
   }
 
   /**

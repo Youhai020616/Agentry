@@ -9,7 +9,7 @@ interface CronState {
   jobs: CronJob[];
   loading: boolean;
   error: string | null;
-  
+
   // Actions
   fetchJobs: () => Promise<void>;
   createJob: (input: CronJobCreateInput) => Promise<CronJob>;
@@ -24,21 +24,21 @@ export const useCronStore = create<CronState>((set) => ({
   jobs: [],
   loading: false,
   error: null,
-  
+
   fetchJobs: async () => {
     set({ loading: true, error: null });
-    
+
     try {
-      const result = await window.electron.ipcRenderer.invoke('cron:list') as CronJob[];
+      const result = (await window.electron.ipcRenderer.invoke('cron:list')) as CronJob[];
       set({ jobs: result, loading: false });
     } catch (error) {
       set({ error: String(error), loading: false });
     }
   },
-  
+
   createJob: async (input) => {
     try {
-      const job = await window.electron.ipcRenderer.invoke('cron:create', input) as CronJob;
+      const job = (await window.electron.ipcRenderer.invoke('cron:create', input)) as CronJob;
       set((state) => ({ jobs: [...state.jobs, job] }));
       return job;
     } catch (error) {
@@ -46,7 +46,7 @@ export const useCronStore = create<CronState>((set) => ({
       throw error;
     }
   },
-  
+
   updateJob: async (id, input) => {
     try {
       await window.electron.ipcRenderer.invoke('cron:update', id, input);
@@ -60,7 +60,7 @@ export const useCronStore = create<CronState>((set) => ({
       throw error;
     }
   },
-  
+
   deleteJob: async (id) => {
     try {
       await window.electron.ipcRenderer.invoke('cron:delete', id);
@@ -72,28 +72,25 @@ export const useCronStore = create<CronState>((set) => ({
       throw error;
     }
   },
-  
+
   toggleJob: async (id, enabled) => {
     try {
       await window.electron.ipcRenderer.invoke('cron:toggle', id, enabled);
       set((state) => ({
-        jobs: state.jobs.map((job) =>
-          job.id === id ? { ...job, enabled } : job
-        ),
+        jobs: state.jobs.map((job) => (job.id === id ? { ...job, enabled } : job)),
       }));
     } catch (error) {
       console.error('Failed to toggle cron job:', error);
       throw error;
     }
   },
-  
+
   triggerJob: async (id) => {
     try {
-      const result = await window.electron.ipcRenderer.invoke('cron:trigger', id);
-      console.log('Cron trigger result:', result);
+      await window.electron.ipcRenderer.invoke('cron:trigger', id);
       // Refresh jobs after trigger to update lastRun/nextRun state
       try {
-        const jobs = await window.electron.ipcRenderer.invoke('cron:list') as CronJob[];
+        const jobs = (await window.electron.ipcRenderer.invoke('cron:list')) as CronJob[];
         set({ jobs });
       } catch {
         // Ignore refresh error
@@ -103,6 +100,6 @@ export const useCronStore = create<CronState>((set) => ({
       throw error;
     }
   },
-  
+
   setJobs: (jobs) => set({ jobs }),
 }));

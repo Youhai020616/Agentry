@@ -3,6 +3,7 @@
  * Manages provider configurations and API keys.
  * Keys are stored in plain text alongside provider configs in a single electron-store.
  */
+import { logger } from './logger';
 
 // Lazy-load electron-store (ESM module)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -59,7 +60,7 @@ export async function storeApiKey(providerId: string, apiKey: string): Promise<b
     s.set('apiKeys', keys);
     return true;
   } catch (error) {
-    console.error('Failed to store API key:', error);
+    logger.error('Failed to store API key:', error);
     return false;
   }
 }
@@ -73,7 +74,7 @@ export async function getApiKey(providerId: string): Promise<string | null> {
     const keys = (s.get('apiKeys') || {}) as Record<string, string>;
     return keys[providerId] || null;
   } catch (error) {
-    console.error('Failed to retrieve API key:', error);
+    logger.error('Failed to retrieve API key:', error);
     return null;
   }
 }
@@ -89,7 +90,7 @@ export async function deleteApiKey(providerId: string): Promise<boolean> {
     s.set('apiKeys', keys);
     return true;
   } catch (error) {
-    console.error('Failed to delete API key:', error);
+    logger.error('Failed to delete API key:', error);
     return false;
   }
 }
@@ -163,7 +164,7 @@ export async function deleteProvider(providerId: string): Promise<boolean> {
 
     return true;
   } catch (error) {
-    console.error('Failed to delete provider:', error);
+    logger.error('Failed to delete provider:', error);
     return false;
   }
 }
