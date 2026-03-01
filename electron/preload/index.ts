@@ -259,7 +259,6 @@ const electronAPI = {
         'supervisor:enable',
         'supervisor:disable',
         'supervisor:status',
-        'supervisor:dispatch',
         'supervisor:planProject',
         'supervisor:approvePlan',
         'supervisor:rejectPlan',
@@ -315,9 +314,6 @@ const electronAPI = {
         'message:new',
         'ollama:pull-progress',
         'extension:install-progress',
-        'supervisor:delegation-started',
-        'supervisor:delegation-completed',
-        'supervisor:delegation-failed',
       ];
 
       if (validChannels.includes(channel)) {
@@ -367,9 +363,6 @@ const electronAPI = {
         'browser:status-changed',
         'ollama:pull-progress',
         'extension:install-progress',
-        'supervisor:delegation-started',
-        'supervisor:delegation-completed',
-        'supervisor:delegation-failed',
       ];
 
       if (validChannels.includes(channel)) {
@@ -411,9 +404,6 @@ const electronAPI = {
         'browser:status-changed',
         'ollama:pull-progress',
         'extension:install-progress',
-        'supervisor:delegation-started',
-        'supervisor:delegation-completed',
-        'supervisor:delegation-failed',
       ];
 
       if (!validChannels.includes(channel)) {

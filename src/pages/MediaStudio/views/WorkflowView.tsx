@@ -29,18 +29,18 @@ const itemVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] },
+    transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as const },
   },
-};
+} as const;
 
 const cardVariants = {
   hidden: { opacity: 0, y: 10 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] },
+    transition: { duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] as const },
   },
-};
+} as const;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -150,20 +150,11 @@ function TaskCard({ task }: { task: WorkflowTask }) {
 }
 
 /** Single kanban column */
-function KanbanColumn({
-  column,
-  tasks,
-}: {
-  column: KanbanColumn;
-  tasks: WorkflowTask[];
-}) {
+function KanbanColumnCard({ column, tasks }: { column: KanbanColumn; tasks: WorkflowTask[] }) {
   const { t } = useTranslation('media-studio');
 
   return (
-    <motion.div
-      variants={itemVariants}
-      className="flex min-w-[220px] w-[220px] shrink-0 flex-col"
-    >
+    <motion.div variants={itemVariants} className="flex min-w-[220px] w-[220px] shrink-0 flex-col">
       {/* Column header */}
       <div className="mb-3 flex items-center gap-2">
         <div className={cn('h-2 w-2 rounded-full', columnHeaderColor[column])} />
@@ -224,10 +215,7 @@ export function WorkflowView() {
       animate="visible"
     >
       {/* Toolbar */}
-      <motion.div
-        variants={itemVariants}
-        className="flex items-center justify-between gap-4"
-      >
+      <motion.div variants={itemVariants} className="flex items-center justify-between gap-4">
         {/* Platform filter buttons */}
         <div className="flex items-center gap-1.5">
           {PLATFORM_FILTERS.map((pf) => (
@@ -241,9 +229,7 @@ export function WorkflowView() {
                   : 'bg-muted text-muted-foreground hover:text-foreground'
               )}
             >
-              {platformFilterIcon[pf] && (
-                <span className="mr-1">{platformFilterIcon[pf]}</span>
-              )}
+              {platformFilterIcon[pf] && <span className="mr-1">{platformFilterIcon[pf]}</span>}
               {pf === 'all' ? t('workflow.all') : t(`platforms.${pf}`)}
             </button>
           ))}
@@ -263,12 +249,9 @@ export function WorkflowView() {
       </motion.div>
 
       {/* Kanban columns */}
-      <motion.div
-        variants={itemVariants}
-        className="flex gap-4 overflow-x-auto pb-4"
-      >
+      <motion.div variants={itemVariants} className="flex gap-4 overflow-x-auto pb-4">
         {COLUMNS.map((col) => (
-          <KanbanColumn key={col} column={col} tasks={tasksByColumn[col]} />
+          <KanbanColumnCard key={col} column={col} tasks={tasksByColumn[col]} />
         ))}
       </motion.div>
     </motion.div>

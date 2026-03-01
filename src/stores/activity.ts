@@ -172,41 +172,8 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       });
     });
 
-    // Supervisor delegation events
-    window.electron.ipcRenderer.on('supervisor:delegation-started', (...args: unknown[]) => {
-      const data = args[0] as { employeeName?: string; taskSubject?: string };
-      prependEvent({
-        id: `delegation-started-${Date.now()}`,
-        type: 'delegation',
-        action: 'started',
-        title: data?.taskSubject ?? '',
-        employeeName: data?.employeeName,
-        timestamp: Date.now(),
-      });
-    });
-
-    window.electron.ipcRenderer.on('supervisor:delegation-completed', (...args: unknown[]) => {
-      const data = args[0] as { employeeName?: string; taskSubject?: string };
-      prependEvent({
-        id: `delegation-completed-${Date.now()}`,
-        type: 'delegation',
-        action: 'completed',
-        title: data?.taskSubject ?? '',
-        employeeName: data?.employeeName,
-        timestamp: Date.now(),
-      });
-    });
-
-    window.electron.ipcRenderer.on('supervisor:delegation-failed', (...args: unknown[]) => {
-      const data = args[0] as { employeeName?: string; taskSubject?: string };
-      prependEvent({
-        id: `delegation-failed-${Date.now()}`,
-        type: 'delegation',
-        action: 'failed',
-        title: data?.taskSubject ?? '',
-        employeeName: data?.employeeName,
-        timestamp: Date.now(),
-      });
-    });
+    // Note: Legacy supervisor:delegation-* events have been removed (Phase 5).
+    // Delegation is now handled natively by the Supervisor agent via `sessions_spawn`.
+    // Sub-agent results are announced back through the Gateway — no engine-side routing needed.
   },
 }));

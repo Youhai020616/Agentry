@@ -100,7 +100,9 @@ export function StudioApiLog({ entries, title, running }: StudioApiLogProps) {
         ))}
         {running && (
           <div className="flex items-center gap-2 font-mono text-xs">
-            <span className="text-zinc-600">{formatTimestamp(Date.now())}</span>
+            <span className="text-zinc-600">
+              {formatTimestamp(entries[entries.length - 1]?.timestamp ?? 0)}
+            </span>
             <span className="flex gap-0.5 text-zinc-500">
               <span className="animate-pulse">.</span>
               <span className="animate-pulse delay-100">.</span>

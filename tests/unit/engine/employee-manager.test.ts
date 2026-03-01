@@ -79,6 +79,30 @@ const mockManifest = {
   skills: [{ id: 'seo-audit', name: 'SEO Audit', prompt: 'Audit' }],
 };
 
+const mockSupervisorManifest = {
+  name: 'supervisor',
+  version: '1.1.0',
+  description: 'AI Supervisor',
+  type: 'knowledge' as const,
+  employee: {
+    role: 'Supervisor',
+    roleZh: '主管',
+    avatar: '👔',
+    team: 'Management',
+    personality: { style: 'professional', greeting: 'Hi!' },
+  },
+  skills: [{ id: 'team-coordination', name: 'Team Coordination', prompt: 'Coordinate' }],
+  tools: [
+    { name: 'sessions_spawn', description: 'Spawn sub-agent' },
+    { name: 'sessions_send', description: 'Send to agent' },
+    { name: 'sessions_list', description: 'List sessions' },
+    { name: 'sessions_history', description: 'Read history' },
+    { name: 'session_status', description: 'Check status' },
+    { name: 'read', description: 'Read files' },
+    { name: 'write', description: 'Write files' },
+  ],
+};
+
 const { mockParseFromPath } = vi.hoisted(() => ({
   mockParseFromPath: vi.fn(),
 }));
@@ -357,6 +381,144 @@ describe('EmployeeManager', () => {
       const other = agents.list.find((a) => a.id === 'other-agent');
       expect(other).toBeDefined();
     });
+
+    it('should add subagents.allowAgents for supervisor agent', async () => {
+      // Set up scan to discover a "supervisor" employee
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readdirSync).mockReturnValue([
+        { name: 'supervisor', isDirectory: () => true },
+      ] as unknown as ReturnType<typeof readdirSync>);
+      mockParseFromPath.mockReturnValue(mockSupervisorManifest);
+
+      await manager.scan();
+
+      const { writeOpenClawConfig } = await import('../../../electron/utils/channel-config');
+
+      await manager.activate('supervisor');
+
+      const call = vi.mocked(writeOpenClawConfig).mock.calls[0][0] as Record<string, unknown>;
+      const agents = call.agents as { list: Array<Record<string, unknown>> };
+      const entry = agents.list.find((a) => a.id === 'supervisor');
+
+      // Supervisor should have subagents config
+      expect(entry?.subagents).toEqual({ allowAgents: ['*'] });
+    });
+
+    it('should NOT add subagents config for non-supervisor agents', async () => {
+      setupScanMocks();
+      await manager.scan();
+
+      const { writeOpenClawConfig } = await import('../../../electron/utils/channel-config');
+
+      await manager.activate('seo-expert');
+
+      const call = vi.mocked(writeOpenClawConfig).mock.calls[0][0] as Record<string, unknown>;
+      const agents = call.agents as { list: Array<Record<string, unknown>> };
+      const entry = agents.list.find((a) => a.id === 'seo-expert');
+
+      // Non-supervisor agents should NOT have subagents config
+      expect(entry?.subagents).toBeUndefined();
+    });
+
+    it('should map session tools in tool policy for supervisor', async () => {
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readdirSync).mockReturnValue([
+        { name: 'supervisor', isDirectory: () => true },
+      ] as unknown as ReturnType<typeof readdirSync>);
+      mockParseFromPath.mockReturnValue(mockSupervisorManifest);
+
+      await manager.scan();
+
+      const { writeOpenClawConfig } = await import('../../../electron/utils/channel-config');
+
+      await manager.activate('supervisor');
+
+      const call = vi.mocked(writeOpenClawConfig).mock.calls[0][0] as Record<string, unknown>;
+      const agents = call.agents as { list: Array<Record<string, unknown>> };
+      const entry = agents.list.find((a) => a.id === 'supervisor') as {
+        tools?: { allow: string[] };
+      };
+
+      // Session tools should be in the allow list
+      expect(entry?.tools?.allow).toContain('sessions_spawn');
+      expect(entry?.tools?.allow).toContain('sessions_send');
+      expect(entry?.tools?.allow).toContain('sessions_list');
+      expect(entry?.tools?.allow).toContain('sessions_history');
+      expect(entry?.tools?.allow).toContain('session_status');
+      // Standard tools too
+      expect(entry?.tools?.allow).toContain('read');
+      expect(entry?.tools?.allow).toContain('write');
+    });
+
+    it('should write agents.defaults.subagents config', async () => {
+      setupScanMocks();
+      await manager.scan();
+
+      const { writeOpenClawConfig } = await import('../../../electron/utils/channel-config');
+
+      await manager.activate('seo-expert');
+
+      const call = vi.mocked(writeOpenClawConfig).mock.calls[0][0] as Record<string, unknown>;
+      const agents = call.agents as {
+        defaults?: { subagents?: Record<string, unknown> };
+      };
+
+      // agents.defaults.subagents should exist with concurrency + archive settings
+      expect(agents.defaults).toBeDefined();
+      expect(agents.defaults?.subagents).toBeDefined();
+      expect(agents.defaults?.subagents?.maxConcurrent).toBe(8);
+      expect(agents.defaults?.subagents?.archiveAfterMinutes).toBe(60);
+    });
+
+    it('should write tools.agentToAgent config on activation', async () => {
+      setupScanMocks();
+      await manager.scan();
+
+      const { writeOpenClawConfig } = await import('../../../electron/utils/channel-config');
+
+      await manager.activate('seo-expert');
+
+      const call = vi.mocked(writeOpenClawConfig).mock.calls[0][0] as Record<string, unknown>;
+      const tools = call.tools as { agentToAgent?: { enabled: boolean; allow: string[] } };
+
+      expect(tools.agentToAgent).toBeDefined();
+      expect(tools.agentToAgent!.enabled).toBe(true);
+      expect(tools.agentToAgent!.allow).toContain('seo-expert');
+    });
+
+    it('should include multiple active employees in agentToAgent allow list', async () => {
+      // Set up scan to discover two employees
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readdirSync).mockReturnValue([
+        { name: 'seo-expert', isDirectory: () => true },
+        { name: 'supervisor', isDirectory: () => true },
+      ] as unknown as ReturnType<typeof readdirSync>);
+      mockParseFromPath.mockImplementation((dir: string) => {
+        if (dir.includes('supervisor')) return mockSupervisorManifest;
+        return mockManifest;
+      });
+
+      await manager.scan();
+
+      const { writeOpenClawConfig } = await import('../../../electron/utils/channel-config');
+
+      // Activate first employee
+      await manager.activate('seo-expert');
+
+      // Activate second employee
+      vi.mocked(writeOpenClawConfig).mockClear();
+      await manager.activate('supervisor');
+
+      // The second activation should write both employees in the allow list
+      const call = vi.mocked(writeOpenClawConfig).mock.calls[0][0] as Record<string, unknown>;
+      const tools = call.tools as { agentToAgent?: { enabled: boolean; allow: string[] } };
+
+      expect(tools.agentToAgent).toBeDefined();
+      expect(tools.agentToAgent!.enabled).toBe(true);
+      expect(tools.agentToAgent!.allow).toContain('seo-expert');
+      expect(tools.agentToAgent!.allow).toContain('supervisor');
+      expect(tools.agentToAgent!.allow).toHaveLength(2);
+    });
   });
 
   describe('deactivate', () => {
@@ -365,10 +527,34 @@ describe('EmployeeManager', () => {
       await manager.scan();
       await manager.activate('seo-expert');
 
-      const deactivated = manager.deactivate('seo-expert');
+      const deactivated = await manager.deactivate('seo-expert');
 
       expect(deactivated.status).toBe('offline');
       expect(deactivated.gatewaySessionKey).toBeUndefined();
+    });
+
+    it('should update tools.agentToAgent allow list on deactivation', async () => {
+      setupScanMocks();
+      await manager.scan();
+
+      const { writeOpenClawConfig } = await import('../../../electron/utils/channel-config');
+
+      await manager.activate('seo-expert');
+      vi.mocked(writeOpenClawConfig).mockClear();
+
+      await manager.deactivate('seo-expert');
+
+      // deactivate calls syncAgentToAgentConfig which writes config
+      expect(writeOpenClawConfig).toHaveBeenCalled();
+      const call = vi.mocked(writeOpenClawConfig).mock.calls[0][0] as Record<string, unknown>;
+      const tools = call.tools as { agentToAgent?: { enabled: boolean; allow: string[] } };
+
+      // Employee is now offline, so allow list should NOT contain 'seo-expert'
+      expect(tools.agentToAgent).toBeDefined();
+      expect(tools.agentToAgent!.allow).not.toContain('seo-expert');
+      // With no active employees, enabled should be false
+      expect(tools.agentToAgent!.enabled).toBe(false);
+      expect(tools.agentToAgent!.allow).toEqual([]);
     });
   });
 
@@ -516,7 +702,10 @@ describe('EmployeeManager', () => {
   });
 
   describe('scan with all employees', () => {
-    const employeeManifests: Record<string, typeof mockManifest> = {
+    const employeeManifests: Record<
+      string,
+      Omit<typeof mockManifest, 'type'> & { type: 'knowledge' | 'execution' }
+    > = {
       supervisor: {
         ...mockManifest,
         name: 'supervisor',

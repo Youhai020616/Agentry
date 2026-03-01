@@ -214,13 +214,16 @@ export class EmployeeManager extends EventEmitter {
   /**
    * Deactivate an employee — clear session, set offline
    */
-  deactivate(id: string): Employee {
+  async deactivate(id: string): Promise<Employee> {
     const employee = this.requireEmployee(id);
     logger.info(`Deactivating employee: ${id} (${employee.role})`);
 
     employee.gatewaySessionKey = undefined;
     employee.systemPrompt = undefined;
     this.setStatus(employee, 'offline');
+
+    // Update agentToAgent allow list (employee is now offline, so excluded)
+    await this.syncAgentToAgentConfig();
 
     logger.info(`Employee deactivated: ${id}`);
     return employee;
@@ -547,6 +550,15 @@ export class EmployeeManager extends EventEmitter {
         agentEntry.tools = toolPolicy;
       }
 
+      // ── Supervisor-specific: enable sub-agent spawning ──
+      // The supervisor agent needs `subagents.allowAgents` so it can use
+      // the `sessions_spawn` tool to dispatch work to other employee agents.
+      if (employee.id === 'supervisor') {
+        agentEntry.subagents = {
+          allowAgents: ['*'], // supervisor can spawn into any registered agent
+        };
+      }
+
       // Map per-employee model override → agents.list[].model
       try {
         const secretsStore = await this.getSecretsStore();
@@ -564,6 +576,46 @@ export class EmployeeManager extends EventEmitter {
       // Remove existing entry for this employee (if any), then add the new one
       agents.list = agentsList.filter((a) => a.id !== employee.id);
       (agents.list as Array<Record<string, unknown>>).push(agentEntry);
+
+      // ── Global: ensure agents.defaults.subagents exists ──
+      // This configures the sub-agent runtime (concurrency, timeout, archival).
+      // Written on every registration but idempotent — values only set if missing.
+      if (!agents.defaults) {
+        agents.defaults = {};
+      }
+      const defaults = agents.defaults as Record<string, unknown>;
+      if (!defaults.subagents) {
+        defaults.subagents = {
+          maxConcurrent: 8,
+          archiveAfterMinutes: 60,
+        };
+        logger.debug('[registerAgentInConfig] Set agents.defaults.subagents');
+      }
+
+      // ── Global: enable agent-to-agent communication ──
+      // OpenClaw's `tools.agentToAgent` allows agents to use `sessions_send`
+      // to communicate directly with each other via the Gateway.
+      // The `allow` list is rebuilt on every activation to stay in sync.
+      if (!(config as Record<string, unknown>).tools) {
+        (config as Record<string, unknown>).tools = {};
+      }
+      const tools = (config as Record<string, unknown>).tools as Record<string, unknown>;
+
+      // Build allow list: all currently non-offline employees + the one being activated
+      const activeIds = this.list()
+        .filter((e) => e.status !== 'offline')
+        .map((e) => e.id);
+      if (!activeIds.includes(employee.id)) {
+        activeIds.push(employee.id);
+      }
+
+      tools.agentToAgent = {
+        enabled: true,
+        allow: activeIds,
+      };
+      logger.debug(
+        `[registerAgentInConfig] Updated tools.agentToAgent allow: [${activeIds.join(', ')}]`
+      );
 
       writeOpenClawConfig(config);
       logger.info(
@@ -588,7 +640,8 @@ export class EmployeeManager extends EventEmitter {
       return null;
     }
 
-    // OpenClaw built-in tool names that can be controlled via agent policy
+    // OpenClaw built-in tool names that can be controlled via agent policy.
+    // Includes session tools (sessions_spawn, sessions_send, etc.) for multi-agent orchestration.
     const OPENCLAW_BUILTIN_TOOLS = new Set([
       'web_search',
       'web_fetch',
@@ -597,6 +650,12 @@ export class EmployeeManager extends EventEmitter {
       'exec',
       'browser',
       'mcp',
+      // Session tools — enable agent-to-agent communication & sub-agent spawn
+      'sessions_list',
+      'sessions_history',
+      'sessions_send',
+      'sessions_spawn',
+      'session_status',
     ]);
 
     const allow: string[] = [];
@@ -652,6 +711,36 @@ export class EmployeeManager extends EventEmitter {
       throw new Error(`Employee not found: ${id}`);
     }
     return employee;
+  }
+
+  /**
+   * Sync `tools.agentToAgent` in openclaw.json with current active employees.
+   * Called on deactivation to remove the employee from the allow list.
+   * On activation this is handled inline within `registerAgentInConfig`.
+   */
+  private async syncAgentToAgentConfig(): Promise<void> {
+    await configUpdateQueue.enqueue(async () => {
+      const config = readOpenClawConfig();
+
+      if (!(config as Record<string, unknown>).tools) {
+        (config as Record<string, unknown>).tools = {};
+      }
+      const tools = (config as Record<string, unknown>).tools as Record<string, unknown>;
+
+      const activeIds = this.list()
+        .filter((e) => e.status !== 'offline')
+        .map((e) => e.id);
+
+      tools.agentToAgent = {
+        enabled: activeIds.length > 0,
+        allow: activeIds,
+      };
+
+      writeOpenClawConfig(config);
+      logger.debug(
+        `[syncAgentToAgentConfig] Updated tools.agentToAgent allow: [${activeIds.join(', ')}]`
+      );
+    });
   }
 
   private setStatus(employee: Employee, status: EmployeeStatus): void {

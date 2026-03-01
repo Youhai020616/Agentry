@@ -632,44 +632,13 @@ function registerGatewayHandlers(
     }
     return raw;
   }
-
-  // Gateway RPC call — passes through to Gateway.
-  // Per-employee system prompts are handled natively by OpenClaw via AGENTS.md in
-  // the agent workspace (see employee-manager.ts ensureAgentWorkspace).
-  // Per-employee model overrides are still injected here at RPC time.
+  // Gateway RPC call — direct pass-through to Gateway.
+  // Per-employee system prompts: handled natively by OpenClaw via AGENTS.md in agent workspace.
+  // Per-employee model overrides: handled natively via openclaw.json agents.list[].model
+  //   (written by registerAgentInConfig on activate, synced by employee:setModel on change).
   ipcMain.handle('gateway:rpc', async (_, method: string, params?: unknown, timeoutMs?: number) => {
     try {
-      let finalParams = params;
-
-      // Inject per-employee model override for employee sessions.
-      // Native multi-agent session key pattern: agent:{slug}:main
-      if (method === 'chat.send' && params && typeof params === 'object') {
-        const p = params as Record<string, unknown>;
-        const sessionKey = (p.sessionKey ?? p.session ?? '') as string;
-
-        const empMatch = sessionKey.match(/^agent:(?!main:)(.+):main$/);
-        if (empMatch) {
-          const employeeId = empMatch[1];
-          try {
-            const store = await getEmployeeSecretsStore();
-            const modelId = (store.get(`employee-models.${employeeId}`) ?? '') as string;
-            if (modelId) {
-              const merged: Record<string, unknown> = { ...p };
-              merged.model = `openrouter/${modelId}`;
-              finalParams = merged;
-              logger.debug(
-                `[gateway:rpc] Injected per-employee model for ${employeeId}: openrouter/${modelId}`
-              );
-            }
-          } catch (err) {
-            logger.debug(
-              `[gateway:rpc] Failed to look up model for employee ${employeeId}: ${err}`
-            );
-          }
-        }
-      }
-
-      const result = await gatewayManager.rpc(method, finalParams, timeoutMs);
+      const result = await gatewayManager.rpc(method, params, timeoutMs);
       return { success: true, result };
     } catch (error) {
       const raw = String(error);
@@ -756,27 +725,9 @@ function registerGatewayHandlers(
           rpcParams.attachments = imageAttachments;
         }
 
-        // Inject per-employee model override if this session belongs to an employee.
+        // Per-employee model overrides are handled natively via openclaw.json agents.list[].model
+        // (written by registerAgentInConfig on activate, synced by employee:setModel on change).
         // System prompts are handled natively by OpenClaw via AGENTS.md in the agent workspace.
-        // Native multi-agent session key pattern: agent:{slug}:main
-        const empMatch = params.sessionKey.match(/^agent:(?!main:)(.+):main$/);
-        if (empMatch) {
-          const employeeId = empMatch[1];
-          try {
-            const store = await getEmployeeSecretsStore();
-            const modelId = (store.get(`employee-models.${employeeId}`) ?? '') as string;
-            if (modelId) {
-              rpcParams.model = `openrouter/${modelId}`;
-              logger.info(
-                `[chat:sendWithMedia] Injected per-employee model for ${employeeId}: openrouter/${modelId}`
-              );
-            }
-          } catch (err) {
-            logger.debug(
-              `[chat:sendWithMedia] Failed to look up model for employee ${employeeId}: ${err}`
-            );
-          }
-        }
 
         logger.info(
           `[chat:sendWithMedia] Sending via chat.send: message="${message.substring(0, 100)}", attachments=${imageAttachments.length}, fileRefs=${fileReferences.length}`
@@ -2054,7 +2005,7 @@ function registerEmployeeHandlers(employeeManager: EmployeeManager): void {
             }
           });
         } catch (err) {
-          // Non-fatal — RPC-time injection still works as fallback
+          // Non-fatal — Gateway will use global default model until next activate() re-syncs
           logger.warn(`[employee:setModel] Failed to sync model to openclaw.json: ${err}`);
         }
       }
@@ -3430,37 +3381,19 @@ function registerSupervisorHandlers(
     return lazy;
   };
 
-  // supervisor:enable — Activate the Supervisor employee and enable Feishu delegation
+  // supervisor:enable — Activate the Supervisor employee
+  // Delegation is now handled natively by the Supervisor agent via `sessions_spawn`.
+  // No engine-side delegation detection or event forwarding needed.
   ipcMain.handle('supervisor:enable', async (_, supervisorSlug?: string) => {
     try {
       const slug = supervisorSlug ?? 'supervisor';
-      const lazy = await getLazy();
+      await getLazy(); // ensure engine is initialized
 
       // Activate the supervisor employee if not already active
       const employee = engineRef.current!.employeeManager.get(slug);
       if (!employee || employee.status === 'offline') {
         await engineRef.current!.employeeManager.activate(slug);
       }
-
-      // Enable delegation detection on Gateway events
-      lazy.supervisor.enableFeishuDelegation(slug);
-
-      // Forward delegation events to renderer
-      lazy.supervisor.on('delegation-started', (data: unknown) => {
-        if (!mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('supervisor:delegation-started', data);
-        }
-      });
-      lazy.supervisor.on('delegation-completed', (data: unknown) => {
-        if (!mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('supervisor:delegation-completed', data);
-        }
-      });
-      lazy.supervisor.on('delegation-failed', (data: unknown) => {
-        if (!mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('supervisor:delegation-failed', data);
-        }
-      });
 
       logger.info(`Supervisor mode enabled: ${slug}`);
       return { success: true, result: { slug, enabled: true } };
@@ -3470,14 +3403,15 @@ function registerSupervisorHandlers(
     }
   });
 
-  // supervisor:disable — Disable Feishu delegation mode
+  // supervisor:disable — Deactivate the Supervisor employee
   ipcMain.handle('supervisor:disable', async () => {
     try {
-      const lazy = await getLazy();
-      lazy.supervisor.disableFeishuDelegation();
-      lazy.supervisor.removeAllListeners('delegation-started');
-      lazy.supervisor.removeAllListeners('delegation-completed');
-      lazy.supervisor.removeAllListeners('delegation-failed');
+      await getLazy(); // ensure engine is initialized
+      const slug = 'supervisor';
+      const employee = engineRef.current!.employeeManager.get(slug);
+      if (employee && employee.status !== 'offline') {
+        await engineRef.current!.employeeManager.deactivate(slug);
+      }
 
       logger.info('Supervisor mode disabled');
       return { success: true };
@@ -3487,44 +3421,24 @@ function registerSupervisorHandlers(
     }
   });
 
-  // supervisor:status — Get current Supervisor delegation status
+  // supervisor:status — Get current Supervisor status
   ipcMain.handle('supervisor:status', async () => {
     try {
-      const lazy = await getLazy();
+      await getLazy(); // ensure engine is initialized
+      const slug = 'supervisor';
+      const employee = engineRef.current!.employeeManager.get(slug);
+      const enabled = !!employee && employee.status !== 'offline';
       return {
         success: true,
         result: {
-          enabled: lazy.supervisor.isFeishuDelegationEnabled(),
-          supervisorSlug: lazy.supervisor.getSupervisorSlug(),
+          enabled,
+          supervisorSlug: enabled ? slug : null,
         },
       };
     } catch (error) {
       return { success: false, error: String(error) };
     }
   });
-
-  // supervisor:dispatch — Manually dispatch a task to an employee (for testing)
-  ipcMain.handle(
-    'supervisor:dispatch',
-    async (
-      _,
-      params: { employeeId: string; task: string; context?: string; timeoutMs?: number }
-    ) => {
-      try {
-        const lazy = await getLazy();
-        const result = await lazy.supervisor.dispatchToEmployee(
-          params.employeeId,
-          params.task,
-          params.context,
-          params.timeoutMs
-        );
-        return { success: true, result };
-      } catch (error) {
-        logger.error('supervisor:dispatch failed:', error);
-        return { success: false, error: String(error) };
-      }
-    }
-  );
 
   // ── Issue #2: Missing Project Planning IPC Handlers ──────────────
 

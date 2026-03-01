@@ -1,7 +1,7 @@
 {
   "name": "supervisor",
-  "version": "1.0.0",
-  "description": "AI Supervisor: single entry point for Feishu, delegates tasks to specialist employees",
+  "version": "2.0.0",
+  "description": "AI Supervisor: single entry point for Feishu, delegates tasks to specialist employees exclusively via sessions_spawn (legacy DELEGATE protocol removed)",
   "type": "knowledge",
   "employee": {
     "role": "Supervisor",
@@ -23,6 +23,20 @@
     "inputs": ["text", "url", "brief", "business-goals"],
     "outputs": ["delegation-response", "synthesis", "direct-answer"]
   },
-  "tools": [],
+  "tools": [
+    {
+      "name": "sessions_spawn",
+      "description": "Spawn a sub-agent to execute a task asynchronously in parallel"
+    },
+    {
+      "name": "sessions_send",
+      "description": "Send a message to another agent session and optionally wait for reply"
+    },
+    { "name": "sessions_list", "description": "List active sessions across all agents" },
+    { "name": "sessions_history", "description": "Read chat history from another session" },
+    { "name": "session_status", "description": "Check the status of a session or sub-agent run" },
+    { "name": "read", "description": "Read files from workspace" },
+    { "name": "write", "description": "Write files to workspace" }
+  ],
   "pricing": { "model": "included" }
 }

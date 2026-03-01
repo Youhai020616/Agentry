@@ -4,8 +4,11 @@
  * Default: Supervisor selected → chat with the PM agent.
  * Click employee in dock → switch to that employee's direct chat.
  * Right panel shows active projects, wave progress, and team status.
+ *
+ * Phase 1: Supervisor is now an independent agent with session key `agent:supervisor:main`.
+ * No longer uses `agent:main:main` — the supervisor employee is auto-activated on mount.
  */
-import { useEffect, useMemo, useCallback, useState } from 'react';
+import { useEffect, useMemo, useCallback, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Crown, AlertCircle, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -20,9 +23,14 @@ import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { OrchestrationPanel } from './OrchestrationPanel';
 
-/** Supervisor uses the default main session */
-const SUPERVISOR_SESSION_KEY = 'agent:main:main';
+/** Default supervisor slug — matches resources/employees/supervisor/ */
+const SUPERVISOR_SLUG = 'supervisor';
+
+/** Internal UI identifier for the supervisor dock item (not a session key) */
 const SUPERVISOR_ID = '__supervisor__';
+
+/** Fallback session key when supervisor employee data is not yet loaded */
+const SUPERVISOR_SESSION_FALLBACK = `agent:${SUPERVISOR_SLUG}:main`;
 
 export function Supervisor() {
   const { t } = useTranslation('common');
@@ -41,37 +49,82 @@ export function Supervisor() {
   const [activating, setActivating] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
 
+  // Guard to prevent double-activation of supervisor
+  const supervisorActivating = useRef(false);
+
+  // Derive supervisor session key dynamically from the employees store
+  const supervisorEmployee = useMemo(
+    () => employees.find((e) => e.id === SUPERVISOR_SLUG || e.slug === SUPERVISOR_SLUG),
+    [employees]
+  );
+  const supervisorSessionKey = supervisorEmployee?.gatewaySessionKey ?? SUPERVISOR_SESSION_FALLBACK;
+
   // Initialize employees store
   useEffect(() => {
     init();
     fetchEmployees();
   }, [init, fetchEmployees]);
 
-  // Bind Supervisor session on mount when gateway is ready
+  // Auto-activate supervisor when gateway is ready
   useEffect(() => {
-    if (isGatewayRunning && selectedId === SUPERVISOR_ID) {
-      switchSession(SUPERVISOR_SESSION_KEY);
+    if (!isGatewayRunning) return;
+    if (supervisorActivating.current) return;
+
+    const sup = employees.find((e) => e.id === SUPERVISOR_SLUG || e.slug === SUPERVISOR_SLUG);
+
+    // If supervisor is not found or offline, activate it
+    if (!sup || sup.status === 'offline') {
+      supervisorActivating.current = true;
+      activateEmployee(SUPERVISOR_SLUG)
+        .then(() => {
+          // After activation, switch to the supervisor session if still selected
+          const updated = useEmployeesStore
+            .getState()
+            .employees.find((e) => e.id === SUPERVISOR_SLUG || e.slug === SUPERVISOR_SLUG);
+          const key = updated?.gatewaySessionKey ?? SUPERVISOR_SESSION_FALLBACK;
+          if (selectedId === SUPERVISOR_ID) {
+            switchSession(key);
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to auto-activate supervisor:', err);
+        })
+        .finally(() => {
+          supervisorActivating.current = false;
+        });
+    } else if (selectedId === SUPERVISOR_ID) {
+      // Supervisor is already active — bind session
+      switchSession(sup.gatewaySessionKey ?? SUPERVISOR_SESSION_FALLBACK);
     }
   }, [isGatewayRunning]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Build dock characters: Supervisor first, then employees
   const dockCharacters: DockCharacter[] = useMemo(() => {
+    // Derive supervisor dock status from the actual employee record
+    const supStatus = supervisorEmployee
+      ? supervisorEmployee.status === 'offline'
+        ? 'offline'
+        : supervisorEmployee.status
+      : 'idle';
+
     const supervisor: DockCharacter = {
       id: SUPERVISOR_ID,
       name: t('supervisor.title'),
       avatar: '\uD83D\uDC54',
-      status: 'idle',
+      status: supStatus,
     };
 
-    const employeeChars: DockCharacter[] = employees.map((e) => ({
-      id: e.id,
-      name: e.name,
-      avatar: e.avatar || '\uD83E\uDD16',
-      status: e.status === 'offline' ? 'offline' : e.status,
-    }));
+    const employeeChars: DockCharacter[] = employees
+      .filter((e) => e.id !== SUPERVISOR_SLUG && e.slug !== SUPERVISOR_SLUG)
+      .map((e) => ({
+        id: e.id,
+        name: e.name,
+        avatar: e.avatar || '\uD83E\uDD16',
+        status: e.status === 'offline' ? 'offline' : e.status,
+      }));
 
     return [supervisor, ...employeeChars];
-  }, [employees, t]);
+  }, [employees, supervisorEmployee, t]);
 
   // Current employee info for Chat props
   const selectedEmployee = useMemo(() => {
@@ -86,8 +139,8 @@ export function Supervisor() {
       setSelectedId(id);
 
       if (id === SUPERVISOR_ID) {
-        // Switch to supervisor session
-        switchSession(SUPERVISOR_SESSION_KEY);
+        // Switch to supervisor session (dynamic key)
+        switchSession(supervisorSessionKey);
         return;
       }
 
@@ -117,7 +170,7 @@ export function Supervisor() {
         switchSession(employee.gatewaySessionKey);
       }
     },
-    [selectedId, employees, switchSession, activateEmployee]
+    [selectedId, employees, switchSession, activateEmployee, supervisorSessionKey]
   );
 
   // Gateway not running

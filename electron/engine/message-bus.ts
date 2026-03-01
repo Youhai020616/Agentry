@@ -2,6 +2,11 @@
  * Message Bus
  * SQLite-backed cross-employee messaging system for the PocketCrow AI Employee Platform.
  *
+ * @deprecated Real-time inter-agent communication is migrating to OpenClaw native
+ * `sessions_send` via `tools.agentToAgent` config in openclaw.json.
+ * MessageBus is retained as an offline audit log / history store.
+ * New real-time messaging should use Gateway-native agent-to-agent communication.
+ *
  * Events:
  *  - 'new-message' (message: Message) — emitted when a message is inserted
  */

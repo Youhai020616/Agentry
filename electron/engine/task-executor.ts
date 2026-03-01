@@ -10,9 +10,9 @@
  *
  * Design decisions:
  * - Runs as a singleton service in the main process
- * - Uses the same Gateway RPC as Supervisor.dispatchToEmployee but with richer lifecycle
+ * - Uses Gateway RPC (`chat.send`) to dispatch tasks to employee sessions
  * - Supports concurrent task execution (one per employee, employees work in parallel)
- * - Per-employee model overrides are injected at the Gateway RPC level (ipc-handlers.ts)
+ * - Per-employee model overrides are configured in openclaw.json via registerAgentInConfig
  * - Task output is persisted in TaskQueue (SQLite)
  */
 import { EventEmitter } from 'node:events';
