@@ -12,6 +12,7 @@ import {
   getClawHubCliBinPath,
   getClawHubCliEntryPath,
 } from '../utils/paths';
+import { logger } from '../utils/logger';
 
 export interface ClawHubSearchParams {
   query: string;
@@ -89,7 +90,7 @@ export class ClawHubService {
 
       const commandArgs = this.useNodeRunner ? [this.cliEntryPath, ...args] : args;
       const displayCommand = [this.cliPath, ...commandArgs].join(' ');
-      console.log(`Running ClawHub command: ${displayCommand}`);
+      logger.debug(`Running ClawHub command: ${displayCommand}`);
 
       const isWin = process.platform === 'win32';
       const env: Record<string, string | undefined> = {
@@ -121,14 +122,14 @@ export class ClawHubService {
       });
 
       child.on('error', (error) => {
-        console.error('ClawHub process error:', error);
+        logger.error('ClawHub process error:', error);
         reject(error);
       });
 
       child.on('close', (code) => {
         if (code !== 0 && code !== null) {
-          console.error(`ClawHub command failed with code ${code}`);
-          console.error('Stderr:', stderr);
+          logger.error(`ClawHub command failed with code ${code}`);
+          logger.error('Stderr:', stderr);
           reject(new Error(`Command failed: ${stderr || stdout}`));
         } else {
           resolve(stdout.trim());
@@ -184,7 +185,7 @@ export class ClawHubService {
         })
         .filter((s): s is ClawHubSkillResult => s !== null);
     } catch (error) {
-      console.error('ClawHub search error:', error);
+      logger.error('ClawHub search error:', error);
       return [];
     }
   }
@@ -224,7 +225,7 @@ export class ClawHubService {
         })
         .filter((s): s is ClawHubSkillResult => s !== null);
     } catch (error) {
-      console.error('ClawHub explore error:', error);
+      logger.error('ClawHub explore error:', error);
       return [];
     }
   }
@@ -255,7 +256,7 @@ export class ClawHubService {
     // 1. Delete the skill directory
     const skillDir = path.join(this.workDir, 'skills', params.slug);
     if (fs.existsSync(skillDir)) {
-      console.log(`Deleting skill directory: ${skillDir}`);
+      logger.info(`Deleting skill directory: ${skillDir}`);
       await fsPromises.rm(skillDir, { recursive: true, force: true });
     }
 
@@ -265,12 +266,12 @@ export class ClawHubService {
       try {
         const lockData = JSON.parse(fs.readFileSync(lockFile, 'utf8'));
         if (lockData.skills && lockData.skills[params.slug]) {
-          console.log(`Removing ${params.slug} from lock.json`);
+          logger.info(`Removing ${params.slug} from lock.json`);
           delete lockData.skills[params.slug];
           await fsPromises.writeFile(lockFile, JSON.stringify(lockData, null, 2));
         }
       } catch (err) {
-        console.error('Failed to update ClawHub lock file:', err);
+        logger.error('Failed to update ClawHub lock file:', err);
       }
     }
   }
@@ -300,7 +301,7 @@ export class ClawHubService {
         })
         .filter((s): s is { slug: string; version: string } => s !== null);
     } catch (error) {
-      console.error('ClawHub list error:', error);
+      logger.error('ClawHub list error:', error);
       return [];
     }
   }
@@ -337,7 +338,7 @@ export class ClawHubService {
       await shell.openPath(targetFile);
       return true;
     } catch (error) {
-      console.error('Failed to open skill readme:', error);
+      logger.error('Failed to open skill readme:', error);
       throw error;
     }
   }

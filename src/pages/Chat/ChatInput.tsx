@@ -176,7 +176,6 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
         ]);
       }
 
-      console.log('[pickFiles] Staging files:', result.filePaths);
       const staged = (await window.electron.ipcRenderer.invoke(
         'file:stage',
         result.filePaths
@@ -188,18 +187,6 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
         stagedPath: string;
         preview: string | null;
       }>;
-      console.log(
-        '[pickFiles] Stage result:',
-        staged?.map((s) => ({
-          id: s?.id,
-          fileName: s?.fileName,
-          mimeType: s?.mimeType,
-          fileSize: s?.fileSize,
-          stagedPath: s?.stagedPath,
-          hasPreview: !!s?.preview,
-        }))
-      );
-
       setAttachments((prev) => {
         let updated = [...prev];
         for (let i = 0; i < tempIds.length; i++) {
@@ -247,9 +234,7 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
       ]);
 
       try {
-        console.log(`[stageBuffer] Reading file: ${file.name} (${file.type}, ${file.size} bytes)`);
         const base64 = await readFileAsBase64(file);
-        console.log(`[stageBuffer] Base64 length: ${base64?.length ?? 'null'}`);
         const staged = (await window.electron.ipcRenderer.invoke('file:stageBuffer', {
           base64,
           fileName: file.name,
@@ -262,9 +247,6 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
           stagedPath: string;
           preview: string | null;
         };
-        console.log(
-          `[stageBuffer] Staged: id=${staged?.id}, path=${staged?.stagedPath}, size=${staged?.fileSize}`
-        );
         setAttachments((prev) =>
           prev.map((a) => (a.id === tempId ? { ...staged, status: 'ready' as const } : a))
         );
@@ -294,23 +276,6 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
     const readyAttachments = attachments.filter((a) => a.status === 'ready');
     const textToSend = input.trim();
     const attachmentsToSend = readyAttachments.length > 0 ? readyAttachments : undefined;
-    console.log(
-      `[handleSend] text="${textToSend.substring(0, 50)}", attachments=${attachments.length}, ready=${readyAttachments.length}, sending=${!!attachmentsToSend}`
-    );
-    if (attachmentsToSend) {
-      console.log(
-        '[handleSend] Attachment details:',
-        attachmentsToSend.map((a) => ({
-          id: a.id,
-          fileName: a.fileName,
-          mimeType: a.mimeType,
-          fileSize: a.fileSize,
-          stagedPath: a.stagedPath,
-          status: a.status,
-          hasPreview: !!a.preview,
-        }))
-      );
-    }
     setInput('');
     setAttachments([]);
     adjustHeight(true);
@@ -399,87 +364,83 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
             dragOver && 'ring-2 ring-primary'
           )}
         >
-        {/* Attachment Previews */}
-        {attachments.length > 0 && (
-          <div className="flex gap-2 flex-wrap px-3 pt-3 pb-1">
-            {attachments.map((att) => (
-              <AttachmentPreview
-                key={att.id}
-                attachment={att}
-                onRemove={() => removeAttachment(att.id)}
-              />
-            ))}
+          {/* Attachment Previews */}
+          {attachments.length > 0 && (
+            <div className="flex gap-2 flex-wrap px-3 pt-3 pb-1">
+              {attachments.map((att) => (
+                <AttachmentPreview
+                  key={att.id}
+                  attachment={att}
+                  onRemove={() => removeAttachment(att.id)}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Textarea Area */}
+          <div className="relative">
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                adjustHeight();
+              }}
+              onKeyDown={handleKeyDown}
+              onCompositionStart={() => {
+                isComposingRef.current = true;
+              }}
+              onCompositionEnd={() => {
+                isComposingRef.current = false;
+              }}
+              onPaste={handlePaste}
+              placeholder={
+                disabled
+                  ? 'Gateway not connected...'
+                  : 'Message (Enter to send, Shift+Enter for new line)'
+              }
+              disabled={disabled}
+              className={cn(
+                'w-full resize-none bg-transparent px-4 py-3 text-sm outline-none',
+                'placeholder:text-muted-foreground/60',
+                'disabled:cursor-not-allowed disabled:opacity-50'
+              )}
+              rows={1}
+            />
           </div>
-        )}
 
-        {/* Textarea Area */}
-        <div className="relative">
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              adjustHeight();
-            }}
-            onKeyDown={handleKeyDown}
-            onCompositionStart={() => {
-              isComposingRef.current = true;
-            }}
-            onCompositionEnd={() => {
-              isComposingRef.current = false;
-            }}
-            onPaste={handlePaste}
-            placeholder={
-              disabled
-                ? 'Gateway not connected...'
-                : 'Message (Enter to send, Shift+Enter for new line)'
-            }
-            disabled={disabled}
-            className={cn(
-              'w-full resize-none bg-transparent px-4 py-3 text-sm outline-none',
-              'placeholder:text-muted-foreground/60',
-              'disabled:cursor-not-allowed disabled:opacity-50'
-            )}
-            rows={1}
-          />
-        </div>
+          {/* Toolbar */}
+          <div className="flex items-center justify-between px-3 py-1.5">
+            {/* Left: Tools */}
+            <div className="flex items-center gap-0.5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground/60 hover:text-foreground"
+                onClick={pickFiles}
+                disabled={disabled || sending}
+                title="Attach files"
+              >
+                <Paperclip className="h-4 w-4" />
+              </Button>
+            </div>
 
-        {/* Toolbar */}
-        <div className="flex items-center justify-between px-3 py-1.5">
-          {/* Left: Tools */}
-          <div className="flex items-center gap-0.5">
+            {/* Right: Send / Stop */}
             <Button
-              type="button"
-              variant="ghost"
+              onClick={sending ? handleStop : handleSend}
+              disabled={sending ? !canStop : !canSend}
               size="icon"
-              className="h-8 w-8 text-muted-foreground/60 hover:text-foreground"
-              onClick={pickFiles}
-              disabled={disabled || sending}
-              title="Attach files"
+              variant={sending ? 'destructive' : 'default'}
+              className={cn(
+                'h-8 w-8 rounded-full transition-all',
+                !sending && canSend && 'bg-primary text-primary-foreground shadow-sm'
+              )}
+              title={sending ? 'Stop' : 'Send'}
             >
-              <Paperclip className="h-4 w-4" />
+              {sending ? <Square className="h-3.5 w-3.5" /> : <ArrowUp className="h-4 w-4" />}
             </Button>
           </div>
-
-          {/* Right: Send / Stop */}
-          <Button
-            onClick={sending ? handleStop : handleSend}
-            disabled={sending ? !canStop : !canSend}
-            size="icon"
-            variant={sending ? 'destructive' : 'default'}
-            className={cn(
-              'h-8 w-8 rounded-full transition-all',
-              !sending && canSend && 'bg-primary text-primary-foreground shadow-sm'
-            )}
-            title={sending ? 'Stop' : 'Send'}
-          >
-            {sending ? (
-              <Square className="h-3.5 w-3.5" />
-            ) : (
-              <ArrowUp className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
         </div>
       </div>
     </div>

@@ -329,7 +329,7 @@ function registerCronHandlers(gatewayManager: GatewayManager, engineRef: EngineR
         return transformed;
       });
     } catch (error) {
-      console.error('Failed to list cron jobs:', error);
+      logger.error('Failed to list cron jobs:', error);
       throw error;
     }
   });
@@ -384,7 +384,7 @@ function registerCronHandlers(gatewayManager: GatewayManager, engineRef: EngineR
         }
         return result;
       } catch (error) {
-        console.error('Failed to create cron job:', error);
+        logger.error('Failed to create cron job:', error);
         throw error;
       }
     }
@@ -421,7 +421,7 @@ function registerCronHandlers(gatewayManager: GatewayManager, engineRef: EngineR
 
       return result;
     } catch (error) {
-      console.error('Failed to update cron job:', error);
+      logger.error('Failed to update cron job:', error);
       throw error;
     }
   });
@@ -435,7 +435,7 @@ function registerCronHandlers(gatewayManager: GatewayManager, engineRef: EngineR
       assignmentStore.delete(id);
       return result;
     } catch (error) {
-      console.error('Failed to delete cron job:', error);
+      logger.error('Failed to delete cron job:', error);
       throw error;
     }
   });
@@ -446,7 +446,7 @@ function registerCronHandlers(gatewayManager: GatewayManager, engineRef: EngineR
       const result = await gatewayManager.rpc('cron.update', { id, patch: { enabled } });
       return result;
     } catch (error) {
-      console.error('Failed to toggle cron job:', error);
+      logger.error('Failed to toggle cron job:', error);
       throw error;
     }
   });
@@ -499,7 +499,7 @@ function registerCronHandlers(gatewayManager: GatewayManager, engineRef: EngineR
 
       return result;
     } catch (error) {
-      console.error('Failed to trigger cron job:', error);
+      logger.error('Failed to trigger cron job:', error);
       throw error;
     }
   });
@@ -525,7 +525,7 @@ function registerUvHandlers(): void {
       await setupManagedPython();
       return { success: true };
     } catch (error) {
-      console.error('Failed to setup uv/python:', error);
+      logger.error('Failed to setup uv/python:', error);
       return { success: false, error: String(error) };
     }
   });
@@ -891,7 +891,7 @@ function registerOpenClawHandlers(employeeManager: EmployeeManager): void {
 
         return { success: true };
       } catch (error) {
-        console.error('Failed to save channel config:', error);
+        logger.error('Failed to save channel config:', error);
         return { success: false, error: String(error) };
       }
     }
@@ -903,7 +903,7 @@ function registerOpenClawHandlers(employeeManager: EmployeeManager): void {
       const config = getChannelConfig(channelType);
       return { success: true, config };
     } catch (error) {
-      console.error('Failed to get channel config:', error);
+      logger.error('Failed to get channel config:', error);
       return { success: false, error: String(error) };
     }
   });
@@ -914,7 +914,7 @@ function registerOpenClawHandlers(employeeManager: EmployeeManager): void {
       const values = getChannelFormValues(channelType);
       return { success: true, values };
     } catch (error) {
-      console.error('Failed to get channel form values:', error);
+      logger.error('Failed to get channel form values:', error);
       return { success: false, error: String(error) };
     }
   });
@@ -925,7 +925,7 @@ function registerOpenClawHandlers(employeeManager: EmployeeManager): void {
       deleteChannelConfig(channelType);
       return { success: true };
     } catch (error) {
-      console.error('Failed to delete channel config:', error);
+      logger.error('Failed to delete channel config:', error);
       return { success: false, error: String(error) };
     }
   });
@@ -936,7 +936,7 @@ function registerOpenClawHandlers(employeeManager: EmployeeManager): void {
       const channels = listConfiguredChannels();
       return { success: true, channels };
     } catch (error) {
-      console.error('Failed to list channels:', error);
+      logger.error('Failed to list channels:', error);
       return { success: false, error: String(error) };
     }
   });
@@ -955,7 +955,7 @@ function registerOpenClawHandlers(employeeManager: EmployeeManager): void {
 
       return { success: true };
     } catch (error) {
-      console.error('Failed to set channel enabled:', error);
+      logger.error('Failed to set channel enabled:', error);
       return { success: false, error: String(error) };
     }
   });
@@ -966,7 +966,7 @@ function registerOpenClawHandlers(employeeManager: EmployeeManager): void {
       const result = await validateChannelConfig(channelType);
       return { success: true, ...result };
     } catch (error) {
-      console.error('Failed to validate channel:', error);
+      logger.error('Failed to validate channel:', error);
       return { success: false, valid: false, errors: [String(error)], warnings: [] };
     }
   });
@@ -979,7 +979,7 @@ function registerOpenClawHandlers(employeeManager: EmployeeManager): void {
         const result = await validateChannelCredentials(channelType, config);
         return { success: true, ...result };
       } catch (error) {
-        console.error('Failed to validate channel credentials:', error);
+        logger.error('Failed to validate channel credentials:', error);
         return { success: false, valid: false, errors: [String(error)], warnings: [] };
       }
     }
@@ -1066,7 +1066,7 @@ function registerProviderHandlers(): void {
         try {
           saveProviderKeyToOpenClaw(config.type, apiKey);
         } catch (err) {
-          console.warn('Failed to save key to OpenClaw auth-profiles:', err);
+          logger.warn('Failed to save key to OpenClaw auth-profiles:', err);
         }
       }
 
@@ -1087,7 +1087,7 @@ function registerProviderHandlers(): void {
         try {
           removeProviderKeyFromOpenClaw(existing.type);
         } catch (err) {
-          console.warn('Failed to remove key from OpenClaw auth-profiles:', err);
+          logger.warn('Failed to remove key from OpenClaw auth-profiles:', err);
         }
       }
 
@@ -1109,7 +1109,7 @@ function registerProviderHandlers(): void {
       try {
         saveProviderKeyToOpenClaw(providerType, apiKey);
       } catch (err) {
-        console.warn('Failed to save key to OpenClaw auth-profiles:', err);
+        logger.warn('Failed to save key to OpenClaw auth-profiles:', err);
       }
 
       return { success: true };
@@ -1163,7 +1163,7 @@ function registerProviderHandlers(): void {
             removeProviderKeyFromOpenClaw(previousProviderType);
           }
         } catch (rollbackError) {
-          console.warn('Failed to rollback provider updateWithKey:', rollbackError);
+          logger.warn('Failed to rollback provider updateWithKey:', rollbackError);
         }
 
         return { success: false, error: String(error) };
@@ -1182,7 +1182,7 @@ function registerProviderHandlers(): void {
       try {
         removeProviderKeyFromOpenClaw(providerType);
       } catch (err) {
-        console.warn('Failed to remove key from OpenClaw auth-profiles:', err);
+        logger.warn('Failed to remove key from OpenClaw auth-profiles:', err);
       }
 
       return { success: true };
@@ -1231,7 +1231,7 @@ function registerProviderHandlers(): void {
             saveProviderKeyToOpenClaw(provider.type, providerKey);
           }
         } catch (err) {
-          console.warn('Failed to set OpenClaw default model:', err);
+          logger.warn('Failed to set OpenClaw default model:', err);
         }
       }
 
@@ -1263,10 +1263,10 @@ function registerProviderHandlers(): void {
         // This ensures Setup/Settings validation reflects unsaved edits immediately.
         const resolvedBaseUrl = options?.baseUrl || provider?.baseUrl || registryBaseUrl;
 
-        console.log(`[pocketcrow-validate] validating provider type: ${providerType}`);
+        logger.debug(`[pocketcrow-validate] validating provider type: ${providerType}`);
         return await validateApiKeyWithProvider(providerType, apiKey, { baseUrl: resolvedBaseUrl });
       } catch (error) {
-        console.error('Validation error:', error);
+        logger.error('Validation error:', error);
         return { valid: false, error: String(error) };
       }
     }
@@ -1325,7 +1325,7 @@ async function validateApiKeyWithProvider(
 }
 
 function logValidationStatus(provider: string, status: number): void {
-  console.log(`[pocketcrow-validate] ${provider} HTTP ${status}`);
+  logger.debug(`[pocketcrow-validate] ${provider} HTTP ${status}`);
 }
 
 function maskSecret(secret: string): string {
@@ -1371,7 +1371,7 @@ function logValidationRequest(
   url: string,
   headers: Record<string, string>
 ): void {
-  console.log(
+  logger.debug(
     `[pocketcrow-validate] ${provider} request ${method} ${sanitizeValidationUrl(url)} headers=${JSON.stringify(sanitizeHeaders(headers))}`
   );
 }
@@ -1449,7 +1449,7 @@ async function validateOpenAiCompatibleKey(
   // If /models returned 404, the provider likely doesn't implement it (e.g. MiniMax).
   // Fall back to a minimal /chat/completions POST which almost all providers support.
   if (modelsResult.error?.includes('API error: 404')) {
-    console.log(
+    logger.debug(
       `[pocketcrow-validate] ${providerType} /models returned 404, falling back to /chat/completions probe`
     );
     const base = normalizeBaseUrl(trimmedBaseUrl);
