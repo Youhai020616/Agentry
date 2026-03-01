@@ -18,12 +18,36 @@ export const PORTS = {
 } as const;
 
 /**
- * Get port from environment or default
+ * Legacy environment variable mapping.
+ * Supports both the new `POCKETCROW_PORT_*` convention and the legacy
+ * `OPENCLAW_GATEWAY_PORT` / `VITE_DEV_SERVER_PORT` names from `.env.example`.
+ */
+const LEGACY_ENV_KEYS: Partial<Record<keyof typeof PORTS, string>> = {
+  OPENCLAW_GATEWAY: 'OPENCLAW_GATEWAY_PORT',
+  POCKETCROW_DEV: 'VITE_DEV_SERVER_PORT',
+};
+
+/**
+ * Get port from environment or default.
+ *
+ * Resolution order:
+ *  1. `POCKETCROW_PORT_<key>` (new convention)
+ *  2. Legacy env var (e.g. `OPENCLAW_GATEWAY_PORT`, `VITE_DEV_SERVER_PORT`)
+ *  3. Built-in default from `PORTS`
  */
 export function getPort(key: keyof typeof PORTS): number {
+  // 1. New convention
   const envKey = `POCKETCROW_PORT_${key}`;
   const envValue = process.env[envKey];
-  return envValue ? parseInt(envValue, 10) : PORTS[key];
+  if (envValue) return parseInt(envValue, 10);
+
+  // 2. Legacy env var
+  const legacyKey = LEGACY_ENV_KEYS[key];
+  const legacyValue = legacyKey ? process.env[legacyKey] : undefined;
+  if (legacyValue) return parseInt(legacyValue, 10);
+
+  // 3. Default
+  return PORTS[key];
 }
 
 /**

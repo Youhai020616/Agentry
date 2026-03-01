@@ -5,6 +5,7 @@
 import { app, BrowserWindow, nativeImage, session, shell } from 'electron';
 import { join } from 'path';
 import { GatewayManager } from '../gateway/manager';
+import { getPort } from '../utils/config';
 import { registerIpcHandlers } from './ipc-handlers';
 import type { EngineRef } from './ipc-handlers';
 import { createTray, updateTrayMenu } from './tray';
@@ -134,9 +135,11 @@ async function initialize(): Promise<void> {
   );
 
   // Override security headers ONLY for the OpenClaw Gateway Control UI
+  const gatewayPort = getPort('OPENCLAW_GATEWAY');
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const isGatewayUrl =
-      details.url.includes('127.0.0.1:18790') || details.url.includes('localhost:18790');
+      details.url.includes(`127.0.0.1:${gatewayPort}`) ||
+      details.url.includes(`localhost:${gatewayPort}`);
 
     if (!isGatewayUrl) {
       callback({ responseHeaders: details.responseHeaders });
@@ -148,12 +151,12 @@ async function initialize(): Promise<void> {
     delete headers['x-frame-options'];
     if (headers['Content-Security-Policy']) {
       headers['Content-Security-Policy'] = headers['Content-Security-Policy'].map((csp) =>
-        csp.replace(/frame-ancestors\s+'none'/g, "frame-ancestors 'self' *")
+        csp.replace(/frame-ancestors\s+'none'/g, "frame-ancestors 'self'")
       );
     }
     if (headers['content-security-policy']) {
       headers['content-security-policy'] = headers['content-security-policy'].map((csp) =>
-        csp.replace(/frame-ancestors\s+'none'/g, "frame-ancestors 'self' *")
+        csp.replace(/frame-ancestors\s+'none'/g, "frame-ancestors 'self'")
       );
     }
     callback({ responseHeaders: headers });
