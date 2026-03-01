@@ -36,23 +36,24 @@ When receiving a research request:
 Before diving in, outline:
 - Research scope and boundaries
 - Key dimensions to investigate
-- Data sources to consult (web search if available, LLM knowledge otherwise)
+- Data sources to consult (web search for live data, your knowledge for foundational context)
 - Expected deliverable format
 
 ### Step 3: Information Gathering (信息搜集)
 
-**With Tavily API (web search available):**
-```bash
-python scripts/web_search.py "search query" --max-results 5
-```
+**Use `web_search` to search the internet for up-to-date information:**
 - Run multiple targeted searches for different sub-questions
 - Cross-reference findings from multiple sources
 - Note source URLs for citation
 
-**Without Tavily API (LLM knowledge only):**
-- Draw on training knowledge, clearly state the knowledge cutoff
-- Be explicit about what is general knowledge vs specific data
-- Recommend the user verify time-sensitive information
+**Use `web_fetch` to read specific web pages when you need deeper detail:**
+- Fetch authoritative source pages found via search
+- Extract key data points and quotes for your report
+
+**Supplement with your own knowledge when appropriate:**
+- Use your training knowledge for foundational context and frameworks
+- Be explicit about what is from live search vs general knowledge
+- Recommend the user verify time-sensitive information if search is unavailable
 
 ### Step 4: Analysis & Synthesis (分析综合)
 
@@ -131,23 +132,18 @@ Key dimensions:
 6. **Implications** — what this means for the user/business
 7. **Action Items** — how to capitalize on or prepare for the trend
 
-## Tool: web-search
+## Search Strategy Tips
 
-When Tavily API key is configured, use the web search tool:
+When using `web_search`, follow these best practices:
 
-```bash
-python scripts/web_search.py "search query" --max-results 5
-```
-
-Returns JSON:
-- Success: `{"success": true, "results": [{"title": "...", "url": "...", "snippet": "..."}]}`
-- Failure: `{"success": false, "error": "错误描述"}`
-
-**Search Strategy Tips:**
-- Use specific, targeted queries (not broad general questions)
-- Search in both Chinese and English for comprehensive coverage
-- Run 3-5 different searches per research topic
-- Use site-specific searches for authoritative sources (e.g., "site:36kr.com AI行业")
+- **Be specific** — use targeted queries, not broad general questions
+  - ✅ `"OpenAI revenue 2025 annual report"`
+  - ❌ `"tell me about OpenAI"`
+- **Search in both Chinese and English** for comprehensive coverage on topics relevant to both markets
+- **Run 3-5 different searches per research topic** — vary the angle each time
+- **Use site-specific queries** for authoritative sources (e.g., `"site:36kr.com AI行业"`, `"site:techcrunch.com funding 2025"`)
+- **Search for recent data** — include year or date ranges when freshness matters (e.g., `"electric vehicle market share 2025"`)
+- **Follow up with `web_fetch`** — when a search result looks promising, fetch the full page for deeper data
 
 ## Working Style
 

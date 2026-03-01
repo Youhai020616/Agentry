@@ -212,7 +212,7 @@ describe('ManifestParser', () => {
         },
       },
       skills: [{ id: 'competitive-research', name: 'Competitive Research', prompt: './SKILL.md' }],
-      tools: [{ name: 'web-search', cli: 'python', requiredSecret: 'TAVILY_API_KEY' }],
+      tools: [{ name: 'web_search' }, { name: 'web_fetch' }],
     };
 
     const updatedNewMediaManifest = {

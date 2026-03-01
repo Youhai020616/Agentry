@@ -1,4 +1,8 @@
-# Multi-Agent Migration
+# Task Tracker
+
+---
+
+## Multi-Agent Migration
 
 > Ref: `docs/clawx-multi-agent-migration-feasibility.md`
 > POC: `scripts/poc-multi-agent.mjs` — 9/9 tests passed ✅
@@ -231,3 +235,149 @@ activate(id)
 
 Verification: typecheck ✔, lint ✔, test ✔ (107 pass)
 </details>
+
+---
+
+## Switch to OpenClaw-managed Browser Mode — ✅ DONE
+
+### Context
+OpenClaw has 3 browser control modes:
+1. **OpenClaw-managed** (`openclaw` profile) — Launches dedicated Chrome/Chromium instance via CDP. Zero config, auto-detected. **Recommended default.**
+2. **Extension Relay** (`chrome` profile) — Controls existing Chrome tabs via MV3 extension + local CDP relay. Requires manual extension install + click to attach.
+3. **Remote CDP** — Connects to remote CDP URL (cloud deployments).
+
+ClawX was using Extension Relay mode (`chrome` profile) as default, which required users to:
+1. Open `chrome://extensions`, enable Developer mode
+2. Load unpacked extension from `~/.openclaw/browser/chrome-extension`
+3. Navigate to target site
+4. Click "Connect" in extension popup
+5. THEN the browser tool would work
+
+This was a terrible UX. OpenClaw-managed mode "just works".
+
+### Changes Made
+- [x] `electron/engine/browser-manager.ts` — Changed default profile from `'chrome'` to `'openclaw'`
+- [x] `electron/engine/browser-manager.ts` — Changed managed Chromium detection to search for `openclaw` profile
+- [x] `electron/engine/browser-manager.ts` — Updated `getLaunchConfig()` to use `openclaw` profile by default
+- [x] `electron/engine/browser-manager.ts` — Added `getProfileName()` helper returning `'openclaw'`
+- [x] Verified Gateway launches dedicated Chrome instance on `browser.open` command
+
+### Impact
+- Zero configuration needed for browser automation
+- `browser.open` → Gateway launches its own Chrome → controls via CDP
+- Extension relay mode still works if user explicitly configures `chrome` profile
+
+---
+
+## Browser IPC Bridge + Web Search Migration — ✅ DONE
+
+### Phase 1 — Register Built-in Web Tools ✅ DONE
+
+**Problem**: `web_search` and `web_fetch` are Gateway-native tools but weren't recognized by ClawX's built-in tool system. Adding
+`web_fetch` to the built-in list makes the system properly recognize these Gateway-native tools.
+
+### 1.1 Update `electron/engine/browser-tool-prompt.ts`
+- [x] Add `'web_search'` and `'web_fetch'` to `BUILTIN_TOOL_NAMES` array
+- [x] Add `generateWebSearchToolPrompt()` — minimal behavioral guidance (the SKILL.md
+      already provides comprehensive instructions; this is a light fallback for any
+      employee that declares `web_search` but doesn't cover it in their SKILL.md)
+- [x] Add `generateWebFetchToolPrompt()` — behavioral guidance for web page fetching
+- [x] Update `generateBuiltinToolPrompt()` switch to handle `'web_search'` and `'web_fetch'`
+- [x] Updated file header comments to reflect broader scope (browser + web tools)
+- [ ] Consider renaming file to `builtin-tool-prompts.ts` (optional, low priority)
+
+### 1.2 Update `resources/employees/researcher/manifest.json`
+- [x] Add `tools` array back: `[{ "name": "web_search" }, { "name": "web_fetch" }]`
+- [x] This makes the dependency explicit — the system knows the researcher uses web search
+
+### 1.3 Update tests
+- [x] `tests/unit/engine/tool-registry-browser.test.ts` — add tests for `web_search` / `web_fetch`
+      as recognized built-in tools (registration, `hasBuiltinTool`, prompt generation)
+- [x] Verify existing `web-search` (hyphenated, custom CLI tool) tests still pass (they test
+      a different tool name pattern — `web-search` with cli vs `web_search` without cli)
+- [x] `tests/unit/engine/manifest-parser.test.ts` — update researcher fixture with tools array
+
+### 1.4 Verify
+- [x] `pnpm typecheck` — 0 new errors (21 pre-existing: 20 MediaStudio framer-motion + 1 Sidebar unused import)
+- [x] `pnpm test` — manifest-parser 19/19 pass, tool-registry-browser all pass (new tests included)
+- [x] compiler.test.ts 5 failures are pre-existing (Language section injection, unrelated)
+
+## Phase 2 — Search Provider Configuration
+
+For `web_search` to actually return results, the Gateway needs a search-capable API key.
+The Gateway auto-detects which search backend to use based on available env vars.
+
+### Supported search providers (Gateway-side)
+
+| Provider        | Env Var                                      | In ClawX provider-registry? |
+|-----------------|----------------------------------------------|-----------------------------|
+| Brave Search    | `BRAVE_API_KEY`                              | ❌ No                       |
+| Google (Gemini) | `GEMINI_API_KEY`                             | ✅ Yes (`google`)           |
+| Perplexity      | `PERPLEXITY_API_KEY` or `OPENROUTER_API_KEY` | ✅ Yes (via `openrouter`)   |
+| xAI / Grok      | `XAI_API_KEY`                                | ✅ Yes (`xai`)              |
+
+Auto-detection order: Brave → Gemini → **Perplexity** → Grok.
+
+### User's current keys: `openrouter`, `dashscope`
+✅ **`OPENROUTER_API_KEY` enables Perplexity Sonar for `web_search`!**
+(per OpenClaw docs: https://docs.openclaw.ai/tools/web)
+
+### 2.1 ✅ DONE — Configure Perplexity via OpenRouter
+- [x] Confirmed OpenRouter key exists in `~/.openclaw/agents/main/agent/auth-profiles.json`
+- [x] Added explicit `tools.web.search.provider = "perplexity"` to `~/.openclaw/openclaw.json`
+- [x] Gateway startup injects `OPENROUTER_API_KEY` env var via provider-registry
+- [x] No additional API keys needed — OpenRouter proxies Perplexity Sonar for search
+
+### 2.2 Alternative — Add Brave Search key (optional, not needed)
+- [ ] Add `brave` entry to `electron/utils/provider-registry.ts` REGISTRY:
+      `brave: { envVar: 'BRAVE_API_KEY' }`
+- [ ] Add `'brave'` to `BUILTIN_PROVIDER_TYPES` (or handle as a non-LLM utility provider)
+- [ ] Update `src/lib/providers.ts` frontend provider list
+- [ ] This lets users configure `BRAVE_API_KEY` through the Settings UI
+- [ ] Get a free key at https://brave.com/search/api/
+
+### 2.3 Alternative — Add Google provider (optional, not needed)
+- [ ] In Settings → Providers, add a Google/Gemini provider with a `GEMINI_API_KEY`
+- [ ] This enables both LLM access (Gemini models) AND Google Search grounding for `web_search`
+
+## Phase 3 — End-to-End Verification ✅ DONE
+
+- [x] Gateway confirmed running on port 18790
+- [x] Researcher employee listed with `tools: [web_search, web_fetch]`
+- [x] Sent query: "用 web_search 搜索一下 OpenAI 2025年的最新融资情况"
+  - ✅ Researcher called `web_search` and returned real-time data:
+    - OpenAI 2025 年 400 亿美元融资，估值 3000 亿美元
+    - 2026 年 2 月 1100 亿美元新融资，估值 7300 亿美元
+    - 投资方：软银 300 亿、英伟达 300 亿、亚马逊 500 亿
+- [x] Sent query: "帮我调研一下 2025 年 AI Agent 市场的现状"
+  - ✅ Researcher returned structured summary with live data:
+    - 市场规模：76-77 亿美元，CAGR 38%+
+    - 核心玩家：OpenAI、Anthropic、谷歌
+    - 趋势：HR/金融/零售落地，北美主导，亚太 35%+ 增速
+- [x] Search backend: Perplexity Sonar via `OPENROUTER_API_KEY` (auto-detected)
+
+### Verified behavior
+- Gateway auto-detected Perplexity via `OPENROUTER_API_KEY` ✅
+- `web_search` calls Perplexity Sonar models through OpenRouter ✅
+- Returns AI-synthesized answers with real-time data ✅
+- `web_fetch` works independently (HTTP GET, no search key needed)
+- Test command: `GATEWAY_PORT=18790 node scripts/test-gateway-chat.mjs --employee researcher "query"`
+
+## Files Changed (Browser + Web Search PR)
+
+| File | Action | Phase | Status |
+|------|--------|-------|--------|
+| `electron/engine/browser-tool-prompt.ts` | Add web_search/web_fetch to BUILTIN_TOOL_NAMES + prompts | 1.1 | ✅ Done |
+| `resources/employees/researcher/manifest.json` | Add tools array with web_search + web_fetch | 1.2 | ✅ Done |
+| `tests/unit/engine/tool-registry-browser.test.ts` | Add web_search built-in tool tests | 1.3 | ✅ Done |
+| `tests/unit/engine/manifest-parser.test.ts` | Update researcher fixture with tools | 1.3 | ✅ Done |
+| `~/.openclaw/openclaw.json` | Add `tools.web.search.provider = "perplexity"` | 2.1 | ✅ Done |
+| `electron/utils/provider-registry.ts` | (Optional) Add brave provider entry | 2.2 | Deferred |
+| `src/lib/providers.ts` | (Optional) Add brave to frontend list | 2.2 | Deferred |
+
+## Not Changed (intentionally)
+
+- `electron/engine/tool-registry.ts` — no changes needed; already supports built-in tools
+- `electron/engine/compiler.ts` — no changes needed; already appends tool prompt sections
+- `electron/main/ipc-handlers.ts` — no changes needed; system prompts handled via AGENTS.md in native workspaces
+- `resources/employees/researcher/SKILL.md` — already complete with native tool instructions

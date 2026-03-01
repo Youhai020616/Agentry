@@ -1,6 +1,6 @@
 {
   "name": "researcher",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Research analyst - conducts competitive research, industry analysis, trend reports using web search and LLM reasoning",
   "author": "PocketCrow Team",
   "type": "knowledge",
@@ -34,26 +34,9 @@
   ],
   "capabilities": {
     "inputs": ["text", "url", "brief", "research-question"],
-    "outputs": ["research-report", "analysis-document"],
-    "runtime": {
-      "requires": ["python3"],
-      "packages": ["requests"]
-    }
+    "outputs": ["research-report", "analysis-document"]
   },
-  "tools": [
-    {
-      "name": "web-search",
-      "cli": "python",
-      "requiredSecret": "TAVILY_API_KEY"
-    }
-  ],
-  "secrets": {
-    "TAVILY_API_KEY": {
-      "required": false,
-      "description": "Tavily API key for web search (optional - without it, research is based on LLM knowledge only)",
-      "obtainUrl": "https://tavily.com"
-    }
-  },
+  "tools": [{ "name": "web_search" }, { "name": "web_fetch" }],
   "pricing": {
     "model": "included"
   }

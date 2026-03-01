@@ -3,14 +3,18 @@
  * Wraps the `openclaw browser` CLI commands to provide browser automation
  * capabilities from the Electron Main process.
  *
+ * Uses the OpenClaw-managed browser mode (`openclaw` profile) which launches
+ * a dedicated Chrome/Chromium instance with its own user data directory.
+ * This is fully automatic — no Chrome extension or manual setup required.
+ *
  * Architecture:
  *   Renderer (Browser page)
  *     ↓ IPC invoke
  *   Main Process (this module)
  *     ↓ child_process.execFile / spawn
- *   OpenClaw CLI (`openclaw browser <cmd> --json`)
- *     ↓ CDP + Playwright
- *   Chromium Browser
+ *   OpenClaw CLI (`openclaw browser <cmd> --browser-profile openclaw --json`)
+ *     ↓ CDP (Chrome DevTools Protocol)
+ *   OpenClaw-managed Chrome/Chromium (isolated instance, auto-launched)
  *
  * All public methods return typed results parsed from the CLI's `--json` output.
  * The manager tracks browser lifecycle state and emits events for the IPC layer.
@@ -85,7 +89,8 @@ export class BrowserManager extends EventEmitter {
   // ── Lifecycle ────────────────────────────────────────────────────
 
   /**
-   * Start the managed browser (opens a dedicated Chrome profile).
+   * Start the OpenClaw-managed browser (launches a dedicated Chrome/Chromium instance).
+   * No Chrome extension required — the browser is fully managed via CDP.
    */
   async start(profile?: string): Promise<BrowserState> {
     if (this._status === 'running') {

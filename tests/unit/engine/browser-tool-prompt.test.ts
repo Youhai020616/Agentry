@@ -87,16 +87,16 @@ describe('generateBrowserToolPrompt', () => {
   // ── Error Handling ─────────────────────────────────────────────────
 
   describe('contains error handling guidance', () => {
-    it('mentions extension not connected error', () => {
-      expect(prompt).toContain('no tab is connected');
-    });
-
-    it('mentions extension not installed error', () => {
-      expect(prompt).toContain('extension is not installed');
-    });
-
     it('mentions browser not running error', () => {
       expect(prompt).toContain('not running');
+    });
+
+    it('mentions no browser detected error', () => {
+      expect(prompt).toContain('no browser detected');
+    });
+
+    it('mentions CDP connection errors', () => {
+      expect(prompt).toContain('CDP connection errors');
     });
 
     it('advises not to guess recovery steps', () => {

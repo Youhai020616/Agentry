@@ -163,6 +163,9 @@ export class SkillCompiler {
       }
     }
 
+    // Language instruction is already prepended via LANG_RULE_PREFIX (top of prompt).
+    // No need for a duplicate ## Language section here.
+
     // Append work loop prompt for non-supervisor employees (P0 fix)
     if (employeeId && this.workLoopPromptProvider && !this.workLoopExcludeIds.has(employeeId)) {
       try {

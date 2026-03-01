@@ -106,7 +106,7 @@ Phase 1 additions:
 4. **task-queue.ts** — Persistent queue with SQLite
 5. **message-bus.ts** — Inter-employee messaging
 6. **supervisor.ts** — PM agent that breaks down projects into tasks
-7. **memory.ts** — Three-layer memory (working, episodic, semantic)
+7. **memory.ts** — File-backed memory (episodic + brand context)
 
 ---
 
@@ -120,7 +120,7 @@ Phase 1 additions:
 | `electron/engine/task-queue.ts` | SQLite-backed task persistence | NEW (Phase 1) |
 | `electron/engine/supervisor.ts` | PM orchestration | NEW (Phase 1) |
 | `electron/engine/message-bus.ts` | Inter-employee messaging | NEW (Phase 1) |
-| `electron/engine/memory.ts` | Three-layer memory system | NEW (Phase 1) |
+| `electron/engine/memory.ts` | File-backed memory (episodic MEMORY.md + shared BRAND.md) | DONE |
 | `electron/gateway/manager.ts` | Gateway RPC integration | EXISTING (~1058 lines) |
 | `electron/gateway/client.ts` | Typed Gateway calls | EXISTING |
 | `electron/gateway/protocol.ts` | JSON-RPC 2.0 types | EXISTING |

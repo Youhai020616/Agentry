@@ -99,6 +99,40 @@ Patterns and mistakes to avoid, updated after each correction.
 
 ---
 
+## 2026-03-01 — Prefer Gateway Built-in Tools Over Custom Wrappers
+
+### 23. Always check what OpenClaw Gateway provides natively before building custom tool wrappers
+
+**The mistake**: The Researcher employee used a custom Python script (`scripts/web_search.py`)
+calling the Tavily API via the `exec` tool to perform web searches. This introduced unnecessary
+dependencies (Python3, UV runtime, `requests` package, a separate Tavily API key) and a broken
+secret injection chain (`resolveTools()` was never called in production code).
+
+**What we missed**: OpenClaw Gateway **already ships a native `web_search` tool** that supports
+Brave Search (default), Gemini/Google Search grounding, Perplexity Sonar, and Grok — auto-detected
+by whichever API key the user has configured at the Gateway level. It also ships `web_fetch` for
+reading individual web pages. Both are enabled by default under `group:web`.
+
+**The fix**: Removed the Python script, `tools`/`secrets`/`runtime` from `manifest.json`, and
+rewrote `SKILL.md` to instruct the LLM to use the native `web_search` and `web_fetch` tools
+directly. Zero extra dependencies, zero per-employee secret configuration needed.
+
+**Rule**: Before adding a custom CLI tool (`exec → python script → external API`), always check:
+1. Does the Gateway already have a built-in tool for this? (Check https://docs.openclaw.ai/tools)
+2. Can the LLM call it directly as a native tool call instead of going through `exec`?
+3. Built-in tools get caching, rate limiting, and proper API key management for free.
+
+**Gateway built-in tools to be aware of**:
+- `web_search` — Brave / Gemini / Perplexity / Grok (auto-detected by API key)
+- `web_fetch` — HTTP GET + readable extraction (HTML → markdown)
+- `browser` — full browser automation (CDP + Playwright)
+- `exec` — shell command execution
+- `read` / `write` / `edit` / `apply_patch` — file operations
+- `memory_search` / `memory_get` — persistent memory
+- `message` / `cron` / `gateway` — messaging and automation
+
+---
+
 ## 2026-02-28 — Test Environment & Platform Fixes
 
 ### 22. Engine tests MUST use `// @vitest-environment node` directive
