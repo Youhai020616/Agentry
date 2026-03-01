@@ -101,8 +101,7 @@ export function registerIpcHandlers(
   // ClawHub handlers
   registerClawHubHandlers(clawHubService);
 
-  // OpenClaw handlers
-  registerOpenClawHandlers();
+  // OpenClaw handlers (registered later, after employeeManager is initialized)
 
   // Provider handlers
   registerProviderHandlers();
@@ -157,6 +156,7 @@ export function registerIpcHandlers(
     }
   });
 
+  registerOpenClawHandlers(employeeManager);
   registerEmployeeHandlers(employeeManager);
   registerBuiltinSkillHandlers(employeeManager);
   registerTaskHandlers(engineRef, gatewayManager);
@@ -819,7 +819,7 @@ function registerGatewayHandlers(
  * OpenClaw-related IPC handlers
  * For checking package status and channel configuration
  */
-function registerOpenClawHandlers(): void {
+function registerOpenClawHandlers(employeeManager: EmployeeManager): void {
   // Get OpenClaw package status
   ipcMain.handle('openclaw:status', () => {
     const status = getOpenClawStatus();
@@ -880,6 +880,15 @@ function registerOpenClawHandlers(): void {
       try {
         logger.info('channel:saveConfig', { channelType, keys: Object.keys(config || {}) });
         saveChannelConfig(channelType, config);
+
+        // Sync channel→supervisor bindings so the new channel is routed correctly.
+        // This is a no-op if the supervisor is not active.
+        try {
+          await employeeManager.syncChannelBindings();
+        } catch (err) {
+          logger.warn(`Failed to sync channel bindings after saveConfig: ${err}`);
+        }
+
         return { success: true };
       } catch (error) {
         console.error('Failed to save channel config:', error);
@@ -936,6 +945,14 @@ function registerOpenClawHandlers(): void {
   ipcMain.handle('channel:setEnabled', async (_, channelType: string, enabled: boolean) => {
     try {
       setChannelEnabled(channelType, enabled);
+
+      // Sync channel→supervisor bindings so enabled/disabled state is reflected.
+      try {
+        await employeeManager.syncChannelBindings();
+      } catch (err) {
+        logger.warn(`Failed to sync channel bindings after setEnabled: ${err}`);
+      }
+
       return { success: true };
     } catch (error) {
       console.error('Failed to set channel enabled:', error);
