@@ -58,6 +58,7 @@ export interface LazyEngineContext {
  */
 function checkNativeModules(): void {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     require('better-sqlite3');
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -67,7 +68,7 @@ function checkNativeModules(): void {
         'better-sqlite3 was compiled for a different Node.js version than Electron uses. ' +
         'Run "npx electron-rebuild -f -w better-sqlite3" and restart the app.';
       logger.error(hint);
-      throw new Error(hint);
+      throw new Error(hint, { cause: err });
     }
     // Re-throw other errors (e.g. file not found)
     throw err;

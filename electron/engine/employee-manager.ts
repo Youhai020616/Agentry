@@ -152,7 +152,7 @@ export class EmployeeManager extends EventEmitter {
 
       employee.systemPrompt = this.compiler.compile(employee.skillDir, manifest, id);
     } catch (err) {
-      throw new Error(`Failed to compile system prompt for ${id}: ${err}`);
+      throw new Error(`Failed to compile system prompt for ${id}: ${err}`, { cause: err });
     }
 
     // Ensure skill is in Gateway's skills directory

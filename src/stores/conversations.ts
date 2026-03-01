@@ -170,14 +170,12 @@ function applyFilter(conversations: Conversation[], filter?: ConversationFilter)
     const sortBy = filter.sortBy || 'updatedAt';
     const sortDir = filter.sortDirection || 'desc';
     result.sort((a, b) => {
-      let cmp = 0;
-      if (sortBy === 'title') {
-        cmp = a.title.localeCompare(b.title);
-      } else if (sortBy === 'createdAt') {
-        cmp = a.createdAt - b.createdAt;
-      } else {
-        cmp = a.updatedAt - b.updatedAt;
-      }
+      const cmp =
+        sortBy === 'title'
+          ? a.title.localeCompare(b.title)
+          : sortBy === 'createdAt'
+            ? a.createdAt - b.createdAt
+            : a.updatedAt - b.updatedAt;
       return sortDir === 'asc' ? cmp : -cmp;
     });
 
