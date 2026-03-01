@@ -960,27 +960,9 @@ describe('Supervisor Engine E2E (Real SQLite)', () => {
     expect(tasks[0].subject).toBe('Task from code block');
   });
 
-  // ── Test 12: Feishu Delegation Parsing ───────────────────────────
-
-  it('should parse DELEGATE markers from Supervisor responses', () => {
-    const response = `好的，我来安排 SEO 专家帮你分析一下。
-
-<!-- DELEGATE
-{"employee": "seo-specialist", "task": "Analyze https://example.com for SEO issues", "context": "User wants a quick audit"}
--->`;
-
-    const parsed = supervisor.parseDelegation(response);
-    expect(parsed).not.toBeNull();
-    expect(parsed!.acknowledgment).toBe('好的，我来安排 SEO 专家帮你分析一下。');
-    expect(parsed!.delegation.employee).toBe('seo-specialist');
-    expect(parsed!.delegation.task).toContain('Analyze');
-    expect(parsed!.delegation.context).toBe('User wants a quick audit');
-  });
-
-  it('should return null for responses without DELEGATE markers', () => {
-    const parsed = supervisor.parseDelegation('Just a normal response without delegation');
-    expect(parsed).toBeNull();
-  });
+  // ── Test 12: DELEGATE parsing tests removed (Phase 5) ───────────
+  // Legacy `parseDelegation()` has been removed. Delegation is now handled
+  // natively by the Supervisor agent via `sessions_spawn`.
 
   // ── Test 13: Message Bus Roundtrip ───────────────────────────────
 

@@ -2,6 +2,7 @@ import { app } from 'electron';
 import { spawn } from 'child_process';
 import { existsSync } from 'fs';
 import { join } from 'path';
+import { logger } from './logger';
 import { getUvMirrorEnv } from './uv-env';
 
 /**
@@ -12,7 +13,7 @@ function getBundledUvPath(): string {
   const arch = process.arch;
   const target = `${platform}-${arch}`;
   const binName = platform === 'win32' ? 'uv.exe' : 'uv';
-  
+
   if (app.isPackaged) {
     // In production, we flattened the structure to 'bin/'
     return join(process.resourcesPath, 'bin', binName);
@@ -51,7 +52,7 @@ export async function installUv(): Promise<void> {
     const bin = getBundledUvPath();
     throw new Error(`uv not found in system PATH and bundled binary missing at ${bin}`);
   }
-  console.log('uv is available and ready to use');
+  logger.info('uv is available and ready to use');
 }
 
 /**
@@ -95,8 +96,8 @@ export async function setupManagedPython(): Promise<void> {
   });
 
   const uvBin = inPath ? 'uv' : getBundledUvPath();
-  
-  console.log(`Setting up python with: ${uvBin}`);
+
+  logger.info(`Setting up python with: ${uvBin}`);
   const uvEnv = await getUvMirrorEnv();
 
   await new Promise<void>((resolve, reject) => {
@@ -109,12 +110,12 @@ export async function setupManagedPython(): Promise<void> {
     });
 
     child.stdout?.on('data', (data) => {
-      console.log(`python setup stdout: ${data}`);
+      logger.info(`python setup stdout: ${data}`);
     });
 
     child.stderr?.on('data', (data) => {
       // uv prints progress to stderr, so we log it as info
-      console.log(`python setup info: ${data.toString().trim()}`);
+      logger.info(`python setup info: ${data.toString().trim()}`);
     });
 
     child.on('close', (code) => {
@@ -136,16 +137,18 @@ export async function setupManagedPython(): Promise<void> {
         },
       });
       let output = '';
-      child.stdout?.on('data', (data) => { output += data; });
+      child.stdout?.on('data', (data) => {
+        output += data;
+      });
       child.on('close', () => resolve(output.trim()));
     });
-    
+
     if (findPath) {
-      console.log(`✅ Managed Python 3.12 path: ${findPath}`);
-      // Note: uv stores environments in a central cache, 
+      logger.info(`Managed Python 3.12 path: ${findPath}`);
+      // Note: uv stores environments in a central cache,
       // Individual skills will create their own venvs in ~/.cache/uv or similar.
     }
   } catch (err) {
-    console.warn('Could not determine Python path:', err);
+    logger.warn(`Could not determine Python path: ${err}`);
   }
 }

@@ -26,9 +26,9 @@ const itemVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] },
+    transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as const },
   },
-};
+} as const;
 
 // ---------------------------------------------------------------------------
 // Mock Cost Data
@@ -72,9 +72,7 @@ function CostBar({ entry }: { entry: CostEntry }) {
     <motion.div variants={itemVariants} className="space-y-1.5">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium">{entry.service}</span>
-        <span className="text-sm font-semibold tabular-nums">
-          ${entry.amount.toFixed(2)}
-        </span>
+        <span className="text-sm font-semibold tabular-nums">${entry.amount.toFixed(2)}</span>
       </div>
       <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
         <motion.div

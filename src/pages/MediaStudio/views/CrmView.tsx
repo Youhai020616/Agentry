@@ -30,9 +30,9 @@ const itemVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] },
+    transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as const },
   },
-};
+} as const;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -53,7 +53,10 @@ const platformBadgeStyle: Record<Platform, { text: string; border: string }> = {
   },
 };
 
-const intentBadgeStyle: Record<string, { variant: 'success' | 'warning' | 'secondary'; label: string }> = {
+const intentBadgeStyle: Record<
+  string,
+  { variant: 'success' | 'warning' | 'secondary'; label: string }
+> = {
   high: { variant: 'success', label: 'crm.intentHigh' },
   medium: { variant: 'warning', label: 'crm.intentMedium' },
   low: { variant: 'secondary', label: 'crm.intentLow' },
@@ -269,12 +272,8 @@ function LeadsTab({ leads }: { leads: LeadItem[] }) {
               <th className="px-4 py-2.5 text-left font-semibold text-muted-foreground">
                 {t('crm.leads')}
               </th>
-              <th className="px-4 py-2.5 text-left font-semibold text-muted-foreground">
-                Tags
-              </th>
-              <th className="px-4 py-2.5 text-center font-semibold text-muted-foreground">
-                #
-              </th>
+              <th className="px-4 py-2.5 text-left font-semibold text-muted-foreground">Tags</th>
+              <th className="px-4 py-2.5 text-center font-semibold text-muted-foreground">#</th>
               <th className="px-4 py-2.5 text-center font-semibold text-muted-foreground">
                 Intent
               </th>
@@ -288,10 +287,7 @@ function LeadsTab({ leads }: { leads: LeadItem[] }) {
               const pStyle = platformBadgeStyle[lead.platform];
               const intent = intentBadgeStyle[lead.intent];
               return (
-                <tr
-                  key={lead.id}
-                  className="hover:bg-accent/30 transition-colors cursor-pointer"
-                >
+                <tr key={lead.id} className="hover:bg-accent/30 transition-colors cursor-pointer">
                   {/* Name */}
                   <td className="px-4 py-3 font-medium">{lead.name}</td>
                   {/* Platform */}
@@ -327,10 +323,7 @@ function LeadsTab({ leads }: { leads: LeadItem[] }) {
                   <td className="px-4 py-3 text-center">{lead.interactions}</td>
                   {/* Intent */}
                   <td className="px-4 py-3 text-center">
-                    <Badge
-                      variant={intent.variant}
-                      className="rounded-md px-1.5 py-0 text-[10px]"
-                    >
+                    <Badge variant={intent.variant} className="rounded-md px-1.5 py-0 text-[10px]">
                       {t(intent.label)}
                     </Badge>
                   </td>
@@ -405,10 +398,7 @@ export function CrmView() {
 
       {/* Tabs */}
       <motion.div variants={itemVariants}>
-        <Tabs
-          value={crmTab}
-          onValueChange={(v) => setCrmTab(v as 'dm' | 'comments' | 'leads')}
-        >
+        <Tabs value={crmTab} onValueChange={(v) => setCrmTab(v as 'dm' | 'comments' | 'leads')}>
           <TabsList className="mb-4">
             <TabsTrigger value="dm" className="gap-1.5 text-xs">
               <MessageSquare className="h-3.5 w-3.5" />

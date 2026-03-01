@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { Search, ArrowRight, Users, Target, Calendar, Sparkles } from 'lucide-react';
-import { cn } from '@/lib/utils';
+
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -196,11 +196,7 @@ export function StudioStepBrand() {
                   <p className="text-xs text-muted-foreground">{comp.style}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {comp.strengths.map((s) => (
-                      <Badge
-                        key={s}
-                        variant="outline"
-                        className="text-[10px] font-normal"
-                      >
+                      <Badge key={s} variant="outline" className="text-[10px] font-normal">
                         {s}
                       </Badge>
                     ))}
@@ -299,11 +295,7 @@ export function StudioStepBrand() {
 
           {/* Confirm and continue */}
           <div className="flex justify-end">
-            <Button
-              size="lg"
-              onClick={() => setStudioStep(1 as StudioStep)}
-              className="gap-2"
-            >
+            <Button size="lg" onClick={() => setStudioStep(1 as StudioStep)} className="gap-2">
               {t('studio.step0.confirmBtn')}
               <ArrowRight className="h-4 w-4" />
             </Button>

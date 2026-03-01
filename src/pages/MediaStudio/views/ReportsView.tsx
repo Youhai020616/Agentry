@@ -40,9 +40,9 @@ const itemVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] },
+    transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as const },
   },
-};
+} as const;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -128,10 +128,7 @@ export function ReportsView() {
       animate="visible"
     >
       {/* Header: period tabs + date navigation */}
-      <motion.div
-        variants={itemVariants}
-        className="flex items-center justify-between gap-4"
-      >
+      <motion.div variants={itemVariants} className="flex items-center justify-between gap-4">
         {/* Period tabs */}
         <div className="flex rounded-lg bg-muted p-0.5">
           {periodTabs.map((tab) => (
@@ -249,9 +246,7 @@ export function ReportsView() {
                   >
                     {idx + 1}
                   </Badge>
-                  <span className="text-sm text-muted-foreground leading-relaxed">
-                    {highlight}
-                  </span>
+                  <span className="text-sm text-muted-foreground leading-relaxed">{highlight}</span>
                 </li>
               ))}
             </ul>

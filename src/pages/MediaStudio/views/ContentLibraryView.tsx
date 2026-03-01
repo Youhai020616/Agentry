@@ -26,12 +26,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -60,9 +55,9 @@ const cardVariants = {
     opacity: 1,
     y: 0,
     scale: 1,
-    transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] },
+    transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as const },
   },
-};
+} as const;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -80,7 +75,13 @@ const CONTENT_TYPE_ICONS: Record<ContentType, React.ComponentType<{ className?: 
   article: FileText,
 };
 
-const STATUS_BADGE_STYLES: Record<ContentStatus, { variant: 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning'; className?: string }> = {
+const STATUS_BADGE_STYLES: Record<
+  ContentStatus,
+  {
+    variant: 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning';
+    className?: string;
+  }
+> = {
   draft: { variant: 'secondary' },
   review: { variant: 'warning' },
   approved: { variant: 'success' },
@@ -116,18 +117,14 @@ function StatusTabs({
             onClick={() => onFilterChange(key)}
             className={cn(
               'relative flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-              isActive
-                ? 'text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
+              isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
             )}
           >
             <span>{t(`content.${key}`)}</span>
             <span
               className={cn(
                 'inline-flex h-5 min-w-[20px] items-center justify-center rounded-md px-1 text-[11px] font-semibold',
-                isActive
-                  ? 'bg-primary/10 text-primary'
-                  : 'bg-muted text-muted-foreground'
+                isActive ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
               )}
             >
               {counts[key]}
@@ -176,13 +173,7 @@ function PlatformFilter({
 }
 
 /** Single content card in the grid */
-function ContentCard({
-  item,
-  onClick,
-}: {
-  item: ContentItem;
-  onClick: () => void;
-}) {
+function ContentCard({ item, onClick }: { item: ContentItem; onClick: () => void }) {
   const { t } = useTranslation('media-studio');
   const TypeIcon = CONTENT_TYPE_ICONS[item.type];
   const statusStyle = STATUS_BADGE_STYLES[item.status];
@@ -230,9 +221,7 @@ function ContentCard({
           <h4 className="truncate text-sm font-medium text-foreground">{item.title}</h4>
 
           {/* Tags */}
-          <p className="mt-1 truncate text-xs text-muted-foreground">
-            {item.tags.join(', ')}
-          </p>
+          <p className="mt-1 truncate text-xs text-muted-foreground">{item.tags.join(', ')}</p>
 
           {/* Bottom row: author + date + status */}
           <div className="mt-3 flex items-center justify-between">
@@ -381,10 +370,7 @@ function ContentPreviewDialog({
               <TypeIcon className="h-3 w-3" />
               {t(`content.type${item.type.charAt(0).toUpperCase() + item.type.slice(1)}`)}
             </Badge>
-            <Badge
-              variant={statusStyle.variant}
-              className="rounded-lg px-2 py-0.5 text-xs"
-            >
+            <Badge variant={statusStyle.variant} className="rounded-lg px-2 py-0.5 text-xs">
               {t(`content.${item.status}`)}
             </Badge>
           </div>
@@ -474,7 +460,7 @@ function formatNumber(n: number): string {
 // ---------------------------------------------------------------------------
 
 export function ContentLibraryView() {
-  const { t } = useTranslation('media-studio');
+  useTranslation('media-studio');
 
   // Store state
   const contentItems = useMediaStudioStore((s) => s.contentItems);
@@ -552,11 +538,7 @@ export function ContentLibraryView() {
           key={`${contentFilter}-${contentPlatformFilter}`}
         >
           {filteredItems.map((item) => (
-            <ContentCard
-              key={item.id}
-              item={item}
-              onClick={() => handleCardClick(item)}
-            />
+            <ContentCard key={item.id} item={item} onClick={() => handleCardClick(item)} />
           ))}
         </motion.div>
       )}

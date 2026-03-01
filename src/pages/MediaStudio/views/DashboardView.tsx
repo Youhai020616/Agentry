@@ -40,9 +40,9 @@ const itemVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] },
+    transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as const },
   },
-};
+} as const;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -167,9 +167,7 @@ function ActionBanner({ count }: { count: number }) {
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20">
               <AlertTriangle className="h-[18px] w-[18px]" />
             </div>
-            <span className="text-sm font-medium">
-              {t('dashboard.actionRequired', { count })}
-            </span>
+            <span className="text-sm font-medium">{t('dashboard.actionRequired', { count })}</span>
           </div>
           <Button
             size="sm"
@@ -226,10 +224,7 @@ function StatCard({
             </Badge>
           )}
           {trend == null && trendLabel && (
-            <Badge
-              variant="warning"
-              className="rounded-md px-1.5 py-0.5 text-[10px] font-semibold"
-            >
+            <Badge variant="warning" className="rounded-md px-1.5 py-0.5 text-[10px] font-semibold">
               {trendLabel}
             </Badge>
           )}
@@ -286,7 +281,9 @@ function TeamStatusCard() {
                   </div>
                 )}
               </div>
-              <div className={cn('h-2.5 w-2.5 shrink-0 rounded-full', statusDotColor[member.status])} />
+              <div
+                className={cn('h-2.5 w-2.5 shrink-0 rounded-full', statusDotColor[member.status])}
+              />
             </div>
           ))}
         </div>
@@ -496,22 +493,10 @@ function PlatformOverviewCard() {
 
                 {/* Metrics grid */}
                 <div className="grid grid-cols-2 gap-3">
-                  <MetricCell
-                    label={t('dashboard.posts')}
-                    value={String(pm.posts)}
-                  />
-                  <MetricCell
-                    label={t(viewsLabelKey)}
-                    value={formatNumber(pm.views)}
-                  />
-                  <MetricCell
-                    label={t('dashboard.engagement')}
-                    value={String(pm.engagement)}
-                  />
-                  <MetricCell
-                    label={t('dashboard.followers')}
-                    value={`+${pm.followers}`}
-                  />
+                  <MetricCell label={t('dashboard.posts')} value={String(pm.posts)} />
+                  <MetricCell label={t(viewsLabelKey)} value={formatNumber(pm.views)} />
+                  <MetricCell label={t('dashboard.engagement')} value={String(pm.engagement)} />
+                  <MetricCell label={t('dashboard.followers')} value={`+${pm.followers}`} />
                 </div>
 
                 {/* Progress bar */}
