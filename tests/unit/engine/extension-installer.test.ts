@@ -22,6 +22,7 @@ const {
   mockReaddirSync,
   mockUnlinkSync,
   mockChmodSync,
+  mockHttpGet,
 } = vi.hoisted(() => ({
   mockIsPythonReady: vi.fn(),
   mockCheckUvInstalled: vi.fn(),
@@ -33,7 +34,14 @@ const {
   mockCamofoxStop: vi.fn(),
   mockExistsSync: vi.fn(),
   mockMkdirSync: vi.fn(),
-  mockCreateWriteStream: vi.fn(),
+  mockCreateWriteStream: vi.fn().mockReturnValue({
+    on: vi.fn(),
+    close: vi.fn(),
+    write: vi.fn(),
+    end: vi.fn(),
+    destroy: vi.fn(),
+  }),
+  mockHttpGet: vi.fn(),
   mockRenameSync: vi.fn(),
   mockReaddirSync: vi.fn().mockReturnValue([]),
   mockUnlinkSync: vi.fn(),
@@ -90,6 +98,16 @@ vi.mock('fs', async (importOriginal) => {
   return { ...mocked, default: mocked };
 });
 
+vi.mock('https', () => ({
+  get: (...args: unknown[]) => mockHttpGet(...args),
+  default: { get: (...args: unknown[]) => mockHttpGet(...args) },
+}));
+
+vi.mock('http', () => ({
+  get: (...args: unknown[]) => mockHttpGet(...args),
+  default: { get: (...args: unknown[]) => mockHttpGet(...args) },
+}));
+
 // Mock child_process — spawn is used by spawnAsync helper.
 // We mock it to immediately emit 'exit' with code 0 by default.
 vi.mock('child_process', async (importOriginal) => {
@@ -139,6 +157,25 @@ describe('ExtensionInstaller', () => {
     vi.clearAllMocks();
     mockExistsSync.mockReturnValue(false);
     mockFetch.mockRejectedValue(new Error('fetch error'));
+    mockCreateWriteStream.mockReturnValue({
+      on: vi.fn(),
+      close: vi.fn(),
+      write: vi.fn(),
+      end: vi.fn(),
+      destroy: vi.fn(),
+    });
+    mockHttpGet.mockImplementation((_url: unknown, _cb: unknown) => {
+      const req = {
+        on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+          if (event === 'error') {
+            setTimeout(() => handler(new Error('mocked network error')), 5);
+          }
+        }),
+        setTimeout: vi.fn(),
+        destroy: vi.fn(),
+      };
+      return req;
+    });
     installer = new ExtensionInstaller();
   });
 
@@ -281,6 +318,11 @@ describe('ExtensionInstaller', () => {
 
     it('should return manualRequired when camofox not installed', async () => {
       mockCamofoxDetect.mockReturnValue({ installed: false, message: 'Not found' });
+      // Allow git clone path to succeed (package.json exists after "clone")
+      // but re-detect still returns not installed → manualRequired
+      mockExistsSync.mockImplementation((path: unknown) => {
+        return String(path).includes('package.json');
+      });
 
       const result = await installer.getRecipe('camofox')!.install();
 
@@ -557,13 +599,17 @@ describe('ExtensionInstaller', () => {
         message: 'Not found',
       });
       mockFetch.mockRejectedValue(new Error('not running'));
+      // Allow git clone path to succeed for camofox install
+      mockExistsSync.mockImplementation((path: unknown) => {
+        return String(path).includes('package.json');
+      });
 
       const onProgress = vi.fn();
       const result = await installer.installAll(['python3', 'camofox'], onProgress);
 
       expect(result.results).toHaveLength(2);
       expect(result.results[0]).toEqual({ name: 'python3', success: true });
-      // camofox will fail with manualRequired since not installed
+      // camofox will fail with manualRequired since re-detect still shows not installed
       expect(result.results[1].manualRequired).toBe(true);
     });
 

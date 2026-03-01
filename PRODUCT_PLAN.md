@@ -128,7 +128,7 @@ Pain Points:
                       ▼
               ┌──────────────────┐
               │  OpenClaw Gateway │
-              │  Port :18789      │
+              │  Port :18790      │
               │                   │
               │  每个员工 = 1 session │
               │  + System Prompt  │
@@ -264,7 +264,7 @@ Error Codes:
 | Database | better-sqlite3 | 12 | 4 databases (tasks, memory, credits, prohibitions) |
 | WebSocket | ws | 8.19 | Gateway communication |
 | Marketplace | ClawHub CLI | 0.5 | Skill discovery & install |
-| Gateway | OpenClaw | 2026.2.6 | JSON-RPC 2.0, port 18789 |
+| Gateway | OpenClaw | 2026.2.6 | JSON-RPC 2.0, port 18790 |
 | Build | Vite | 7 | + vite-plugin-electron |
 | Lint | ESLint | 10 | Flat config, strict rules |
 | Format | Prettier | — | semi, singleQuote, 2-space, 100 width |

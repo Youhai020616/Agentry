@@ -60,7 +60,7 @@ interface GatewayState {
 export const useGatewayStore = create<GatewayState>((set, get) => ({
   status: {
     state: 'stopped',
-    port: 18789,
+    port: 18790,
   },
   health: null,
   isInitialized: false,

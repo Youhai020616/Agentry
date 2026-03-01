@@ -447,6 +447,7 @@ export class CamofoxLauncher {
   private getNodePath(): string {
     // In packaged mode, use Electron binary as Node (with ELECTRON_RUN_AS_NODE=1)
     try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { app } = require('electron');
       if (app.isPackaged) {
         return process.execPath;

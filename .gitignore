@@ -71,3 +71,6 @@ resources/employees/*/image/
 
 # Backup files
 *.bak
+
+# External projects
+star-office-ui/
