@@ -32,6 +32,9 @@ vi.mock('../../../electron/utils/logger', () => ({
 import { SkillCompiler } from '../../../electron/engine/compiler';
 import type { SkillManifest } from '../../../src/types/manifest';
 
+// Use the compiler's own constant to stay in sync automatically
+const LANG_RULE_PREFIX = SkillCompiler.LANG_RULE_PREFIX;
+
 const mockManifest: SkillManifest = {
   name: 'seo-expert',
   version: '1.0.0',
@@ -71,7 +74,8 @@ describe('SkillCompiler', () => {
       const result = compiler.compile('/skills/seo', mockManifest);
 
       expect(result).toBe(
-        'You are SEO Expert (SEO 专家) on team Marketing. Style: analytical and thorough'
+        LANG_RULE_PREFIX +
+          'You are SEO Expert (SEO 专家) on team Marketing. Style: analytical and thorough'
       );
     });
 
@@ -105,7 +109,9 @@ describe('SkillCompiler', () => {
 
       const result = compiler.compile('/skills/seo', mockManifest);
 
-      expect(result).toBe('SEO Expert is SEO Expert. Team: Marketing and Marketing');
+      expect(result).toBe(
+        LANG_RULE_PREFIX + 'SEO Expert is SEO Expert. Team: Marketing and Marketing'
+      );
     });
 
     it('should leave unrecognized template variables as-is', () => {
@@ -114,7 +120,7 @@ describe('SkillCompiler', () => {
 
       const result = compiler.compile('/skills/seo', mockManifest);
 
-      expect(result).toBe('SEO Expert with {{UNKNOWN_VAR}}');
+      expect(result).toBe(LANG_RULE_PREFIX + 'SEO Expert with {{UNKNOWN_VAR}}');
     });
   });
 
@@ -146,7 +152,8 @@ describe('SkillCompiler', () => {
       const result = compiler.compile('/skills/publisher-xhs', publisherManifest);
 
       expect(result).toBe(
-        '# Xiaohongshu Publisher (小红书发布专员) — publishing Team\nStyle: precise, reliable, detail-oriented, automation-focused'
+        LANG_RULE_PREFIX +
+          '# Xiaohongshu Publisher (小红书发布专员) — publishing Team\nStyle: precise, reliable, detail-oriented, automation-focused'
       );
     });
 
@@ -175,7 +182,8 @@ describe('SkillCompiler', () => {
       const result = compiler.compile('/skills/researcher', researcherManifest);
 
       expect(result).toBe(
-        'Research Analyst on research team. Style: rigorous, analytical, evidence-driven, thorough, objective'
+        LANG_RULE_PREFIX +
+          'Research Analyst on research team. Style: rigorous, analytical, evidence-driven, thorough, objective'
       );
     });
   });

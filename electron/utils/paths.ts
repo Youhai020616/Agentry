@@ -41,6 +41,22 @@ export function getPocketCrowConfigDir(): string {
 }
 
 /**
+ * Get employee workspaces root directory (~/.clawx/employees/)
+ * Each employee gets a subdirectory used as an OpenClaw agent workspace.
+ */
+export function getEmployeeWorkspacesDir(): string {
+  return join(getPocketCrowConfigDir(), 'employees');
+}
+
+/**
+ * Get a specific employee's workspace directory (~/.clawx/employees/{id}/)
+ * Contains AGENTS.md (compiled system prompt) read by OpenClaw as the agent's instructions.
+ */
+export function getEmployeeWorkspaceDir(id: string): string {
+  return join(getEmployeeWorkspacesDir(), id);
+}
+
+/**
  * @deprecated Use getPocketCrowConfigDir() instead
  */
 export const getClawXConfigDir = getPocketCrowConfigDir;

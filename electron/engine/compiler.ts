@@ -15,6 +15,20 @@ import type { EmployeeManager } from './employee-manager';
  * SkillCompiler — reads SKILL.md and replaces template variables to produce system prompts
  */
 export class SkillCompiler {
+  /**
+   * Prepended to every compiled system prompt to enforce response language matching.
+   * Must be at the very top because OpenClaw injects AGENTS.md into a massive English
+   * system prompt (SOUL.md, IDENTITY.md, base prompt are all English).
+   * If buried at the end, the model ignores it.
+   */
+  static readonly LANG_RULE_PREFIX =
+    '## CRITICAL: Response Language Rule\n' +
+    'You MUST respond in the SAME language the user uses.\n' +
+    '- 用户用中文 → 你必须用中文回复\n' +
+    '- User writes English → respond in English\n' +
+    '- ユーザーが日本語で書いた場合 → 日本語で返信してください\n' +
+    '- This rule overrides all other language defaults.\n\n';
+
   private toolRegistry: ToolRegistry | null = null;
   private memoryEngine: MemoryEngine | null = null;
   private prohibitionEngine: ProhibitionEngine | null = null;
@@ -102,6 +116,9 @@ export class SkillCompiler {
     }
 
     let systemPrompt = this.replaceVariables(template, manifest, skillDir);
+
+    // Prepend critical language instruction (see LANG_RULE_PREFIX JSDoc for rationale)
+    systemPrompt = SkillCompiler.LANG_RULE_PREFIX + systemPrompt;
 
     // Append tool prompt section if the employee has registered tools
     if (employeeId && this.toolRegistry) {

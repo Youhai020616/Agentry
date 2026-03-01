@@ -117,7 +117,7 @@ class FakeEmployeeManager {
     const emp = this.get(id);
     if (emp) {
       emp.status = 'idle';
-      emp.gatewaySessionKey = `agent:main:employee-${emp.slug}`;
+      emp.gatewaySessionKey = `agent:${emp.slug}:main`;
     }
   }
 
@@ -152,7 +152,8 @@ function makeEmployee(overrides: Partial<Employee> & { id: string; slug: string 
     avatar: '🤖',
     team: overrides.team ?? 'default',
     status: overrides.status ?? 'idle',
-    gatewaySessionKey: overrides.gatewaySessionKey ?? `agent:main:employee-${overrides.slug}`,
+    config: {},
+    gatewaySessionKey: overrides.gatewaySessionKey ?? `agent:${overrides.slug}:main`,
     systemPrompt: '',
     skillDir: `/fake/skills/${overrides.slug}`,
     source: 'builtin',
@@ -197,14 +198,6 @@ describe('Supervisor Engine E2E (Real SQLite)', () => {
     // Initialize fake Gateway
     gateway = new FakeGateway();
 
-    // Initialize Supervisor
-    supervisor = new SupervisorEngine(
-      taskQueue,
-      messageBus,
-      employeeManager as unknown as import('../../electron/engine/employee-manager').EmployeeManager,
-      gateway as unknown as import('../../electron/gateway/manager').GatewayManager
-    );
-
     // Initialize TaskExecutor (disable auto-execute for manual control)
     taskExecutor = new TaskExecutor(
       taskQueue,
@@ -212,6 +205,15 @@ describe('Supervisor Engine E2E (Real SQLite)', () => {
       gateway as unknown as import('../../electron/gateway/manager').GatewayManager
     );
     taskExecutor.setAutoExecute(false);
+
+    // Initialize Supervisor (requires taskExecutor as 5th arg)
+    supervisor = new SupervisorEngine(
+      taskQueue,
+      messageBus,
+      employeeManager as unknown as import('../../electron/engine/employee-manager').EmployeeManager,
+      gateway as unknown as import('../../electron/gateway/manager').GatewayManager,
+      taskExecutor
+    );
   });
 
   afterEach(() => {
@@ -235,7 +237,7 @@ describe('Supervisor Engine E2E (Real SQLite)', () => {
       slug: 'supervisor',
       role: 'Project Manager',
       team: 'Management',
-      gatewaySessionKey: 'agent:main:employee-supervisor',
+      gatewaySessionKey: 'agent:supervisor:main',
     });
 
     const seoExpert = makeEmployee({
@@ -259,7 +261,7 @@ describe('Supervisor Engine E2E (Real SQLite)', () => {
     // 2. Register Gateway handlers (simulate LLM responses)
 
     // PM plans the project
-    gateway.registerHandler('agent:main:employee-supervisor', (prompt: string) => {
+    gateway.registerHandler('agent:supervisor:main', (prompt: string) => {
       if (prompt.includes('Analyze the following goal')) {
         // PM returns a task plan with dependencies
         return JSON.stringify([
@@ -300,21 +302,23 @@ describe('Supervisor Engine E2E (Real SQLite)', () => {
 
       if (prompt.includes('All tasks for project')) {
         // PM synthesizes results
-        return '## Product Launch Marketing Package\n\n' +
+        return (
+          '## Product Launch Marketing Package\n\n' +
           '### Key Findings\n' +
           '- Top keywords: "AI assistant", "productivity"\n' +
           '- Tagline: "Work Smarter, Not Harder"\n' +
           '- Landing page copy optimized for SEO\n\n' +
           '### Next Steps\n' +
           '1. Deploy landing page\n' +
-          '2. Start PPC campaign';
+          '2. Start PPC campaign'
+        );
       }
 
       return 'OK';
     });
 
     // SEO Expert handles tasks
-    gateway.registerHandler('agent:main:employee-seo-specialist', (prompt: string) => {
+    gateway.registerHandler('agent:seo-specialist:main', (prompt: string) => {
       if (prompt.includes('Keyword Research')) {
         return 'Top keywords: "AI assistant" (vol: 12K), "productivity tool" (vol: 8K), "automate work" (vol: 5K)';
       }
@@ -325,7 +329,7 @@ describe('Supervisor Engine E2E (Real SQLite)', () => {
     });
 
     // Copywriter handles tasks
-    gateway.registerHandler('agent:main:employee-copywriter', (prompt: string) => {
+    gateway.registerHandler('agent:copywriter:main', (prompt: string) => {
       if (prompt.includes('Landing Page Copy') || prompt.includes('landing page copy')) {
         return '# Transform Your Workflow\n\nMeet the AI assistant that helps you work smarter...';
       }
@@ -453,7 +457,7 @@ describe('Supervisor Engine E2E (Real SQLite)', () => {
 
     // 16. Verify Gateway was called for synthesis
     const synthesisCalls = gateway.calls.filter(
-      (c) => c.session === 'agent:main:employee-supervisor' && c.message.includes('All tasks for project')
+      (c) => c.session === 'agent:supervisor:main' && c.message.includes('All tasks for project')
     );
     expect(synthesisCalls).toHaveLength(1);
   });
@@ -609,7 +613,7 @@ describe('Supervisor Engine E2E (Real SQLite)', () => {
       id: 'supervisor',
       slug: 'supervisor',
       role: 'PM',
-      gatewaySessionKey: 'agent:main:employee-supervisor',
+      gatewaySessionKey: 'agent:supervisor:main',
     });
     employeeManager.addEmployee(pm);
 
@@ -628,7 +632,7 @@ describe('Supervisor Engine E2E (Real SQLite)', () => {
     });
 
     // Employee submits a plan
-    await supervisor.handlePlanSubmission(task.id, 'My plan: do X then Y');
+    await supervisor.submitPlan(task.id, 'My plan: do X then Y');
 
     // Verify plan is saved
     const submitted = taskQueue.get(task.id)!;
@@ -653,7 +657,7 @@ describe('Supervisor Engine E2E (Real SQLite)', () => {
     expect(workerInbox.some((m) => m.content.includes('rejected'))).toBe(true);
 
     // Employee resubmits
-    await supervisor.handlePlanSubmission(task.id, 'Revised plan: X with details, then Y');
+    await supervisor.submitPlan(task.id, 'Revised plan: X with details, then Y');
 
     // PM approves
     await supervisor.approvePlan(task.id);
@@ -673,7 +677,7 @@ describe('Supervisor Engine E2E (Real SQLite)', () => {
       id: 'supervisor',
       slug: 'supervisor',
       role: 'PM',
-      gatewaySessionKey: 'agent:main:employee-supervisor',
+      gatewaySessionKey: 'agent:supervisor:main',
     });
     employeeManager.addEmployee(pm);
 
@@ -719,7 +723,7 @@ describe('Supervisor Engine E2E (Real SQLite)', () => {
       id: 'supervisor',
       slug: 'supervisor',
       role: 'PM',
-      gatewaySessionKey: 'agent:main:employee-supervisor',
+      gatewaySessionKey: 'agent:supervisor:main',
     });
     employeeManager.addEmployee(pm);
 
@@ -765,12 +769,12 @@ describe('Supervisor Engine E2E (Real SQLite)', () => {
       id: 'supervisor',
       slug: 'supervisor',
       role: 'PM',
-      gatewaySessionKey: 'agent:main:employee-supervisor',
+      gatewaySessionKey: 'agent:supervisor:main',
     });
     employeeManager.addEmployee(pm);
 
     // Register synthesis handler
-    gateway.registerHandler('agent:main:employee-supervisor', () => {
+    gateway.registerHandler('agent:supervisor:main', () => {
       return 'Final synthesis: all tasks completed successfully.';
     });
 
@@ -820,12 +824,12 @@ describe('Supervisor Engine E2E (Real SQLite)', () => {
       id: 'flaky-worker',
       slug: 'flaky-worker',
       role: 'Worker',
-      gatewaySessionKey: 'agent:main:employee-flaky-worker',
+      gatewaySessionKey: 'agent:flaky-worker:main',
     });
     employeeManager.addEmployee(worker);
 
     // Gateway throws error for this employee
-    gateway.registerHandler('agent:main:employee-flaky-worker', () => {
+    gateway.registerHandler('agent:flaky-worker:main', () => {
       throw new Error('LLM API timeout');
     });
 
@@ -940,12 +944,12 @@ describe('Supervisor Engine E2E (Real SQLite)', () => {
       id: 'supervisor',
       slug: 'supervisor',
       role: 'PM',
-      gatewaySessionKey: 'agent:main:employee-supervisor',
+      gatewaySessionKey: 'agent:supervisor:main',
     });
     employeeManager.addEmployee(pm);
 
     // PM returns JSON wrapped in code fences
-    gateway.registerHandler('agent:main:employee-supervisor', () => {
+    gateway.registerHandler('agent:supervisor:main', () => {
       return '```json\n[\n  {\n    "subject": "Task from code block",\n    "description": "Parsed correctly",\n    "assignTo": "worker",\n    "wave": 0\n  }\n]\n```';
     });
 

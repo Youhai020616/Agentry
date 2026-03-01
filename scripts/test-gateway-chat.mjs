@@ -655,7 +655,7 @@ async function main() {
   }
 
   const systemPrompt = compileSystemPrompt(employeeSlug);
-  const sessionKey = `agent:main:employee-${employeeSlug}`;
+  const sessionKey = `agent:${employeeSlug}:main`;
 
   console.log(`\n${C.bold}╔══════════════════════════════════════════╗${C.reset}`);
   console.log(`${C.bold}║   ClawX Gateway Chat Test                ║${C.reset}`);

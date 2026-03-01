@@ -12,11 +12,13 @@
  * then scan() refreshes the in-memory employee list.
  */
 import { EventEmitter } from 'node:events';
-import { existsSync, readdirSync, cpSync, mkdirSync } from 'node:fs';
+import { existsSync, readdirSync, cpSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { app } from 'electron';
 import { logger } from '../utils/logger';
-import { getOpenClawSkillsDir } from '../utils/paths';
+import { getOpenClawSkillsDir, getEmployeeWorkspaceDir } from '../utils/paths';
+import { readOpenClawConfig, writeOpenClawConfig } from '../utils/channel-config';
+import { configUpdateQueue } from './config-update-queue';
 import { ManifestParser } from './manifest-parser';
 import { SkillCompiler } from './compiler';
 import type { ToolRegistry } from './tool-registry';
@@ -142,8 +144,9 @@ export class EmployeeManager extends EventEmitter {
     logger.info(`Activating employee: ${id} (${employee.role})`);
 
     // Re-parse manifest, register tools, then compile system prompt
+    let manifest: SkillManifest;
     try {
-      const manifest = this.parser.parseFromPath(employee.skillDir);
+      manifest = this.parser.parseFromPath(employee.skillDir);
 
       // Register tools from manifest so the compiler can append them to the system prompt
       if (this.toolRegistry) {
@@ -162,6 +165,12 @@ export class EmployeeManager extends EventEmitter {
     } catch (err) {
       throw new Error(`Failed to compile system prompt for ${id}: ${err}`, { cause: err });
     }
+
+    // ── Native Multi-Agent: Create workspace + register agent in openclaw.json ──
+    // The compiled system prompt is written as AGENTS.md in a per-employee workspace.
+    // OpenClaw reads this file as the agent's system prompt — no extraSystemPrompt hack needed.
+    this.ensureAgentWorkspace(employee);
+    await this.registerAgentInConfig(employee, manifest);
 
     // Ensure skill is in Gateway's skills directory
     this.installSkillToGateway(employee);
@@ -188,8 +197,10 @@ export class EmployeeManager extends EventEmitter {
       logger.warn(`Failed to ensure memory directory for ${id}: ${err}`);
     }
 
-    // Deterministic session key based on slug
-    const sessionKey = `agent:main:employee-${id}`;
+    // Native multi-agent session key: agent:{slug}:main
+    // This format routes to the per-employee OpenClaw agent workspace.
+    // (Replaces old `agent:main:employee-{slug}` which required extraSystemPrompt injection)
+    const sessionKey = `agent:${id}:main`;
     employee.gatewaySessionKey = sessionKey;
     this.setStatus(employee, 'idle');
 
@@ -432,6 +443,170 @@ export class EmployeeManager extends EventEmitter {
     } catch (err) {
       logger.warn(`Failed to install skill to Gateway for ${employee.slug}: ${err}`);
     }
+  }
+
+  // ── Native Multi-Agent Workspace Management ─────────────────────
+
+  /**
+   * Create (or update) the agent workspace directory for an employee.
+   * Writes the compiled system prompt as AGENTS.md — the file OpenClaw reads
+   * as the agent's system prompt.
+   */
+  private ensureAgentWorkspace(employee: Employee): void {
+    const workspaceDir = getEmployeeWorkspaceDir(employee.id);
+
+    try {
+      if (!existsSync(workspaceDir)) {
+        mkdirSync(workspaceDir, { recursive: true });
+        logger.info(`Created agent workspace: ${workspaceDir}`);
+      }
+
+      // Write compiled system prompt as AGENTS.md
+      // OpenClaw reads this file as the agent's instructions/system prompt.
+      const agentsMdPath = join(workspaceDir, 'AGENTS.md');
+      const content = employee.systemPrompt ?? '';
+      writeFileSync(agentsMdPath, content, 'utf-8');
+
+      // Also write CLAUDE.md — some OpenClaw versions may check this file
+      const claudeMdPath = join(workspaceDir, 'CLAUDE.md');
+      writeFileSync(claudeMdPath, content, 'utf-8');
+
+      // Overwrite SOUL.md with a language-aware version.
+      // The default OpenClaw SOUL.md is all-English which causes the model
+      // to default to English responses even when the user writes in Chinese.
+      // OpenClaw gives SOUL.md special priority ("embody its persona and tone").
+      const soulMdPath = join(workspaceDir, 'SOUL.md');
+      const soulContent = [
+        `# ${employee.name ?? employee.role}`,
+        '',
+        `你是 **${employee.roleZh ?? employee.role}**。`,
+        '',
+        '## 语言规则 / Language Rule',
+        '',
+        '**这是最高优先级规则：**',
+        '- 用户用中文写 → 你必须全程用中文回复',
+        '- User writes in English → respond entirely in English',
+        '- 匹配用户每条消息的语言，不要混合语言',
+        '',
+        '## 风格',
+        '',
+        '- 直接、专业、不废话',
+        '- 不要说"好的"、"当然可以"之类的客套话，直接做事',
+        '- 有观点，有立场，不要当没有个性的机器人',
+        '- 谨慎对待对外操作，大胆处理内部任务',
+      ].join('\n');
+      writeFileSync(soulMdPath, soulContent, 'utf-8');
+
+      logger.info(
+        `Wrote AGENTS.md for employee ${employee.id} (${content.length} chars) → ${agentsMdPath}`
+      );
+    } catch (err) {
+      logger.error(`Failed to create agent workspace for ${employee.id}: ${err}`);
+      throw new Error(`Failed to create agent workspace for ${employee.id}: ${err}`, {
+        cause: err,
+      });
+    }
+  }
+
+  /**
+   * Register (or update) an employee as an agent in openclaw.json.
+   * Uses ConfigUpdateQueue to serialize concurrent writes.
+   *
+   * The agent entry tells OpenClaw Gateway where to find the workspace directory
+   * and optionally which model and tools the agent should use.
+   * Gateway hot-reloads the config within ~3s (verified by POC).
+   */
+  private async registerAgentInConfig(employee: Employee, manifest: SkillManifest): Promise<void> {
+    await configUpdateQueue.enqueue(async () => {
+      const config = readOpenClawConfig();
+
+      // Ensure agents section exists
+      if (!config.agents) {
+        (config as Record<string, unknown>).agents = {};
+      }
+      const agents = (config as Record<string, unknown>).agents as Record<string, unknown>;
+      if (!Array.isArray(agents.list)) {
+        agents.list = [];
+      }
+      const agentsList = agents.list as Array<Record<string, unknown>>;
+
+      // Build agent entry
+      const workspaceDir = getEmployeeWorkspaceDir(employee.id);
+      // Use forward slashes for cross-platform compatibility
+      const normalizedWorkspace = workspaceDir.replace(/\\/g, '/');
+
+      const agentEntry: Record<string, unknown> = {
+        id: employee.id,
+        name: `${employee.avatar ?? ''} ${employee.name}`.trim(),
+        workspace: normalizedWorkspace,
+      };
+
+      // Map tool policy from manifest → agents.list[].tools
+      const toolPolicy = this.mapToolPolicy(manifest);
+      if (toolPolicy) {
+        agentEntry.tools = toolPolicy;
+      }
+
+      // Map per-employee model override → agents.list[].model
+      try {
+        const secretsStore = await this.getSecretsStore();
+        const modelId = (secretsStore.get(`employee-models.${employee.id}`) ?? '') as string;
+        if (modelId) {
+          agentEntry.model = `openrouter/${modelId}`;
+          logger.debug(
+            `[registerAgentInConfig] Set model for ${employee.id}: openrouter/${modelId}`
+          );
+        }
+      } catch (err) {
+        logger.debug(`[registerAgentInConfig] Failed to look up model for ${employee.id}: ${err}`);
+      }
+
+      // Remove existing entry for this employee (if any), then add the new one
+      agents.list = agentsList.filter((a) => a.id !== employee.id);
+      (agents.list as Array<Record<string, unknown>>).push(agentEntry);
+
+      writeOpenClawConfig(config);
+      logger.info(
+        `Registered agent "${employee.id}" in openclaw.json (workspace: ${normalizedWorkspace})`
+      );
+    });
+  }
+
+  /**
+   * Map manifest tool declarations to OpenClaw agent-level tool policy.
+   * Returns `{ allow: [...] }` for the agent entry, or null if no tools to map.
+   *
+   * OpenClaw supports engine-level tool allow/deny lists per agent.
+   * This is a stronger enforcement than prompt-level tool descriptions —
+   * the agent physically cannot use tools outside its allow list.
+   *
+   * Only well-known OpenClaw built-in tool names are mapped here.
+   * Custom CLI tools are still handled via prompt injection by the compiler.
+   */
+  private mapToolPolicy(manifest: SkillManifest): { allow: string[] } | null {
+    if (!manifest.tools || manifest.tools.length === 0) {
+      return null;
+    }
+
+    // OpenClaw built-in tool names that can be controlled via agent policy
+    const OPENCLAW_BUILTIN_TOOLS = new Set([
+      'web_search',
+      'web_fetch',
+      'read',
+      'write',
+      'exec',
+      'browser',
+      'mcp',
+    ]);
+
+    const allow: string[] = [];
+    for (const tool of manifest.tools) {
+      if (OPENCLAW_BUILTIN_TOOLS.has(tool.name)) {
+        allow.push(tool.name);
+      }
+    }
+
+    return allow.length > 0 ? { allow } : null;
   }
 
   /**
