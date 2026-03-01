@@ -337,7 +337,7 @@ pnpm test:e2e     # playwright test
 
 3. **No nodeIntegration**: Renderer has `contextIsolation: true`, `nodeIntegration: false`. All Node.js access goes through IPC. Never `require()` or `import` Node modules in `src/`.
 
-4. **Provider keys stay in Main**: API keys stored in OS keychain via `electron/utils/secure-storage.ts`. Never expose to Renderer.
+4. **Provider keys stay in Main**: API keys stored in `electron-store` (plain JSON file) via `electron/utils/secure-storage.ts`. Never expose to Renderer. TODO: migrate to `safeStorage.encryptString()` for encrypted-at-rest storage before security audit.
 
 5. **Error handling**: All IPC handlers MUST try/catch and return `{ success: false, error: String(error) }`. Never let exceptions propagate unhandled.
 

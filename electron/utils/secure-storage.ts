@@ -2,6 +2,11 @@
  * Provider Storage
  * Manages provider configurations and API keys.
  * Keys are stored in plain text alongside provider configs in a single electron-store.
+ *
+ * TODO: Migrate to `safeStorage.encryptString()` / `safeStorage.decryptString()` for
+ * encrypted-at-rest key storage before security audit. This would use the OS keychain
+ * (macOS Keychain / Windows Credential Store / Linux libsecret) under the hood.
+ * See: https://www.electronjs.org/docs/latest/api/safe-storage
  */
 import { logger } from './logger';
 

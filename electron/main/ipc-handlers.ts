@@ -187,6 +187,7 @@ export function registerIpcHandlers(
  */
 function registerSkillConfigHandlers(): void {
   // Update skill config (apiKey and env)
+  // Wrapped in configUpdateQueue to serialize openclaw.json writes.
   ipcMain.handle(
     'skill:updateConfig',
     async (
@@ -197,9 +198,11 @@ function registerSkillConfigHandlers(): void {
         env?: Record<string, string>;
       }
     ) => {
-      return updateSkillConfig(params.skillKey, {
-        apiKey: params.apiKey,
-        env: params.env,
+      return configUpdateQueue.enqueue(async () => {
+        return updateSkillConfig(params.skillKey, {
+          apiKey: params.apiKey,
+          env: params.env,
+        });
       });
     }
   );
@@ -874,15 +877,21 @@ function registerOpenClawHandlers(employeeManager: EmployeeManager): void {
   // ==================== Channel Configuration Handlers ====================
 
   // Save channel configuration
+  // Wrapped in configUpdateQueue to prevent race conditions with employee-manager
+  // writing to the same openclaw.json file concurrently.
   ipcMain.handle(
     'channel:saveConfig',
     async (_, channelType: string, config: Record<string, unknown>) => {
       try {
         logger.info('channel:saveConfig', { channelType, keys: Object.keys(config || {}) });
-        saveChannelConfig(channelType, config);
+        await configUpdateQueue.enqueue(async () => {
+          saveChannelConfig(channelType, config);
+        });
 
         // Sync channel→supervisor bindings so the new channel is routed correctly.
         // This is a no-op if the supervisor is not active.
+        // syncChannelBindings() uses configUpdateQueue internally, so it will
+        // execute after the saveChannelConfig enqueue above completes.
         try {
           await employeeManager.syncChannelBindings();
         } catch (err) {
@@ -920,9 +929,12 @@ function registerOpenClawHandlers(employeeManager: EmployeeManager): void {
   });
 
   // Delete channel configuration
+  // Wrapped in configUpdateQueue to serialize openclaw.json writes.
   ipcMain.handle('channel:deleteConfig', async (_, channelType: string) => {
     try {
-      deleteChannelConfig(channelType);
+      await configUpdateQueue.enqueue(async () => {
+        deleteChannelConfig(channelType);
+      });
       return { success: true };
     } catch (error) {
       logger.error('Failed to delete channel config:', error);
@@ -942,11 +954,15 @@ function registerOpenClawHandlers(employeeManager: EmployeeManager): void {
   });
 
   // Enable or disable a channel
+  // Wrapped in configUpdateQueue to serialize openclaw.json writes.
   ipcMain.handle('channel:setEnabled', async (_, channelType: string, enabled: boolean) => {
     try {
-      setChannelEnabled(channelType, enabled);
+      await configUpdateQueue.enqueue(async () => {
+        setChannelEnabled(channelType, enabled);
+      });
 
       // Sync channel→supervisor bindings so enabled/disabled state is reflected.
+      // syncChannelBindings() uses configUpdateQueue internally.
       try {
         await employeeManager.syncChannelBindings();
       } catch (err) {
@@ -1214,15 +1230,18 @@ function registerProviderHandlers(): void {
           // build the full model string: "providerType/modelId"
           const modelOverride = provider.model ? `${provider.type}/${provider.model}` : undefined;
 
-          if (provider.type === 'custom' || provider.type === 'ollama') {
-            // For runtime-configured providers, use user-entered base URL/api.
-            setOpenClawDefaultModelWithOverride(provider.type, modelOverride, {
-              baseUrl: provider.baseUrl,
-              api: 'openai-completions',
-            });
-          } else {
-            setOpenClawDefaultModel(provider.type, modelOverride);
-          }
+          // Wrapped in configUpdateQueue to serialize openclaw.json writes.
+          await configUpdateQueue.enqueue(async () => {
+            if (provider.type === 'custom' || provider.type === 'ollama') {
+              // For runtime-configured providers, use user-entered base URL/api.
+              setOpenClawDefaultModelWithOverride(provider.type, modelOverride, {
+                baseUrl: provider.baseUrl,
+                api: 'openai-completions',
+              });
+            } else {
+              setOpenClawDefaultModel(provider.type, modelOverride);
+            }
+          });
 
           // Keep auth-profiles in sync with the default provider instance.
           // This is especially important when multiple custom providers exist.
