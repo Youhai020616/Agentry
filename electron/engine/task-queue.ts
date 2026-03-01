@@ -612,6 +612,164 @@ export class TaskQueue extends EventEmitter {
     }
   }
 
+  // ── Transactional Operations ────────────────────────────────────
+
+  /**
+   * Atomically create a project and all its tasks in a single transaction.
+   * If any task creation fails, the entire operation is rolled back.
+   * (Issue #3: Transaction Safety)
+   */
+  createProjectWithTasks(
+    projectInput: CreateProjectInput,
+    taskInputs: CreateTaskInput[]
+  ): { project: Project; tasks: Task[] } {
+    const now = Date.now();
+    const projectId = crypto.randomUUID();
+
+    const project: Project = {
+      id: projectId,
+      goal: projectInput.goal,
+      pmEmployeeId: projectInput.pmEmployeeId,
+      employees: projectInput.employees,
+      tasks: [],
+      status: 'planning',
+      createdAt: now,
+      completedAt: null,
+    };
+
+    const tasks: Task[] = [];
+    const tempToReal = new Map<string, string>();
+
+    const txn = this.db.transaction(() => {
+      // 1. Insert project
+      this.stmtInsertProject.run({
+        id: project.id,
+        goal: project.goal,
+        pmEmployeeId: project.pmEmployeeId,
+        employees: JSON.stringify(project.employees),
+        tasks: JSON.stringify(project.tasks),
+        status: project.status,
+        createdAt: project.createdAt,
+        completedAt: project.completedAt,
+      });
+
+      // 2. Insert all tasks
+      for (let i = 0; i < taskInputs.length; i++) {
+        const input = taskInputs[i];
+        const taskId = crypto.randomUUID();
+        tempToReal.set(`T${i}`, taskId);
+        tempToReal.set(String(i), taskId);
+
+        const task: Task = {
+          id: taskId,
+          projectId,
+          subject: input.subject,
+          description: input.description,
+          status: 'pending',
+          owner: input.owner ?? null,
+          assignedBy: input.assignedBy ?? 'user',
+          blockedBy: [],
+          blocks: [],
+          priority: input.priority ?? 'medium',
+          requiresApproval: input.requiresApproval ?? false,
+          plan: null,
+          planStatus: 'none',
+          planFeedback: null,
+          output: null,
+          outputFiles: [],
+          tokensUsed: 0,
+          creditsConsumed: 0,
+          createdAt: now,
+          startedAt: null,
+          completedAt: null,
+          estimatedDuration: input.estimatedDuration ?? 0,
+          wave: input.wave ?? 0,
+        };
+
+        this.stmtInsertTask.run({
+          id: task.id,
+          projectId: task.projectId,
+          subject: task.subject,
+          description: task.description,
+          status: task.status,
+          owner: task.owner,
+          assignedBy: task.assignedBy,
+          blockedBy: JSON.stringify(task.blockedBy),
+          blocks: JSON.stringify(task.blocks),
+          priority: task.priority,
+          requiresApproval: task.requiresApproval ? 1 : 0,
+          plan: task.plan,
+          planStatus: task.planStatus,
+          planFeedback: task.planFeedback,
+          output: task.output,
+          outputFiles: JSON.stringify(task.outputFiles),
+          tokensUsed: task.tokensUsed,
+          creditsConsumed: task.creditsConsumed,
+          createdAt: task.createdAt,
+          startedAt: task.startedAt,
+          completedAt: task.completedAt,
+          estimatedDuration: task.estimatedDuration,
+          wave: task.wave,
+        });
+
+        tasks.push(task);
+        project.tasks.push(taskId);
+      }
+
+      // 3. Resolve blockedBy references (PM may use T0, T1 or indices)
+      for (let i = 0; i < taskInputs.length; i++) {
+        const input = taskInputs[i];
+        if (input.blockedBy && input.blockedBy.length > 0) {
+          const realId = tempToReal.get(`T${i}`) ?? tempToReal.get(String(i));
+          if (realId) {
+            const resolvedDeps = input.blockedBy
+              .map((ref) => {
+                const resolved = tempToReal.get(ref);
+                if (!resolved) {
+                  logger.warn(
+                    `Task T${i}: unresolved dependency ref "${ref}" — skipping to prevent permanent blocking`
+                  );
+                }
+                return resolved;
+              })
+              .filter((id): id is string => id != null);
+            if (resolvedDeps.length > 0) {
+              this.db
+                .prepare('UPDATE tasks SET blockedBy = ? WHERE id = ?')
+                .run(JSON.stringify(resolvedDeps), realId);
+              // Update in-memory task
+              const task = tasks.find((t) => t.id === realId);
+              if (task) task.blockedBy = resolvedDeps;
+
+              // Update reverse dependencies
+              for (const depId of resolvedDeps) {
+                this.addBlocksReference(depId, realId);
+              }
+            }
+          }
+        }
+      }
+
+      // 4. Update project with task IDs
+      this.db
+        .prepare('UPDATE projects SET tasks = ? WHERE id = ?')
+        .run(JSON.stringify(project.tasks), projectId);
+    });
+
+    // Execute the transaction
+    txn();
+
+    // Emit events after successful transaction
+    this.emit('project-changed', project);
+    for (const task of tasks) {
+      this.emit('task-changed', task);
+    }
+
+    logger.info(`Project created atomically: ${projectId} with ${tasks.length} tasks`);
+
+    return { project, tasks };
+  }
+
   // ── Private helpers ──────────────────────────────────────────────
 
   /**

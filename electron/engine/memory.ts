@@ -1,98 +1,63 @@
 /**
  * Memory Engine
- * SQLite-backed episodic and semantic memory for AI employees.
- * Episodic memories capture past task experiences; semantic memories store
- * long-term factual knowledge (Phase 2).
+ * File-backed episodic and brand memory for AI employees.
+ *
+ * Storage layout:
+ *   ~/.clawx/employees/{employeeId}/MEMORY.md  — per-employee episodic memories
+ *   ~/.clawx/shared/BRAND.md                   — shared brand context
  *
  * Events:
- *  - 'memory-changed' ({ type: MemoryType, action: string }) — emitted after mutations
+ *  - 'memory-changed' ({ type: string, action: string }) — emitted after mutations
  */
 import { EventEmitter } from 'node:events';
 import { join } from 'node:path';
-import { app } from 'electron';
-import Database from 'better-sqlite3';
+import { homedir } from 'node:os';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  appendFileSync,
+  renameSync,
+} from 'node:fs';
 import { logger } from '../utils/logger';
-import type { EpisodicMemory, MemoryType } from '../../src/types/memory';
+import type { EpisodicMemory } from '../../src/types/memory';
 
-// ── SQL Schema ───────────────────────────────────────────────────────
+// ── Constants ────────────────────────────────────────────────────────
 
-const CREATE_EPISODIC_TABLE = `
-CREATE TABLE IF NOT EXISTS episodic_memories (
-  id TEXT PRIMARY KEY,
-  employeeId TEXT NOT NULL,
-  taskId TEXT,
-  content TEXT NOT NULL,
-  tags TEXT NOT NULL DEFAULT '[]',
-  importance INTEGER NOT NULL DEFAULT 3,
-  createdAt INTEGER NOT NULL
-)`;
+const CLAWX_DIR = join(homedir(), '.clawx');
+const EMPLOYEES_DIR = join(CLAWX_DIR, 'employees');
+const SHARED_DIR = join(CLAWX_DIR, 'shared');
+const BRAND_FILE = join(SHARED_DIR, 'BRAND.md');
 
-const CREATE_SEMANTIC_TABLE = `
-CREATE TABLE IF NOT EXISTS semantic_memories (
-  id TEXT PRIMARY KEY,
-  category TEXT NOT NULL,
-  key TEXT NOT NULL,
-  value TEXT NOT NULL,
-  updatedAt INTEGER NOT NULL,
-  UNIQUE(category, key)
-)`;
+/**
+ * Memory entry separator — uses an HTML comment that won't appear in normal
+ * Markdown content (fixes M2: `---` conflicted with Markdown horizontal rules).
+ */
+const MEMORY_SEPARATOR = '<!-- end-memory -->';
 
-// ── Row types ────────────────────────────────────────────────────────
-
-interface EpisodicRow {
-  id: string;
-  employeeId: string;
-  taskId: string | null;
-  content: string;
-  tags: string;
-  importance: number;
-  createdAt: number;
-}
+// ── File permission constants (M7: restrict access on multi-user systems) ──
+const DIR_MODE = 0o700;
+const FILE_MODE = 0o600;
 
 // ── MemoryEngine ─────────────────────────────────────────────────────
 
 export class MemoryEngine extends EventEmitter {
-  private db!: Database.Database;
-  private dbPath: string;
-
-  // Prepared statements (set in init)
-  private stmtInsert!: Database.Statement;
-  private stmtRecall!: Database.Statement;
-  private stmtSearch!: Database.Statement;
-  private stmtDelete!: Database.Statement;
-  private stmtCount!: Database.Statement;
-
-  constructor(dbPath?: string) {
-    super();
-    this.dbPath = dbPath ?? join(app.getPath('userData'), 'clawx-memory.db');
-  }
-
   // ── Lifecycle ────────────────────────────────────────────────────
 
   /**
-   * Initialize — open database, create tables, prepare statements
+   * Initialize — create directories, auto-detect SQLite migration
    */
   init(): void {
-    logger.info('MemoryEngine initializing...');
+    logger.info('MemoryEngine initializing (file-backed)...');
     try {
-      this.db = new Database(this.dbPath);
-      this.db.pragma('journal_mode = WAL');
+      mkdirSync(EMPLOYEES_DIR, { recursive: true, mode: DIR_MODE });
+      mkdirSync(SHARED_DIR, { recursive: true, mode: DIR_MODE });
 
-      this.db.exec(CREATE_EPISODIC_TABLE);
+      // Auto-detect old SQLite database and migrate if present
+      this.autoMigrate();
 
-      // Indexes for fast lookups
-      this.db.exec(
-        'CREATE INDEX IF NOT EXISTS idx_episodic_employee ON episodic_memories(employeeId)'
-      );
-      this.db.exec(
-        'CREATE INDEX IF NOT EXISTS idx_episodic_importance ON episodic_memories(importance DESC)'
-      );
-
-      // Semantic memories table (schema ready for Phase 2)
-      this.db.exec(CREATE_SEMANTIC_TABLE);
-
-      this.prepareStatements();
-      logger.info(`MemoryEngine initialized (db: ${this.dbPath})`);
+      logger.info('MemoryEngine initialized (file-backed)');
     } catch (err) {
       logger.error(`MemoryEngine failed to initialize: ${err}`);
       throw err;
@@ -100,24 +65,17 @@ export class MemoryEngine extends EventEmitter {
   }
 
   /**
-   * Destroy — close database connection and remove listeners
+   * Destroy — remove listeners
    */
   destroy(): void {
     logger.info('MemoryEngine destroying...');
-    try {
-      if (this.db?.open) {
-        this.db.close();
-      }
-    } catch (err) {
-      logger.error(`MemoryEngine failed to close database: ${err}`);
-    }
     this.removeAllListeners();
   }
 
   // ── Episodic Memory ──────────────────────────────────────────────
 
   /**
-   * Store a new episodic memory for an employee.
+   * Store a new episodic memory for an employee (append to MEMORY.md).
    * @returns The generated memory ID
    */
   storeEpisodic(
@@ -128,65 +86,25 @@ export class MemoryEngine extends EventEmitter {
     taskId?: string
   ): string {
     const id = crypto.randomUUID();
-    const now = Date.now();
-
-    try {
-      this.stmtInsert.run({
-        id,
-        employeeId,
-        taskId: taskId ?? null,
-        content,
-        tags: JSON.stringify(tags),
-        importance: Math.max(1, Math.min(5, importance)),
-        createdAt: now,
-      });
-
-      logger.debug(`Episodic memory stored: ${id} for employee ${employeeId}`);
-      this.emit('memory-changed', { type: 'episodic' as MemoryType, action: 'store' });
-      return id;
-    } catch (err) {
-      logger.error(`Failed to store episodic memory: ${err}`);
-      throw err;
-    }
+    const now = new Date().toISOString();
+    return this.storeEpisodicRaw(employeeId, id, now, content, tags, importance, taskId);
   }
 
   /**
-   * Recall the most important and recent memories for an employee.
+   * Recall the most recent memories for an employee.
+   * Parses MEMORY.md and returns up to `limit` entries (newest first).
    */
   recall(employeeId: string, limit: number = 10): EpisodicMemory[] {
+    const memoryFile = this.getMemoryFilePath(employeeId);
+    if (!existsSync(memoryFile)) return [];
+
     try {
-      const rows = this.stmtRecall.all(employeeId, limit) as EpisodicRow[];
-      return rows.map((row) => this.rowToEpisodic(row));
+      const content = readFileSync(memoryFile, 'utf-8');
+      const entries = this.parseMemoryFile(content, employeeId);
+      // Return newest first, limited
+      return entries.reverse().slice(0, limit);
     } catch (err) {
       logger.error(`Failed to recall memories for employee ${employeeId}: ${err}`);
-      throw err;
-    }
-  }
-
-  /**
-   * Search memories by keyword in content and tags.
-   */
-  search(employeeId: string, query: string, limit: number = 10): EpisodicMemory[] {
-    try {
-      const pattern = `%${query}%`;
-      const rows = this.stmtSearch.all(employeeId, pattern, pattern, limit) as EpisodicRow[];
-      return rows.map((row) => this.rowToEpisodic(row));
-    } catch (err) {
-      logger.error(`Failed to search memories for employee ${employeeId}: ${err}`);
-      throw err;
-    }
-  }
-
-  /**
-   * Delete a specific episodic memory by ID.
-   */
-  deleteEpisodic(id: string): void {
-    try {
-      this.stmtDelete.run(id);
-      logger.debug(`Episodic memory deleted: ${id}`);
-      this.emit('memory-changed', { type: 'episodic' as MemoryType, action: 'delete' });
-    } catch (err) {
-      logger.error(`Failed to delete episodic memory ${id}: ${err}`);
       throw err;
     }
   }
@@ -195,9 +113,13 @@ export class MemoryEngine extends EventEmitter {
    * Get the total count of episodic memories for an employee.
    */
   getEpisodicCount(employeeId: string): number {
+    const memoryFile = this.getMemoryFilePath(employeeId);
+    if (!existsSync(memoryFile)) return 0;
+
     try {
-      const result = this.stmtCount.get(employeeId) as { cnt: number };
-      return result.cnt;
+      const content = readFileSync(memoryFile, 'utf-8');
+      // Count entry headers (## lines with ISO timestamp)
+      return (content.match(/^## \d{4}-\d{2}-\d{2}T/gm) || []).length;
     } catch (err) {
       logger.error(`Failed to count memories for employee ${employeeId}: ${err}`);
       throw err;
@@ -213,170 +135,380 @@ export class MemoryEngine extends EventEmitter {
     if (memories.length === 0) return '';
 
     const memoryLines = memories
-      .map(
-        (m, i) =>
-          `${i + 1}. ${m.content}${m.tags.length > 0 ? ` [${m.tags.join(', ')}]` : ''}`
-      )
+      .map((m, i) => `${i + 1}. ${m.content}${m.tags.length > 0 ? ` [${m.tags.join(', ')}]` : ''}`)
       .join('\n');
 
     return `\n\n## Past Experience\n\nYou have the following relevant experiences from previous tasks:\n${memoryLines}`;
   }
 
-  // ── Semantic Memory ──────────────────────────────────────────────
+  // ── Brand Context ──────────────────────────────────────────────
 
   /**
-   * Set a semantic memory key-value pair in a category.
-   * Upserts: inserts if new, updates if the (category, key) pair already exists.
+   * Set brand context (writes entire BRAND.md).
    */
-  setSemantic(category: string, key: string, value: string): void {
-    this.db
-      .prepare(
-        `INSERT INTO semantic_memories (id, category, key, value, updatedAt)
-         VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT(category, key) DO UPDATE SET value = ?, updatedAt = ?`
-      )
-      .run(crypto.randomUUID(), category, key, value, Date.now(), value, Date.now());
-    this.emit('memory-changed', { type: 'semantic' as MemoryType, action: 'set' });
-  }
-
-  /**
-   * Get a single semantic memory value by category and key.
-   */
-  getSemantic(category: string, key: string): string | null {
-    const row = this.db
-      .prepare('SELECT value FROM semantic_memories WHERE category = ? AND key = ?')
-      .get(category, key) as { value: string } | undefined;
-    return row?.value ?? null;
-  }
-
-  /**
-   * Get all semantic memory key-value pairs for a given category.
-   */
-  getSemanticByCategory(category: string): Record<string, string> {
-    const rows = this.db
-      .prepare('SELECT key, value FROM semantic_memories WHERE category = ?')
-      .all(category) as { key: string; value: string }[];
-    const result: Record<string, string> = {};
-    for (const row of rows) {
-      result[row.key] = row.value;
+  setBrandContext(markdown: string): void {
+    try {
+      writeFileSync(BRAND_FILE, markdown, { encoding: 'utf-8', mode: FILE_MODE });
+      logger.debug('Brand context updated');
+      this.emit('memory-changed', { type: 'brand', action: 'set' });
+    } catch (err) {
+      logger.error(`Failed to set brand context: ${err}`);
+      throw err;
     }
-    return result;
   }
 
   /**
-   * Get all semantic memories grouped by category.
+   * Get brand context (reads entire BRAND.md).
    */
-  getAllSemantic(): Record<string, Record<string, string>> {
-    const rows = this.db
-      .prepare('SELECT category, key, value FROM semantic_memories')
-      .all() as { category: string; key: string; value: string }[];
-    const result: Record<string, Record<string, string>> = {};
-    for (const row of rows) {
-      if (!result[row.category]) result[row.category] = {};
-      result[row.category][row.key] = row.value;
+  getBrandContext(): string {
+    if (!existsSync(BRAND_FILE)) return '';
+    try {
+      return readFileSync(BRAND_FILE, 'utf-8');
+    } catch (err) {
+      logger.error(`Failed to get brand context: ${err}`);
+      return '';
     }
-    return result;
   }
 
   /**
-   * Delete a specific semantic memory entry.
-   */
-  deleteSemantic(category: string, key: string): void {
-    this.db
-      .prepare('DELETE FROM semantic_memories WHERE category = ? AND key = ?')
-      .run(category, key);
-    this.emit('memory-changed', { type: 'semantic' as MemoryType, action: 'delete' });
-  }
-
-  /**
-   * Generate a [Business Context] prompt section from all semantic memories.
-   * Returns an empty string when no semantic memories exist.
+   * Generate a [Business Context] prompt section from BRAND.md.
+   * Returns an empty string when no brand context exists.
    */
   generateBusinessContextSection(): string {
-    const all = this.getAllSemantic();
-    if (Object.keys(all).length === 0) return '';
+    const brand = this.getBrandContext();
+    if (!brand.trim()) return '';
 
-    const sections: string[] = [];
-    if (all.brand) {
-      sections.push(
-        '### Brand\n' +
-          Object.entries(all.brand)
-            .map(([k, v]) => `- **${k}**: ${v}`)
-            .join('\n')
-      );
+    return `\n\n## Business Context\n\n${brand}`;
+  }
+
+  // ── File Access ────────────────────────────────────────────────
+
+  /**
+   * Get the raw MEMORY.md content for an employee.
+   */
+  getMemoryFile(employeeId: string): string {
+    const memoryFile = this.getMemoryFilePath(employeeId);
+    if (!existsSync(memoryFile)) return '';
+    try {
+      return readFileSync(memoryFile, 'utf-8');
+    } catch (err) {
+      logger.error(`Failed to read memory file for ${employeeId}: ${err}`);
+      return '';
     }
-    if (all.product) {
-      sections.push(
-        '### Product\n' +
-          Object.entries(all.product)
-            .map(([k, v]) => `- **${k}**: ${v}`)
-            .join('\n')
-      );
-    }
-    if (all.competitor) {
-      sections.push(
-        '### Competitors\n' +
-          Object.entries(all.competitor)
-            .map(([k, v]) => `- **${k}**: ${v}`)
-            .join('\n')
-      );
-    }
-    if (all.audience) {
-      sections.push(
-        '### Target Audience\n' +
-          Object.entries(all.audience)
-            .map(([k, v]) => `- **${k}**: ${v}`)
-            .join('\n')
-      );
+  }
+
+  // ── Migration ──────────────────────────────────────────────────
+
+  /**
+   * Migrate episodic and semantic memories from an old SQLite database to files.
+   *
+   * Fix M1: preserves original `id` and `createdAt` from SQLite rows.
+   * Fix H1: caller is responsible for renaming the DB after success to prevent
+   *          duplicate runs (see `autoMigrate()`).
+   *
+   * @returns counts of migrated records
+   */
+  static async migrateFromSQLite(
+    dbPath: string,
+    engine: MemoryEngine
+  ): Promise<{ episodic: number; semantic: number }> {
+    let Database: typeof import('better-sqlite3');
+    try {
+      Database = (await import('better-sqlite3')).default;
+    } catch {
+      logger.warn('better-sqlite3 not available, skipping migration');
+      return { episodic: 0, semantic: 0 };
     }
 
-    return `\n\n## Business Context\n\n${sections.join('\n\n')}`;
+    if (!existsSync(dbPath)) {
+      return { episodic: 0, semantic: 0 };
+    }
+
+    logger.info(`Migrating from SQLite: ${dbPath}`);
+    const db = new Database(dbPath, { readonly: true });
+
+    let episodicCount = 0;
+    let semanticCount = 0;
+
+    try {
+      // Migrate episodic memories
+      const tables = db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='episodic_memories'")
+        .all();
+
+      if (tables.length > 0) {
+        const rows = db
+          .prepare('SELECT * FROM episodic_memories ORDER BY createdAt ASC')
+          .all() as Array<{
+          id: string;
+          employeeId: string;
+          taskId: string | null;
+          content: string;
+          tags: string;
+          importance: number;
+          createdAt: number;
+        }>;
+
+        for (const row of rows) {
+          const tags = JSON.parse(row.tags || '[]') as string[];
+          // Fix M1: preserve original id and createdAt from SQLite
+          const originalTimestamp = new Date(row.createdAt).toISOString();
+          engine.storeEpisodicRaw(
+            row.employeeId,
+            row.id,
+            originalTimestamp,
+            row.content,
+            tags,
+            row.importance,
+            row.taskId ?? undefined
+          );
+          episodicCount++;
+        }
+      }
+
+      // Migrate semantic memories → BRAND.md
+      const semTables = db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='semantic_memories'")
+        .all();
+
+      if (semTables.length > 0) {
+        const semRows = db
+          .prepare('SELECT category, key, value FROM semantic_memories ORDER BY category, key')
+          .all() as Array<{ category: string; key: string; value: string }>;
+
+        if (semRows.length > 0) {
+          const sections: Record<string, Array<{ key: string; value: string }>> = {};
+          for (const row of semRows) {
+            if (!sections[row.category]) sections[row.category] = [];
+            sections[row.category].push({ key: row.key, value: row.value });
+            semanticCount++;
+          }
+
+          const markdown = Object.entries(sections)
+            .map(
+              ([category, entries]) =>
+                `## ${category.charAt(0).toUpperCase() + category.slice(1)}\n\n` +
+                entries.map((e) => `- **${e.key}**: ${e.value}`).join('\n')
+            )
+            .join('\n\n');
+
+          engine.setBrandContext(markdown);
+        }
+      }
+
+      logger.info(
+        `Migration complete: ${episodicCount} episodic, ${semanticCount} semantic records`
+      );
+    } finally {
+      db.close();
+    }
+
+    return { episodic: episodicCount, semantic: semanticCount };
   }
 
   // ── Private helpers ──────────────────────────────────────────────
 
   /**
-   * Prepare reusable SQL statements
+   * Low-level episodic store that accepts an explicit `id` and `timestamp`.
+   * Used by both `storeEpisodic()` (new entries) and `migrateFromSQLite()`
+   * (preserving original values — fix M1).
    */
-  private prepareStatements(): void {
-    this.stmtInsert = this.db.prepare(`
-      INSERT INTO episodic_memories (id, employeeId, taskId, content, tags, importance, createdAt)
-      VALUES (@id, @employeeId, @taskId, @content, @tags, @importance, @createdAt)
-    `);
+  private storeEpisodicRaw(
+    employeeId: string,
+    id: string,
+    timestamp: string,
+    content: string,
+    tags: string[],
+    importance: number,
+    taskId?: string
+  ): string {
+    const clampedImportance = Math.max(1, Math.min(5, importance));
 
-    this.stmtRecall = this.db.prepare(`
-      SELECT * FROM episodic_memories
-      WHERE employeeId = ?
-      ORDER BY importance DESC, createdAt DESC
-      LIMIT ?
-    `);
+    const entry = this.formatMemoryEntry(id, timestamp, clampedImportance, tags, taskId, content);
 
-    this.stmtSearch = this.db.prepare(`
-      SELECT * FROM episodic_memories
-      WHERE employeeId = ? AND (content LIKE ? OR tags LIKE ?)
-      ORDER BY importance DESC, createdAt DESC
-      LIMIT ?
-    `);
+    const memoryFile = this.getMemoryFilePath(employeeId);
+    this.ensureEmployeeDir(employeeId);
 
-    this.stmtDelete = this.db.prepare('DELETE FROM episodic_memories WHERE id = ?');
-
-    this.stmtCount = this.db.prepare(
-      'SELECT COUNT(*) as cnt FROM episodic_memories WHERE employeeId = ?'
-    );
+    try {
+      appendFileSync(memoryFile, entry, { encoding: 'utf-8', mode: FILE_MODE });
+      logger.debug(`Episodic memory stored: ${id} for employee ${employeeId}`);
+      this.emit('memory-changed', { type: 'episodic', action: 'store' });
+      return id;
+    } catch (err) {
+      logger.error(`Failed to store episodic memory: ${err}`);
+      throw err;
+    }
   }
 
   /**
-   * Convert a SQLite row to an EpisodicMemory object
+   * Ensure the employee memory directory exists.
    */
-  private rowToEpisodic(row: EpisodicRow): EpisodicMemory {
-    return {
-      id: row.id,
-      employeeId: row.employeeId,
-      taskId: row.taskId ?? undefined,
-      content: row.content,
-      tags: JSON.parse(row.tags || '[]') as string[],
-      importance: row.importance,
-      createdAt: row.createdAt,
-    };
+  ensureEmployeeDir(employeeId: string): void {
+    const dir = join(EMPLOYEES_DIR, employeeId);
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true, mode: DIR_MODE });
+    }
+  }
+
+  private getMemoryFilePath(employeeId: string): string {
+    return join(EMPLOYEES_DIR, employeeId, 'MEMORY.md');
+  }
+
+  /**
+   * Format a single memory entry as Markdown.
+   * Uses `<!-- end-memory -->` as delimiter (fix M2: safe from Markdown conflicts).
+   */
+  private formatMemoryEntry(
+    id: string,
+    timestamp: string,
+    importance: number,
+    tags: string[],
+    taskId: string | undefined,
+    content: string
+  ): string {
+    const lines: string[] = [];
+    lines.push(`## ${timestamp}`);
+    lines.push(`id: ${id}`);
+    lines.push(`importance: ${importance}`);
+    if (tags.length > 0) {
+      lines.push(`tags: ${tags.join(', ')}`);
+    }
+    if (taskId) {
+      lines.push(`task: ${taskId}`);
+    }
+    lines.push('');
+    lines.push(content);
+    lines.push('');
+    lines.push(MEMORY_SEPARATOR);
+    lines.push('');
+    return lines.join('\n');
+  }
+
+  /**
+   * Parse a MEMORY.md file into EpisodicMemory objects.
+   * Entries are returned in file order (oldest first).
+   *
+   * Supports both the new `<!-- end-memory -->` separator and the legacy `---`
+   * separator for backward compatibility with files written before the M2 fix.
+   */
+  private parseMemoryFile(fileContent: string, employeeId: string): EpisodicMemory[] {
+    if (!fileContent.trim()) return [];
+
+    const entries: EpisodicMemory[] = [];
+
+    // Split on the new safe separator first; fall back to legacy `---` only if
+    // the file doesn't contain the new separator at all (backward compat).
+    const usesNewSeparator = fileContent.includes(MEMORY_SEPARATOR);
+    const blocks = usesNewSeparator
+      ? fileContent.split(MEMORY_SEPARATOR)
+      : fileContent.split(/^---$/m);
+
+    for (const block of blocks) {
+      const trimmed = block.trim();
+      if (!trimmed) continue;
+
+      // Parse header: ## <timestamp>
+      const headerMatch = trimmed.match(/^## (\d{4}-\d{2}-\d{2}T[\d:.]+Z?)/m);
+      if (!headerMatch) continue;
+
+      const timestamp = headerMatch[1];
+      const createdAt = new Date(timestamp).getTime();
+      if (isNaN(createdAt)) continue;
+
+      // Parse metadata lines
+      const idMatch = trimmed.match(/^id: (.+)$/m);
+      const importanceMatch = trimmed.match(/^importance: (\d+)$/m);
+      const tagsMatch = trimmed.match(/^tags: (.+)$/m);
+      const taskMatch = trimmed.match(/^task: (.+)$/m);
+
+      const id = idMatch?.[1] ?? crypto.randomUUID();
+      const importance = importanceMatch ? parseInt(importanceMatch[1], 10) : 3;
+      const tags = tagsMatch ? tagsMatch[1].split(',').map((t) => t.trim()) : [];
+      const taskId = taskMatch?.[1];
+
+      // Content is everything after the metadata lines
+      const lines = trimmed.split('\n');
+      const contentLines: string[] = [];
+      let pastMeta = false;
+      for (const line of lines) {
+        if (
+          !pastMeta &&
+          (line.startsWith('## ') ||
+            line.startsWith('id: ') ||
+            line.startsWith('importance: ') ||
+            line.startsWith('tags: ') ||
+            line.startsWith('task: ') ||
+            line.trim() === '')
+        ) {
+          if (
+            line.startsWith('id: ') ||
+            line.startsWith('importance: ') ||
+            line.startsWith('tags: ') ||
+            line.startsWith('task: ') ||
+            line.startsWith('## ')
+          ) {
+            continue;
+          }
+          // Skip leading empty lines between metadata and content
+          if (line.trim() === '' && contentLines.length === 0) {
+            continue;
+          }
+        }
+        pastMeta = true;
+        contentLines.push(line);
+      }
+
+      const content = contentLines.join('\n').trim();
+      if (!content) continue;
+
+      entries.push({
+        id,
+        employeeId,
+        taskId,
+        content,
+        tags,
+        importance,
+        createdAt,
+      });
+    }
+
+    return entries;
+  }
+
+  /**
+   * Auto-detect old SQLite database and migrate if present.
+   *
+   * Fix H1: After successful migration the `.db` file is renamed to
+   * `.db.migrated`, making this operation idempotent — subsequent startups
+   * won't find the original file and won't re-run migration.
+   */
+  private autoMigrate(): void {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { app } = require('electron') as typeof import('electron');
+      const oldDbPath = join(app.getPath('userData'), 'clawx-memory.db');
+      if (existsSync(oldDbPath)) {
+        logger.info('Old SQLite memory database detected, auto-migrating...');
+        // Run migration asynchronously — don't block init
+        void MemoryEngine.migrateFromSQLite(oldDbPath, this)
+          .then(() => {
+            // H1 fix: rename the DB so migration won't run again
+            const migratedPath = oldDbPath + '.migrated';
+            try {
+              renameSync(oldDbPath, migratedPath);
+              logger.info(`SQLite DB renamed to ${migratedPath} — migration won't re-run`);
+            } catch (renameErr) {
+              logger.warn(
+                `Failed to rename migrated DB (migration may re-run on next start): ${renameErr}`
+              );
+            }
+          })
+          .catch((err) => {
+            logger.warn(`Auto-migration from SQLite failed: ${err}`);
+          });
+      }
+    } catch {
+      // app not available (e.g. in tests), skip migration check
+    }
   }
 }

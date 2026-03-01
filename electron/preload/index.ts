@@ -214,18 +214,14 @@ const electronAPI = {
         'chatMessage:clear',
         'chatMessage:count',
         'chatMessage:listSessions',
-        // Memory (Episodic)
+        // Memory (Episodic + Brand)
         'memory:store',
         'memory:recall',
-        'memory:search',
-        'memory:delete',
         'memory:count',
-        // Memory (Semantic)
-        'memory:setSemantic',
-        'memory:getSemantic',
-        'memory:getSemanticByCategory',
-        'memory:getAllSemantic',
-        'memory:deleteSemantic',
+        'memory:setBrand',
+        'memory:getBrand',
+        'memory:getMemoryFile',
+        'memory:migrate',
         // Activity
         'activity:list',
         // Credits
@@ -264,12 +260,12 @@ const electronAPI = {
         'supervisor:disable',
         'supervisor:status',
         'supervisor:dispatch',
-        'supervisor:plan',
+        'supervisor:planProject',
         'supervisor:approvePlan',
         'supervisor:rejectPlan',
         'supervisor:submitPlan',
         'supervisor:synthesize',
-        'supervisor:close',
+        'supervisor:closeProject',
         // Conversations (chat history persistence)
         'conversation:list',
         'conversation:create',
@@ -315,6 +311,8 @@ const electronAPI = {
         'employee:browser-session',
         'task:changed',
         'browser:status-changed',
+        'project:changed',
+        'message:new',
         'ollama:pull-progress',
         'extension:install-progress',
         'supervisor:delegation-started',

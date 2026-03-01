@@ -124,6 +124,13 @@
         "installMessage": "Install the \"openclaw\" command?",
         "installDetail": "This will create ~/.local/bin/openclaw. Ensure ~/.local/bin is on your PATH if you want to run it globally."
     },
+    "brandMemory": {
+        "title": "Brand Context",
+        "description": "Write your brand, product, and audience context in Markdown. This will be injected into all employee system prompts.",
+        "placeholder": "# Brand\n- name: Acme Corp\n- tagline: Making the world better\n\n# Product\n- name: Product X\n- description: A brief description...\n\n# Audience\n- demographics: ...\n- pain points: ...",
+        "save": "Save",
+        "saved": "Brand context saved"
+    },
     "about": {
         "title": "About",
         "appName": "PocketCrow",

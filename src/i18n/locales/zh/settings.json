@@ -124,6 +124,13 @@
         "installMessage": "安装 \"openclaw\" 命令？",
         "installDetail": "这将创建 ~/.local/bin/openclaw。确保 ~/.local/bin 在您的 PATH 中。"
     },
+    "brandMemory": {
+        "title": "品牌上下文",
+        "description": "用 Markdown 编写您的品牌、产品和受众上下文。这些内容会注入到所有员工的系统提示中。",
+        "placeholder": "# 品牌\n- 名称：Acme Corp\n- 标语：让世界更美好\n\n# 产品\n- 名称：产品 X\n- 描述：简要描述...\n\n# 受众\n- 人群特征：...\n- 痛点：...",
+        "save": "保存",
+        "saved": "品牌上下文已保存"
+    },
     "about": {
         "title": "关于",
         "appName": "PocketCrow",

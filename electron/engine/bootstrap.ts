@@ -2,8 +2,8 @@
  * Engine Bootstrap
  * Orchestrates initialization of the Skill Runtime Engine components.
  *
- * Phase 0: ManifestParser, SkillCompiler, ToolRegistry, EmployeeManager, CreditsEngine
- * Phase 1 (lazy): TaskQueue, MessageBus, Supervisor, Memory, Prohibition
+ * Phase 0: ManifestParser, SkillCompiler, ToolRegistry, EmployeeManager, CreditsEngine, MemoryEngine
+ * Phase 1 (lazy): TaskQueue, MessageBus, Supervisor, Prohibition, TaskExecutor
  */
 import { logger } from '../utils/logger';
 import { ManifestParser } from './manifest-parser';
@@ -11,6 +11,7 @@ import { SkillCompiler } from './compiler';
 import { EmployeeManager } from './employee-manager';
 import { CreditsEngine } from './credits-engine';
 import { ToolRegistry } from './tool-registry';
+import { MemoryEngine } from './memory';
 import type { GatewayManager } from '../gateway/manager';
 
 /**
@@ -27,6 +28,7 @@ export interface EngineContext {
   toolRegistry: ToolRegistry;
   employeeManager: EmployeeManager;
   creditsEngine: CreditsEngine;
+  memoryEngine: MemoryEngine;
 
   // Phase 1 — lazy initialized, access via getLazy(gateway)
   getLazy: (gateway: GatewayManager) => Promise<LazyEngineContext>;
@@ -40,7 +42,7 @@ export interface LazyEngineContext {
   messageBus: import('./message-bus').MessageBus;
   supervisor: import('./supervisor').SupervisorEngine;
   executionWorker: import('./execution-worker').ExecutionWorker;
-  memoryEngine: import('./memory').MemoryEngine;
+  memoryEngine: MemoryEngine;
   prohibitionEngine: import('./prohibition').ProhibitionEngine;
   messageStore: import('./message-store').MessageStore;
   taskExecutor: import('./task-executor').TaskExecutor;
@@ -122,6 +124,13 @@ export async function bootstrapEngine(): Promise<EngineContext> {
     throw err;
   }
 
+  // Phase 0: MemoryEngine (file-backed, no SQLite dependency for init)
+  const memoryEngine = new MemoryEngine();
+  memoryEngine.init();
+
+  // Wire memory into the compiler
+  compiler.setMemoryEngine(memoryEngine);
+
   logger.info('Skill Runtime Engine Phase 0 bootstrap complete');
 
   // Phase 1: Lazy initialization
@@ -136,7 +145,6 @@ export async function bootstrapEngine(): Promise<EngineContext> {
     const { MessageBus } = await import('./message-bus');
     const { SupervisorEngine } = await import('./supervisor');
     const { ExecutionWorker } = await import('./execution-worker');
-    const { MemoryEngine } = await import('./memory');
     const { ProhibitionEngine } = await import('./prohibition');
     const { MessageStore } = await import('./message-store');
     const { TaskExecutor } = await import('./task-executor');
@@ -152,7 +160,20 @@ export async function bootstrapEngine(): Promise<EngineContext> {
     );
     messageBus.init();
 
-    const supervisor = new SupervisorEngine(taskQueue, messageBus, employeeManager, gateway);
+    const taskExecutor = new TaskExecutor(taskQueue, employeeManager, gateway);
+
+    const supervisor = new SupervisorEngine(
+      taskQueue,
+      messageBus,
+      employeeManager,
+      gateway,
+      taskExecutor
+    );
+
+    // Wire supervisor reactive monitoring to task-changed events (Issue #4)
+    taskQueue.on('task-changed', (task: import('../../src/types/task').Task) => {
+      supervisor.onTaskChanged(task);
+    });
 
     // Wire work loop prompt into the compiler so non-supervisor employees
     // receive task-board instructions in their system prompts (P0 fix)
@@ -163,12 +184,6 @@ export async function bootstrapEngine(): Promise<EngineContext> {
 
     const executionWorker = new ExecutionWorker();
 
-    const memoryEngine = new MemoryEngine();
-    memoryEngine.init();
-
-    // Wire memory into the compiler
-    compiler.setMemoryEngine(memoryEngine);
-
     const prohibitionEngine = new ProhibitionEngine();
     prohibitionEngine.init();
 
@@ -178,7 +193,17 @@ export async function bootstrapEngine(): Promise<EngineContext> {
     const messageStore = new MessageStore();
     messageStore.init();
 
-    const taskExecutor = new TaskExecutor(taskQueue, employeeManager, gateway);
+    // Issue #7: Deliver pending messages when employees come online.
+    // Fix L1: `deliverPendingMessages()` emits 'new-message' events on the
+    // MessageBus. These are now bridged to the renderer via IPC in
+    // `ipc-handlers.ts` (registerSupervisorHandlers → getLazy wrapper),
+    // so there IS a real production consumer for these events.
+    employeeManager.on('activated', (employeeId: string) => {
+      if (messageBus.hasPendingMessages(employeeId)) {
+        logger.info(`Delivering pending messages to newly activated employee: ${employeeId}`);
+        messageBus.deliverPendingMessages(employeeId);
+      }
+    });
 
     const { BrowserEventDetector } = await import('./browser-event-detector');
     const browserEventDetector = new BrowserEventDetector(gateway);
@@ -206,6 +231,7 @@ export async function bootstrapEngine(): Promise<EngineContext> {
     toolRegistry,
     employeeManager,
     creditsEngine,
+    memoryEngine,
     getLazy,
   };
 }

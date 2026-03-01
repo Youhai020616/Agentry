@@ -103,6 +103,13 @@
         "installMessage": "\"openclaw\" コマンドをインストールしますか？",
         "installDetail": "~/.local/bin/openclaw が作成されます。グローバルに実行するには ~/.local/bin が PATH に含まれていることを確認してください。"
     },
+    "brandMemory": {
+        "title": "ブランドコンテキスト",
+        "description": "ブランド、製品、ターゲットオーディエンスのコンテキストを Markdown で記述してください。すべての従業員のシステムプロンプトに注入されます。",
+        "placeholder": "# ブランド\n- 名前: Acme Corp\n- タグライン: 世界をより良く\n\n# 製品\n- 名前: Product X\n- 説明: 簡単な説明...\n\n# オーディエンス\n- 属性: ...\n- 課題: ...",
+        "save": "保存",
+        "saved": "ブランドコンテキストを保存しました"
+    },
     "about": {
         "title": "バージョン情報",
         "appName": "PocketCrow",
