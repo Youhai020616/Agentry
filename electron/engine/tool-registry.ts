@@ -65,7 +65,7 @@ export class ToolRegistry {
       } else if (tool.cli) {
         customDefs.push({
           name: tool.name,
-          description: `Tool: ${tool.name}`,
+          description: tool.description || `Tool: ${tool.name}`,
           cli: tool.cli,
           requiredSecret: tool.requiredSecret,
         });

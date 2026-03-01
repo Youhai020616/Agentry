@@ -38,7 +38,7 @@ try {
     errors.push('Missing required section: employee');
   } else {
     if (!manifest.employee.role) errors.push('Missing employee.role');
-    if (!manifest.employee.roleZh) warnings.push('Missing employee.roleZh');
+    if (!manifest.employee.roleZh) errors.push('Missing required employee.roleZh');
     if (!manifest.employee.avatar) warnings.push('Missing employee.avatar (will use default)');
     if (!manifest.employee.team) warnings.push('Missing employee.team (will use "general")');
     if (!manifest.employee.personality) {

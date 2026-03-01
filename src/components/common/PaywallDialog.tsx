@@ -22,22 +22,6 @@ interface PaywallDialogProps {
   requiredTier: 'pro' | 'team';
 }
 
-const TIER_BENEFITS: Record<'pro' | 'team', string[]> = {
-  pro: [
-    '10,000 credits/month',
-    'Unlimited employees',
-    'Tool execution',
-    'Priority support',
-  ],
-  team: [
-    '50,000 credits/month',
-    'Team collaboration',
-    'API access',
-    'Custom employees',
-    'Dedicated support',
-  ],
-};
-
 const TIER_ICONS: Record<'pro' | 'team', React.ReactNode> = {
   pro: <Crown className="h-6 w-6 text-primary" />,
   team: <Users className="h-6 w-6 text-primary" />,
@@ -72,12 +56,14 @@ export function PaywallDialog({ open, onOpenChange, feature, requiredTier }: Pay
             {t('paywall.benefits', { tier: t(`tiers.${requiredTier}.name`) })}
           </p>
           <ul className="space-y-2">
-            {TIER_BENEFITS[requiredTier].map((benefit, idx) => (
-              <li key={idx} className="flex items-center gap-2 text-sm">
-                <Check className="h-4 w-4 shrink-0 text-primary" />
-                <span>{benefit}</span>
-              </li>
-            ))}
+            {(t(`tiers.${requiredTier}.features`, { returnObjects: true }) as string[]).map(
+              (benefit, idx) => (
+                <li key={idx} className="flex items-center gap-2 text-sm">
+                  <Check className="h-4 w-4 shrink-0 text-primary" />
+                  <span>{benefit}</span>
+                </li>
+              )
+            )}
           </ul>
         </div>
 

@@ -85,11 +85,12 @@ export function MessageDock({
                 onClick={() => onSelect(char.id)}
                 onMouseEnter={() => setHoveredId(char.id)}
                 onMouseLeave={() => setHoveredId(null)}
+                onFocus={() => setHoveredId(char.id)}
+                onBlur={() => setHoveredId(null)}
+                aria-label={`${char.name}${char.status ? ` (${char.status})` : ''}`}
                 className={cn(
                   'relative flex h-10 w-10 items-center justify-center rounded-xl text-lg transition-colors',
-                  isSelected
-                    ? 'bg-primary/15 ring-2 ring-primary/40'
-                    : 'hover:bg-accent/60'
+                  isSelected ? 'bg-primary/15 ring-2 ring-primary/40' : 'hover:bg-accent/60'
                 )}
               >
                 <span className="select-none">{char.avatar}</span>

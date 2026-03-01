@@ -77,6 +77,8 @@ export type ManifestBuiltinToolName = 'browser';
  */
 export interface ManifestTool {
   name: string;
+  /** Human-readable description of the tool's purpose. Used in system prompts and UI. */
+  description?: string;
   /** CLI command to execute. Optional for built-in tools (name === 'browser'). */
   cli?: string;
   requiredSecret?: string;
