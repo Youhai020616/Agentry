@@ -29,6 +29,7 @@ function createMockTaskQueue() {
     })),
     get: vi.fn(),
     list: vi.fn().mockReturnValue([]),
+    listAvailable: vi.fn().mockReturnValue([]),
     update: vi.fn().mockImplementation((id, changes) => ({
       id,
       projectId: 'proj-1',
@@ -36,6 +37,8 @@ function createMockTaskQueue() {
       owner: 'emp-1',
       ...changes,
     })),
+    claim: vi.fn(),
+    cancel: vi.fn(),
     createProject: vi.fn().mockImplementation((input) => ({
       id: crypto.randomUUID(),
       ...input,
@@ -44,9 +47,31 @@ function createMockTaskQueue() {
       createdAt: Date.now(),
       completedAt: null,
     })),
+    createProjectWithTasks: vi.fn().mockImplementation((projectInput, taskInputs) => {
+      const projectId = crypto.randomUUID();
+      const project = {
+        id: projectId,
+        ...projectInput,
+        tasks: taskInputs.map(() => crypto.randomUUID()),
+        status: 'planning',
+        createdAt: Date.now(),
+        completedAt: null,
+      };
+      const tasks = taskInputs.map((input: any, i: number) => ({
+        id: project.tasks[i],
+        projectId,
+        ...input,
+        status: 'pending',
+        blockedBy: input.blockedBy ?? [],
+        blocks: [],
+        createdAt: Date.now(),
+      }));
+      return { project, tasks };
+    }),
     getProject: vi.fn(),
     updateProject: vi.fn(),
     on: vi.fn(),
+    emit: vi.fn(),
   };
 }
 
@@ -63,6 +88,10 @@ function createMockEmployeeManager() {
       gatewaySessionKey: 'session-pm',
     }),
     list: vi.fn().mockReturnValue([]),
+    assignTask: vi.fn(),
+    completeTask: vi.fn(),
+    markError: vi.fn(),
+    recover: vi.fn(),
   };
 }
 
@@ -74,12 +103,20 @@ function createMockGateway() {
   };
 }
 
+function createMockTaskExecutor() {
+  return {
+    cancel: vi.fn(),
+    on: vi.fn(),
+  };
+}
+
 describe('SupervisorEngine', () => {
   let engine: SupervisorEngine;
   let taskQueue: ReturnType<typeof createMockTaskQueue>;
   let messageBus: ReturnType<typeof createMockMessageBus>;
   let employeeManager: ReturnType<typeof createMockEmployeeManager>;
   let gateway: ReturnType<typeof createMockGateway>;
+  let taskExecutor: ReturnType<typeof createMockTaskExecutor>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -89,12 +126,14 @@ describe('SupervisorEngine', () => {
     messageBus = createMockMessageBus();
     employeeManager = createMockEmployeeManager();
     gateway = createMockGateway();
+    taskExecutor = createMockTaskExecutor();
 
     engine = new SupervisorEngine(
       taskQueue as any,
       messageBus as any,
       employeeManager as any,
       gateway as any,
+      taskExecutor as any,
     );
   });
 
@@ -108,15 +147,18 @@ describe('SupervisorEngine', () => {
   describe('planProject', () => {
     it('should create a project and ask PM via gateway RPC', async () => {
       const projectId = 'proj-test';
-      taskQueue.createProject.mockReturnValue({
-        id: projectId,
-        goal: 'Build feature',
-        pmEmployeeId: 'pm-1',
-        employees: ['pm-1'],
+      taskQueue.createProjectWithTasks.mockReturnValue({
+        project: {
+          id: projectId,
+          goal: 'Build feature',
+          pmEmployeeId: 'pm-1',
+          employees: ['pm-1'],
+          tasks: [],
+          status: 'planning',
+          createdAt: Date.now(),
+          completedAt: null,
+        },
         tasks: [],
-        status: 'planning',
-        createdAt: Date.now(),
-        completedAt: null,
       });
       taskQueue.getProject.mockReturnValue({
         id: projectId,
@@ -131,12 +173,13 @@ describe('SupervisorEngine', () => {
 
       await engine.planProject('Build feature', 'pm-1');
 
-      // Should create a project
-      expect(taskQueue.createProject).toHaveBeenCalledWith(
+      // Should create a project with tasks atomically
+      expect(taskQueue.createProjectWithTasks).toHaveBeenCalledWith(
         expect.objectContaining({
           goal: 'Build feature',
           pmEmployeeId: 'pm-1',
         }),
+        expect.any(Array),
       );
 
       // Should call gateway RPC with chat.send
@@ -155,16 +198,27 @@ describe('SupervisorEngine', () => {
         '[{"subject":"Design API","description":"Design the REST API"},{"subject":"Implement API","description":"Implement endpoints","blockedBy":["T0"]}]',
       );
 
-      taskQueue.createProject.mockReturnValue({
-        id: projectId,
-        goal: 'Build API',
-        pmEmployeeId: 'pm-1',
-        employees: ['pm-1'],
-        tasks: [],
-        status: 'planning',
-        createdAt: Date.now(),
-        completedAt: null,
+      taskQueue.createProjectWithTasks.mockImplementation((projectInput, taskInputs) => {
+        const project = {
+          id: projectId,
+          ...projectInput,
+          tasks: ['task-1', 'task-2'],
+          status: 'planning',
+          createdAt: Date.now(),
+          completedAt: null,
+        };
+        const tasks = (taskInputs as any[]).map((input: any, i: number) => ({
+          id: `task-${i + 1}`,
+          projectId,
+          ...input,
+          status: 'pending',
+          blockedBy: input.blockedBy ?? [],
+          blocks: [],
+          createdAt: Date.now(),
+        }));
+        return { project, tasks };
       });
+
       taskQueue.getProject.mockReturnValue({
         id: projectId,
         goal: 'Build API',
@@ -176,41 +230,14 @@ describe('SupervisorEngine', () => {
         completedAt: null,
       });
 
-      let taskIdx = 0;
-      taskQueue.create.mockImplementation((input: any) => {
-        const id = `task-${++taskIdx}`;
-        return {
-          id,
-          ...input,
-          status: 'pending',
-          blockedBy: input.blockedBy ?? [],
-          blocks: [],
-          createdAt: Date.now(),
-        };
-      });
-
       await engine.planProject('Build API', 'pm-1');
 
-      // Should create two tasks
-      expect(taskQueue.create).toHaveBeenCalledTimes(2);
-
-      // First task
-      expect(taskQueue.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          projectId,
-          subject: 'Design API',
-          description: 'Design the REST API',
-        }),
-      );
-
-      // Second task
-      expect(taskQueue.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          projectId,
-          subject: 'Implement API',
-          description: 'Implement endpoints',
-        }),
-      );
+      // Should create project with two tasks atomically
+      expect(taskQueue.createProjectWithTasks).toHaveBeenCalledTimes(1);
+      const [, taskInputs] = taskQueue.createProjectWithTasks.mock.calls[0];
+      expect(taskInputs).toHaveLength(2);
+      expect(taskInputs[0].subject).toBe('Design API');
+      expect(taskInputs[1].subject).toBe('Implement API');
     });
 
     it('should handle PM response failure gracefully', async () => {
@@ -233,8 +260,10 @@ describe('SupervisorEngine', () => {
       const result = await engine.planProject('Failing goal', 'pm-1');
 
       expect(result).toBeDefined();
-      // Tasks were not created since gateway failed
-      expect(taskQueue.create).not.toHaveBeenCalled();
+      // Transactional creation was not called since gateway failed
+      expect(taskQueue.createProjectWithTasks).not.toHaveBeenCalled();
+      // Fallback: createProject was called
+      expect(taskQueue.createProject).toHaveBeenCalled();
     });
 
     it('should throw if PM employee not found', async () => {
@@ -262,7 +291,7 @@ describe('SupervisorEngine', () => {
   // ── executeProject ───────────────────────────────────────────────
 
   describe('executeProject', () => {
-    it('should send messages to non-PM employees', async () => {
+    it('should update project status and claim available tasks', async () => {
       const project = {
         id: 'proj-1',
         goal: 'Build it',
@@ -285,15 +314,8 @@ describe('SupervisorEngine', () => {
         status: 'executing',
       });
 
-      // Should send messages to emp-2 and emp-3, but NOT pm-1
-      expect(messageBus.send).toHaveBeenCalledTimes(2);
-
-      const recipients = messageBus.send.mock.calls.map(
-        (call: any[]) => call[0].recipient,
-      );
-      expect(recipients).toContain('emp-2');
-      expect(recipients).toContain('emp-3');
-      expect(recipients).not.toContain('pm-1');
+      // Should attempt to claim available tasks
+      expect(taskQueue.listAvailable).toHaveBeenCalledWith('proj-1');
 
       // Should emit project-started event
       expect(startedSpy).toHaveBeenCalledWith(project);
@@ -308,9 +330,9 @@ describe('SupervisorEngine', () => {
     });
   });
 
-  // ── handlePlanSubmission ─────────────────────────────────────────
+  // ── submitPlan ────────────────────────────────────────────────────
 
-  describe('handlePlanSubmission', () => {
+  describe('submitPlan', () => {
     it('should update task and notify PM', async () => {
       const project = {
         id: 'proj-1',
@@ -332,7 +354,7 @@ describe('SupervisorEngine', () => {
       });
       taskQueue.getProject.mockReturnValue(project);
 
-      await engine.handlePlanSubmission('task-1', 'The plan');
+      await engine.submitPlan('task-1', 'The plan');
 
       // Should update the task with plan and planStatus
       expect(taskQueue.update).toHaveBeenCalledWith('task-1', {
@@ -458,8 +480,8 @@ describe('SupervisorEngine', () => {
   // ── destroy ──────────────────────────────────────────────────────
 
   describe('destroy', () => {
-    it('should clear all monitors', async () => {
-      // Set up a project so executeProject starts a monitor
+    it('should clear all heartbeats', async () => {
+      // Set up a project so executeProject starts a heartbeat
       const project = {
         id: 'proj-1',
         goal: 'Goal',

@@ -168,6 +168,29 @@ export class MessageBus extends EventEmitter {
     }
   }
 
+  // ── Pending Messages (Issue #7) ───────────────────────────────────
+
+  /**
+   * Check if an employee has unread pending messages.
+   */
+  hasPendingMessages(employeeId: string): boolean {
+    return this.getUnreadCount(employeeId) > 0;
+  }
+
+  /**
+   * Deliver all pending (unread) messages to an employee by emitting them.
+   * Called when an employee comes back online.
+   */
+  deliverPendingMessages(employeeId: string): void {
+    const messages = this.getInbox(employeeId);
+    for (const message of messages) {
+      this.emit('new-message', message);
+    }
+    if (messages.length > 0) {
+      logger.info(`Delivered ${messages.length} pending message(s) to ${employeeId}`);
+    }
+  }
+
   /**
    * Destroy — remove event listeners.
    * Note: the DB connection is shared with TaskQueue and closed there.

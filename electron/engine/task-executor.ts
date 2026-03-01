@@ -105,7 +105,8 @@ export class TaskExecutor extends EventEmitter {
         this.autoExecuteEnabled &&
         task.status === 'in_progress' &&
         task.owner &&
-        !this.executing.has(task.id)
+        !this.executing.has(task.id) &&
+        !this.employeeBusy.has(task.owner)
       ) {
         // A task was just claimed — auto-execute it
         void this.executeTask(task.id, task.owner).catch((err) => {

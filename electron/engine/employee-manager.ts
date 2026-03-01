@@ -179,10 +179,22 @@ export class EmployeeManager extends EventEmitter {
     // Push onboarding cookies to Camofox if available (non-blocking)
     await this.pushCamofoxCookies(employee);
 
+    // Ensure employee memory directory exists
+    try {
+      const { MemoryEngine } = await import('./memory');
+      const tmpEngine = new MemoryEngine();
+      tmpEngine.ensureEmployeeDir(id);
+    } catch (err) {
+      logger.warn(`Failed to ensure memory directory for ${id}: ${err}`);
+    }
+
     // Deterministic session key based on slug
     const sessionKey = `agent:main:employee-${id}`;
     employee.gatewaySessionKey = sessionKey;
     this.setStatus(employee, 'idle');
+
+    // Emit activated event for pending message delivery (Issue #7)
+    this.emit('activated', id);
 
     logger.info(`Employee activated: ${id}, session=${sessionKey}`);
     return employee;
@@ -291,11 +303,25 @@ export class EmployeeManager extends EventEmitter {
 
   assignTask(id: string): void {
     const employee = this.requireEmployee(id);
-    if (employee.status !== 'idle') {
-      logger.warn(`Cannot assign task to ${id}: status is '${employee.status}', expected 'idle'`);
+    if (employee.status !== 'idle' && employee.status !== 'error') {
+      logger.warn(
+        `Cannot assign task to ${id}: status is '${employee.status}', expected 'idle' or 'error'`
+      );
       return;
     }
     this.setStatus(employee, 'working');
+  }
+
+  /**
+   * Recover an employee from error state back to idle.
+   */
+  recover(id: string): void {
+    const employee = this.requireEmployee(id);
+    if (employee.status !== 'error') {
+      logger.warn(`Cannot recover ${id}: status is '${employee.status}', expected 'error'`);
+      return;
+    }
+    this.setStatus(employee, 'idle');
   }
 
   completeTask(id: string): void {

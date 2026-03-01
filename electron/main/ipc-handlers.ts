@@ -3060,10 +3060,10 @@ function registerActivityHandlers(
 
 // ── Memory Handlers ─────────────────────────────────────────────────
 
-function registerMemoryHandlers(engineRef: EngineRef, gatewayManager: GatewayManager): void {
-  const getLazy = async () => {
+function registerMemoryHandlers(engineRef: EngineRef, _gatewayManager: GatewayManager): void {
+  const getMemoryEngine = () => {
     if (!engineRef.current) throw new Error('Engine not initialized');
-    return engineRef.current.getLazy(gatewayManager);
+    return engineRef.current.memoryEngine;
   };
 
   ipcMain.handle(
@@ -3077,8 +3077,7 @@ function registerMemoryHandlers(engineRef: EngineRef, gatewayManager: GatewayMan
       taskId?: string
     ) => {
       try {
-        const lazy = await getLazy();
-        const id = lazy.memoryEngine.storeEpisodic(
+        const id = getMemoryEngine().storeEpisodic(
           employeeId,
           content,
           tags ?? [],
@@ -3095,8 +3094,7 @@ function registerMemoryHandlers(engineRef: EngineRef, gatewayManager: GatewayMan
 
   ipcMain.handle('memory:recall', async (_event, employeeId: string, limit?: number) => {
     try {
-      const lazy = await getLazy();
-      const memories = lazy.memoryEngine.recall(employeeId, limit ?? 10);
+      const memories = getMemoryEngine().recall(employeeId, limit ?? 10);
       return { success: true, result: memories };
     } catch (error) {
       logger.error('memory:recall failed:', error);
@@ -3104,35 +3102,9 @@ function registerMemoryHandlers(engineRef: EngineRef, gatewayManager: GatewayMan
     }
   });
 
-  ipcMain.handle(
-    'memory:search',
-    async (_event, employeeId: string, query: string, limit?: number) => {
-      try {
-        const lazy = await getLazy();
-        const memories = lazy.memoryEngine.search(employeeId, query, limit ?? 10);
-        return { success: true, result: memories };
-      } catch (error) {
-        logger.error('memory:search failed:', error);
-        return { success: false, error: String(error) };
-      }
-    }
-  );
-
-  ipcMain.handle('memory:delete', async (_event, id: string) => {
-    try {
-      const lazy = await getLazy();
-      lazy.memoryEngine.deleteEpisodic(id);
-      return { success: true };
-    } catch (error) {
-      logger.error('memory:delete failed:', error);
-      return { success: false, error: String(error) };
-    }
-  });
-
   ipcMain.handle('memory:count', async (_event, employeeId: string) => {
     try {
-      const lazy = await getLazy();
-      const count = lazy.memoryEngine.getEpisodicCount(employeeId);
+      const count = getMemoryEngine().getEpisodicCount(employeeId);
       return { success: true, result: count };
     } catch (error) {
       logger.error('memory:count failed:', error);
@@ -3140,62 +3112,50 @@ function registerMemoryHandlers(engineRef: EngineRef, gatewayManager: GatewayMan
     }
   });
 
-  // ── Semantic Memory Handlers ────────────────────────────────────
+  // ── Brand Context Handlers ──────────────────────────────────────
 
-  ipcMain.handle(
-    'memory:setSemantic',
-    async (_event, category: string, key: string, value: string) => {
-      try {
-        const lazy = await getLazy();
-        lazy.memoryEngine.setSemantic(category, key, value);
-        return { success: true };
-      } catch (error) {
-        logger.error('memory:setSemantic failed:', error);
-        return { success: false, error: String(error) };
-      }
-    }
-  );
-
-  ipcMain.handle('memory:getSemantic', async (_event, category: string, key: string) => {
+  ipcMain.handle('memory:setBrand', async (_event, markdown: string) => {
     try {
-      const lazy = await getLazy();
-      const value = lazy.memoryEngine.getSemantic(category, key);
-      return { success: true, result: value };
-    } catch (error) {
-      logger.error('memory:getSemantic failed:', error);
-      return { success: false, error: String(error) };
-    }
-  });
-
-  ipcMain.handle('memory:getSemanticByCategory', async (_event, category: string) => {
-    try {
-      const lazy = await getLazy();
-      const data = lazy.memoryEngine.getSemanticByCategory(category);
-      return { success: true, result: data };
-    } catch (error) {
-      logger.error('memory:getSemanticByCategory failed:', error);
-      return { success: false, error: String(error) };
-    }
-  });
-
-  ipcMain.handle('memory:getAllSemantic', async () => {
-    try {
-      const lazy = await getLazy();
-      const data = lazy.memoryEngine.getAllSemantic();
-      return { success: true, result: data };
-    } catch (error) {
-      logger.error('memory:getAllSemantic failed:', error);
-      return { success: false, error: String(error) };
-    }
-  });
-
-  ipcMain.handle('memory:deleteSemantic', async (_event, category: string, key: string) => {
-    try {
-      const lazy = await getLazy();
-      lazy.memoryEngine.deleteSemantic(category, key);
+      getMemoryEngine().setBrandContext(markdown);
       return { success: true };
     } catch (error) {
-      logger.error('memory:deleteSemantic failed:', error);
+      logger.error('memory:setBrand failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('memory:getBrand', async () => {
+    try {
+      const content = getMemoryEngine().getBrandContext();
+      return { success: true, result: content };
+    } catch (error) {
+      logger.error('memory:getBrand failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // ── File Access Handler ─────────────────────────────────────────
+
+  ipcMain.handle('memory:getMemoryFile', async (_event, employeeId: string) => {
+    try {
+      const content = getMemoryEngine().getMemoryFile(employeeId);
+      return { success: true, result: content };
+    } catch (error) {
+      logger.error('memory:getMemoryFile failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // ── Migration Handler ───────────────────────────────────────────
+
+  ipcMain.handle('memory:migrate', async (_event, dbPath?: string) => {
+    try {
+      const path = dbPath ?? join(app.getPath('userData'), 'clawx-memory.db');
+      const { MemoryEngine } = await import('../engine/memory');
+      const result = await MemoryEngine.migrateFromSQLite(path, getMemoryEngine());
+      return { success: true, result };
+    } catch (error) {
+      logger.error('memory:migrate failed:', error);
       return { success: false, error: String(error) };
     }
   });
@@ -3922,19 +3882,22 @@ function registerSupervisorHandlers(
     }
   );
 
-  // supervisor:plan — Ask PM to decompose a goal into a task DAG
-  ipcMain.handle('supervisor:plan', async (_, params: { goal: string; pmEmployeeId: string }) => {
-    try {
-      const lazy = await getLazy();
-      const project = await lazy.supervisor.planProject(params.goal, params.pmEmployeeId);
-      return { success: true, result: project };
-    } catch (error) {
-      logger.error('supervisor:plan failed:', error);
-      return { success: false, error: String(error) };
+  // supervisor:planProject — Decompose a user goal into a task DAG
+  ipcMain.handle(
+    'supervisor:planProject',
+    async (_, params: { goal: string; pmEmployeeId: string }) => {
+      try {
+        const lazy = await getLazy();
+        const project = await lazy.supervisor.planProject(params.goal, params.pmEmployeeId);
+        return { success: true, result: project };
+      } catch (error) {
+        logger.error('supervisor:planProject failed:', error);
+        return { success: false, error: String(error) };
+      }
     }
-  });
+  );
 
-  // supervisor:approvePlan — PM approves a submitted plan for a task
+  // supervisor:approvePlan — PM approves a submitted plan
   ipcMain.handle('supervisor:approvePlan', async (_, taskId: string) => {
     try {
       const lazy = await getLazy();
@@ -3946,7 +3909,7 @@ function registerSupervisorHandlers(
     }
   });
 
-  // supervisor:rejectPlan — PM rejects a submitted plan with feedback
+  // supervisor:rejectPlan — PM rejects a plan with feedback
   ipcMain.handle(
     'supervisor:rejectPlan',
     async (_, params: { taskId: string; feedback: string }) => {
@@ -3961,11 +3924,11 @@ function registerSupervisorHandlers(
     }
   );
 
-  // supervisor:submitPlan — Employee submits a plan for PM review
+  // supervisor:submitPlan — Employee submits a plan for review
   ipcMain.handle('supervisor:submitPlan', async (_, params: { taskId: string; plan: string }) => {
     try {
       const lazy = await getLazy();
-      await lazy.supervisor.handlePlanSubmission(params.taskId, params.plan);
+      await lazy.supervisor.submitPlan(params.taskId, params.plan);
       return { success: true };
     } catch (error) {
       logger.error('supervisor:submitPlan failed:', error);
@@ -3985,17 +3948,37 @@ function registerSupervisorHandlers(
     }
   });
 
-  // supervisor:close — Gracefully close a project
-  ipcMain.handle('supervisor:close', async (_, projectId: string) => {
+  // supervisor:closeProject — Gracefully close a project
+  ipcMain.handle('supervisor:closeProject', async (_, projectId: string) => {
     try {
       const lazy = await getLazy();
       await lazy.supervisor.closeProject(projectId);
       return { success: true };
     } catch (error) {
-      logger.error('supervisor:close failed:', error);
+      logger.error('supervisor:closeProject failed:', error);
       return { success: false, error: String(error) };
     }
   });
+
+  // ── Forward task-changed events to frontend ──────────
+
+  // Set up event forwarding when lazy engine initializes
+  getLazy()
+    .then((lazy) => {
+      lazy.taskQueue.on('task-changed', (task: unknown) => {
+        if (!mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('task:changed', task);
+        }
+      });
+      lazy.taskQueue.on('project-changed', (project: unknown) => {
+        if (!mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('project:changed', project);
+        }
+      });
+    })
+    .catch(() => {
+      // Engine not ready yet — event forwarding will be set up when it is
+    });
 }
 
 // ---------------------------------------------------------------------------
