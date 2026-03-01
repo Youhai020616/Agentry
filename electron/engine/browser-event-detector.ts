@@ -115,8 +115,9 @@ const NATIVE_BROWSER_ACTIONS = new Set<string>([
   'resize',
 ]);
 
-/** Employee session key pattern: `agent:main:employee-<slug>` */
-const EMPLOYEE_SESSION_REGEX = /^agent:main:employee-(.+)$/;
+/** Employee session key pattern: `agent:{slug}:main` (native multi-agent routing).
+ *  Excludes `agent:main:main` which is OpenClaw's default agent, not an employee. */
+const EMPLOYEE_SESSION_REGEX = /^agent:(?!main:)(.+):main$/;
 
 /** Actions that are "meaningful" (worth logging as activity vs noise like snapshot) */
 export const MEANINGFUL_ACTIONS: ReadonlySet<BrowserAction> = new Set([

@@ -184,9 +184,9 @@ loadHistory()
 在 RPC 层拦截 `chat.send` 调用，根据 session key 解析出 employee ID，查询 per-employee 模型覆盖，注入到 RPC params 中：
 
 ```
-Renderer: gateway:rpc('chat.send', { sessionKey: 'agent:main:employee-reddit-poster', message: '...' })
+Renderer: gateway:rpc('chat.send', { sessionKey: 'agent:reddit-poster:main', message: '...' })
                     ↓
-Main IPC Handler: 检测 sessionKey 匹配 /^agent:main:employee-(.+)$/
+Main IPC Handler: 检测 sessionKey 匹配 /^agent:(.+):main$/
                     ↓
 查询 electron-store: employee-models.reddit-poster → "anthropic/claude-3.5-haiku"
                     ↓
@@ -200,14 +200,15 @@ Gateway RPC: chat.send (携带 model 参数)
 - `electron/main/ipc-handlers.ts`:
   - `gateway:rpc` handler — 拦截 `chat.send`，注入 per-employee model
   - `chat:sendWithMedia` handler — 同样注入 per-employee model
-  - `employee:setModel` handler — 不再修改全局 OpenClaw 配置
+  - `employee:setModel` handler — 保存到 electron-store 并同步到 `openclaw.json` agent 配置
 
 ### 关键设计决策
 
 1. **透明注入**：Renderer 不需要知道模型覆盖的存在，Main process 自动处理
-2. **Session key 模式匹配**：`agent:main:employee-{slug}` → 提取 slug 作为 employee ID
-3. **不修改全局配置**：`employee:setModel` 只保存到 `employee-secrets` electron-store
+2. **Session key 模式匹配**：`agent:{slug}:main`（原生多 Agent 路由格式）→ 提取 slug 作为 employee ID
+3. **双重同步**：`employee:setModel` 保存到 `employee-secrets` electron-store，同时通过 `configUpdateQueue` 更新 `openclaw.json` 中对应 agent 的 model 字段
 4. **每次请求独立**：每个 `chat.send` RPC 携带自己的 model 参数，不影响其他会话
+5. **原生 Agent 工作区**：系统提示通过 AGENTS.md 写入 per-employee 工作区（`~/.clawx/employees/{id}/`），由 OpenClaw 原生读取，不再使用 `extraSystemPrompt` 注入
 
 ---
 

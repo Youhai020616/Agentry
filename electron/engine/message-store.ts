@@ -170,11 +170,104 @@ export class MessageStore extends EventEmitter {
       this.db.exec(CREATE_MESSAGES_INDEX);
       this.db.exec(CREATE_SESSIONS_TABLE);
 
+      // Migration: rename old session keys from `agent:main:employee-{slug}`
+      // to the native multi-agent format `agent:{slug}:main`.
+      // Safe to run every startup — the WHERE clause is a no-op once migrated.
+      this.migrateSessionKeys();
+
       this.prepareStatements();
       logger.info(`MessageStore initialized (db: ${this.dbPath})`);
     } catch (err) {
       logger.error(`MessageStore failed to initialize: ${err}`);
       throw err;
+    }
+  }
+
+  /**
+   * Migrate session keys from old `agent:main:employee-{slug}` format
+   * to the native multi-agent format `agent:{slug}:main`.
+   *
+   * This is idempotent — once all old-format keys are migrated, the
+   * WHERE clause matches zero rows and does nothing.
+   *
+   * Because `session_meta.sessionKey` is a PRIMARY KEY, we can't simply
+   * UPDATE it in place — we must INSERT the new key and DELETE the old one.
+   * Messages can be updated in place since `sessionKey` is a regular column.
+   */
+  private migrateSessionKeys(): void {
+    try {
+      // Step 1: Find all old-format session keys
+      const oldSessions = this.db
+        .prepare(
+          `SELECT sessionKey FROM session_meta WHERE sessionKey LIKE 'agent:main:employee-%'`
+        )
+        .all() as Array<{ sessionKey: string }>;
+
+      if (oldSessions.length === 0) return;
+
+      logger.info(
+        `[MessageStore] Migrating ${oldSessions.length} session key(s) from old format...`
+      );
+
+      const txn = this.db.transaction(() => {
+        let msgCount = 0;
+
+        for (const { sessionKey: oldKey } of oldSessions) {
+          // Extract slug: "agent:main:employee-seo-expert" → "seo-expert"
+          const match = oldKey.match(/^agent:main:employee-(.+)$/);
+          if (!match) continue;
+          const slug = match[1];
+          const newKey = `agent:${slug}:main`;
+
+          // Migrate messages (regular column — simple UPDATE)
+          const msgResult = this.db
+            .prepare(`UPDATE messages SET sessionKey = ? WHERE sessionKey = ?`)
+            .run(newKey, oldKey);
+          msgCount += msgResult.changes;
+
+          // Migrate session_meta (PK — must INSERT new + DELETE old)
+          const existingMeta = this.db
+            .prepare(`SELECT * FROM session_meta WHERE sessionKey = ?`)
+            .get(oldKey) as Record<string, unknown> | undefined;
+
+          if (existingMeta) {
+            // Check if the new key already exists (e.g., partial previous migration)
+            const newExists = this.db
+              .prepare(`SELECT 1 FROM session_meta WHERE sessionKey = ?`)
+              .get(newKey);
+
+            if (!newExists) {
+              this.db
+                .prepare(
+                  `INSERT INTO session_meta (sessionKey, label, employeeId, systemPrompt, model, lastActivityAt, messageCount)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)`
+                )
+                .run(
+                  newKey,
+                  existingMeta.label,
+                  existingMeta.employeeId,
+                  existingMeta.systemPrompt,
+                  existingMeta.model,
+                  existingMeta.lastActivityAt,
+                  existingMeta.messageCount
+                );
+            }
+
+            this.db.prepare(`DELETE FROM session_meta WHERE sessionKey = ?`).run(oldKey);
+          }
+
+          logger.debug(`[MessageStore] Migrated session key: ${oldKey} → ${newKey}`);
+        }
+
+        logger.info(
+          `[MessageStore] Migration complete: ${oldSessions.length} session(s), ${msgCount} message(s) updated`
+        );
+      });
+
+      txn();
+    } catch (err) {
+      // Non-fatal — old keys just won't be visible under the new session
+      logger.warn(`[MessageStore] Session key migration failed (non-fatal): ${err}`);
     }
   }
 
@@ -462,10 +555,7 @@ export class MessageStore extends EventEmitter {
    * @param gatewayMessages  Messages from Gateway's chat.history response
    * @returns Number of new messages added
    */
-  syncFromGateway(
-    sessionKey: string,
-    gatewayMessages: Array<Record<string, unknown>>
-  ): number {
+  syncFromGateway(sessionKey: string, gatewayMessages: Array<Record<string, unknown>>): number {
     let newCount = 0;
 
     const txn = this.db.transaction(() => {
@@ -606,9 +696,7 @@ export class MessageStore extends EventEmitter {
         raw = COALESCE(excluded.raw, messages.raw)
     `);
 
-    this.stmtGetMessage = this.db.prepare(
-      'SELECT * FROM messages WHERE id = ?'
-    );
+    this.stmtGetMessage = this.db.prepare('SELECT * FROM messages WHERE id = ?');
 
     this.stmtListMessages = this.db.prepare(
       'SELECT * FROM messages WHERE sessionKey = ? ORDER BY timestamp ASC LIMIT ?'
@@ -626,13 +714,9 @@ export class MessageStore extends EventEmitter {
       'SELECT * FROM messages WHERE sessionKey = ? ORDER BY timestamp DESC LIMIT 1'
     );
 
-    this.stmtDeleteMessage = this.db.prepare(
-      'DELETE FROM messages WHERE id = ?'
-    );
+    this.stmtDeleteMessage = this.db.prepare('DELETE FROM messages WHERE id = ?');
 
-    this.stmtDeleteSessionMessages = this.db.prepare(
-      'DELETE FROM messages WHERE sessionKey = ?'
-    );
+    this.stmtDeleteSessionMessages = this.db.prepare('DELETE FROM messages WHERE sessionKey = ?');
 
     this.stmtListSessionKeys = this.db.prepare(
       'SELECT DISTINCT sessionKey FROM messages ORDER BY sessionKey'
@@ -651,16 +735,12 @@ export class MessageStore extends EventEmitter {
         messageCount = excluded.messageCount
     `);
 
-    this.stmtGetSessionMeta = this.db.prepare(
-      'SELECT * FROM session_meta WHERE sessionKey = ?'
-    );
+    this.stmtGetSessionMeta = this.db.prepare('SELECT * FROM session_meta WHERE sessionKey = ?');
 
     this.stmtListSessionMeta = this.db.prepare(
       'SELECT * FROM session_meta ORDER BY lastActivityAt DESC'
     );
 
-    this.stmtDeleteSessionMeta = this.db.prepare(
-      'DELETE FROM session_meta WHERE sessionKey = ?'
-    );
+    this.stmtDeleteSessionMeta = this.db.prepare('DELETE FROM session_meta WHERE sessionKey = ?');
   }
 }

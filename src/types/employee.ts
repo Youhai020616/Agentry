@@ -38,7 +38,7 @@ export interface Employee {
 
   // Runtime
   status: EmployeeStatus;
-  /** Deterministic Gateway session key: `agent:main:employee-${slug}` */
+  /** Deterministic Gateway session key: `agent:${slug}:main` (native multi-agent routing) */
   gatewaySessionKey?: string;
   /** Compiled system prompt (set on activate) */
   systemPrompt?: string;

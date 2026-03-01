@@ -1,5 +1,100 @@
 # Lessons Learned
 
+## 2026-03-02 — Post-Migration Cleanup (Phase 4)
+
+### 34. Compiler `langRule` prefix breaks tests that assert exact output
+
+The `SkillCompiler.compile()` prepends a `## CRITICAL: Response Language Rule` block to every
+compiled system prompt (added for i18n — ensures the model responds in the user's language).
+Tests that assert `expect(result).toBe('...')` against the raw template output will fail because
+they don't account for this prefix.
+
+**Fix**: Define a shared `LANG_RULE_PREFIX` constant in the test file and prepend it to all
+expected values:
+```
+const LANG_RULE_PREFIX = '## CRITICAL: Response Language Rule\n...';
+expect(result).toBe(LANG_RULE_PREFIX + 'expected template output');
+```
+
+**Pattern**: When a compiler/transformer adds a fixed prefix/suffix to its output, tests should
+use a constant for that prefix rather than hardcoding the full string in every assertion.
+This way, if the prefix text changes, you only update the constant.
+
+## 2026-03-02 — Multi-Agent Migration POC Verification
+
+### 26. OpenClaw Gateway protocol uses `msg.type === 'evt'` and `msg.payload` — NOT `'ev'` or `msg.result`
+
+When writing a WebSocket client for the OpenClaw Gateway, the response protocol is:
+- Events: `{ type: "evt", event: "chat"|"agent"|..., payload: {...} }`
+- Responses: `{ type: "res", id: "...", ok: true|false, payload: {...} }`
+- NOT `{ type: "ev" }` or `{ result: ... }` — those are different protocols.
+
+Always copy the proven `handleMessage()` from `test-gateway-chat.mjs` instead of reimplementing from scratch. The protocol has subtle field name differences that cause silent failures (RPCs timeout instead of resolving).
+
+### 27. Gateway `connect` handshake requires `client.id === 'gateway-client'`
+
+The OpenClaw Gateway validates the `client.id` field in the connect frame. Using any other value (e.g. `'poc-multi-agent'`) causes:
+```
+invalid connect params: at /client/id: must be equal to constant
+```
+Always use `id: 'gateway-client'` in connect frames. This is hardcoded in both `GatewayManager` and `test-gateway-chat.mjs`.
+
+### 28. ClawX Gateway runs on port 18790, NOT 18789
+
+`electron/utils/config.ts` hardcodes `OPENCLAW_GATEWAY: 18790` to avoid conflict with standalone OpenClaw on 18789. The `settings.json` default of `18789` is overridden by the code. When writing test scripts, always use `GATEWAY_PORT=18790` or read the actual port from `config.ts` logic.
+
+### 29. Direct `writeFileSync` to `openclaw.json` works with hot-reload — no restart needed
+
+POC verified: writing `agents.list` entries to `~/.openclaw/openclaw.json` while Gateway is running does NOT crash it. The Gateway hot-reloads the config and picks up new agents within ~3 seconds. This means:
+- Use `writeFileSync` (same pattern as `skill-config.ts` and `channel-config.ts`)
+- Add a `ConfigUpdateQueue` mutex to serialize concurrent writes
+- No Gateway restart needed for adding/removing agents
+
+### 30. OpenClaw multi-agent routing works: `agent:{slug}:main` reads workspace AGENTS.md
+
+POC verified with magic phrase test (`QUOKKA_VERIFIED_42`):
+- Creating a workspace directory with `AGENTS.md` at a custom path
+- Registering the agent in `openclaw.json` `agents.list[].workspace`
+- Sending `chat.send` to `agent:{slug}:main` → agent follows AGENTS.md instructions
+- `agent:main:main` does NOT see the custom agent's instructions → isolation confirmed
+
+This confirms the migration from `extraSystemPrompt` hack to native multi-agent is viable.
+
+### 31. `config.get` returns hash for CAS; `config.patch` expects `{raw: ...}` not `{ops: [...]}`
+
+The Gateway's config RPC methods:
+- `config.get` → `{ path, exists, raw, parsed, valid, hash }` — the `hash` enables optimistic concurrency
+- `config.patch` → expects `{ raw: "..." }` (the full raw config text), NOT JSON Patch `{ ops: [...] }`
+- For ClawX's use case, direct file writes are simpler and already proven. Reserve `config.patch` for future needs.
+
+### 32. Windows file lock on agent workspace — retry cleanup with delay
+
+After Gateway reads an agent's workspace files (AGENTS.md etc.), it may hold file handles briefly. On Windows, `rmSync` fails with `EPERM`. Solution: retry with 2s delay (up to 3 attempts).
+
+```javascript
+for (let attempt = 0; attempt < 3; attempt++) {
+  try {
+    rmSync(dir, { recursive: true, force: true });
+    break;
+  } catch (err) {
+    if (attempt < 2) await sleep(2000);
+    else warn(`Manually delete: ${dir}`);
+  }
+}
+```
+
+### 33. Agent stream events (`msg.event === 'agent'`) carry LLM deltas in nested structure
+
+Chat content from agent sessions arrives as:
+```
+{ type: "evt", event: "agent", payload: { stream: "assistant", data: { delta: "text..." } } }
+```
+Lifecycle completion:
+```
+{ type: "evt", event: "agent", payload: { stream: "lifecycle", data: { phase: "end" } } }
+```
+A naive content extractor that just does `payload.message` or `String(payload)` will produce `[object Object]`. Always extract `payload.data.delta` for assistant stream events.
+
 Patterns and mistakes to avoid, updated after each correction.
 
 ---

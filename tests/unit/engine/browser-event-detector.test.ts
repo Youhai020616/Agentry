@@ -15,8 +15,8 @@ import {
   extractNativeBrowserAction,
   findSessionKey,
   MEANINGFUL_ACTIONS,
-} from '@electron/engine/browser-event-detector';
-import type { BrowserActionEvent } from '@electron/engine/browser-event-detector';
+} from '../../../electron/engine/browser-event-detector';
+import type { BrowserActionEvent } from '../../../electron/engine/browser-event-detector';
 
 // ── Mock GatewayManager ───────────────────────────────────────────────
 
@@ -225,7 +225,7 @@ describe('BrowserEventDetector with native browser tool notifications', () => {
     const events: BrowserActionEvent[] = [];
     detector.on('browser-action', (e: BrowserActionEvent) => events.push(e));
 
-    emitNativeBrowserToolCall(gateway, 'agent:main:employee-browser-agent', {
+    emitNativeBrowserToolCall(gateway, 'agent:browser-agent:main', {
       action: 'open',
       url: 'https://github.com/trending',
     });
@@ -240,7 +240,7 @@ describe('BrowserEventDetector with native browser tool notifications', () => {
     const events: BrowserActionEvent[] = [];
     detector.on('browser-action', (e: BrowserActionEvent) => events.push(e));
 
-    emitNativeBrowserToolCall(gateway, 'agent:main:employee-browser-agent', {
+    emitNativeBrowserToolCall(gateway, 'agent:browser-agent:main', {
       action: 'snapshot',
       format: 'ai',
     });
@@ -253,7 +253,7 @@ describe('BrowserEventDetector with native browser tool notifications', () => {
     const events: BrowserActionEvent[] = [];
     detector.on('browser-action', (e: BrowserActionEvent) => events.push(e));
 
-    emitNativeBrowserToolCall(gateway, 'agent:main:employee-seo', {
+    emitNativeBrowserToolCall(gateway, 'agent:seo:main', {
       action: 'click',
       ref: 42,
     });
@@ -265,7 +265,7 @@ describe('BrowserEventDetector with native browser tool notifications', () => {
   });
 
   it('tracks active session from native browser tool calls', () => {
-    emitNativeBrowserToolCall(gateway, 'agent:main:employee-browser-agent', {
+    emitNativeBrowserToolCall(gateway, 'agent:browser-agent:main', {
       action: 'open',
       url: 'https://example.com',
     });
@@ -278,7 +278,7 @@ describe('BrowserEventDetector with native browser tool notifications', () => {
     const sessionEvents: string[] = [];
     detector.on('session-active', (id: string) => sessionEvents.push(id));
 
-    emitNativeBrowserToolCall(gateway, 'agent:main:employee-browser-agent', {
+    emitNativeBrowserToolCall(gateway, 'agent:browser-agent:main', {
       action: 'open',
       url: 'https://example.com',
     });
@@ -293,7 +293,7 @@ describe('BrowserEventDetector with native browser tool notifications', () => {
     gateway.emit('notification', {
       method: 'tool.call_completed',
       params: {
-        session: 'agent:main:employee-browser-agent',
+        session: 'agent:browser-agent:main',
         tool: 'browser',
         args: { action: 'snapshot', format: 'ai' },
         success: true,
@@ -315,7 +315,7 @@ describe('BrowserEventDetector with native browser tool notifications', () => {
     gateway.emit('notification', {
       method: 'tool.call_started',
       params: {
-        session: 'agent:main:employee-legacy',
+        session: 'agent:legacy:main',
         tool: 'exec',
         args: { command: 'openclaw browser open "https://example.com"' },
       },
@@ -376,11 +376,11 @@ function emitToolCallCompleted(
 
 describe('extractEmployeeId', () => {
   it('extracts slug from standard employee session key', () => {
-    expect(extractEmployeeId('agent:main:employee-seo-expert')).toBe('seo-expert');
+    expect(extractEmployeeId('agent:seo-expert:main')).toBe('seo-expert');
   });
 
   it('extracts slug with dashes', () => {
-    expect(extractEmployeeId('agent:main:employee-reddit-nurture')).toBe('reddit-nurture');
+    expect(extractEmployeeId('agent:reddit-nurture:main')).toBe('reddit-nurture');
   });
 
   it('returns undefined for non-employee session keys', () => {
@@ -617,35 +617,31 @@ describe('extractBrowserCommandFromParams', () => {
 
 describe('findSessionKey', () => {
   it('finds sessionKey at top level', () => {
-    expect(findSessionKey({ sessionKey: 'agent:main:employee-test' })).toBe(
-      'agent:main:employee-test'
-    );
+    expect(findSessionKey({ sessionKey: 'agent:test:main' })).toBe('agent:test:main');
   });
 
   it('finds session at top level', () => {
-    expect(findSessionKey({ session: 'agent:main:employee-test' })).toBe(
-      'agent:main:employee-test'
-    );
+    expect(findSessionKey({ session: 'agent:test:main' })).toBe('agent:test:main');
   });
 
   it('finds session_key at top level', () => {
-    expect(findSessionKey({ session_key: 'agent:main:employee-x' })).toBe('agent:main:employee-x');
+    expect(findSessionKey({ session_key: 'agent:x:main' })).toBe('agent:x:main');
   });
 
   it('finds sessionKey in nested tool_call', () => {
     expect(
       findSessionKey({
-        tool_call: { sessionKey: 'agent:main:employee-nested' },
+        tool_call: { sessionKey: 'agent:nested:main' },
       })
-    ).toBe('agent:main:employee-nested');
+    ).toBe('agent:nested:main');
   });
 
   it('finds session in nested meta', () => {
     expect(
       findSessionKey({
-        meta: { session: 'agent:main:employee-meta' },
+        meta: { session: 'agent:meta:main' },
       })
-    ).toBe('agent:main:employee-meta');
+    ).toBe('agent:meta:main');
   });
 
   it('returns undefined when no session key present', () => {
@@ -718,7 +714,7 @@ describe('BrowserEventDetector', () => {
 
       emitToolCallStarted(
         gateway,
-        'agent:main:employee-seo-expert',
+        'agent:seo-expert:main',
         'exec',
         'openclaw browser open "https://example.com"'
       );
@@ -736,7 +732,7 @@ describe('BrowserEventDetector', () => {
 
       emitToolCallCompleted(
         gateway,
-        'agent:main:employee-researcher',
+        'agent:researcher:main',
         'exec',
         'openclaw browser click 12',
         true,
@@ -758,7 +754,7 @@ describe('BrowserEventDetector', () => {
       gateway.emit('notification', {
         method: 'tool_call_started',
         params: {
-          session: 'agent:main:employee-test',
+          session: 'agent:test:main',
           tool: 'exec',
           args: { command: 'openclaw browser snapshot --format ai' },
         },
@@ -784,7 +780,7 @@ describe('BrowserEventDetector', () => {
       const events: BrowserActionEvent[] = [];
       detector.on('browser-action', (e: BrowserActionEvent) => events.push(e));
 
-      emitToolCallStarted(gateway, 'agent:main:employee-coder', 'exec', 'python3 script.py');
+      emitToolCallStarted(gateway, 'agent:coder:main', 'exec', 'python3 script.py');
 
       expect(events).toHaveLength(0);
     });
@@ -822,7 +818,7 @@ describe('BrowserEventDetector', () => {
 
       emitToolCallStarted(
         gateway,
-        'agent:main:employee-test',
+        'agent:test:main',
         'exec',
         'openclaw browser open "https://test.com"'
       );
@@ -835,7 +831,7 @@ describe('BrowserEventDetector', () => {
     it('tracks active session on first browser action', () => {
       emitToolCallStarted(
         gateway,
-        'agent:main:employee-seo',
+        'agent:seo:main',
         'exec',
         'openclaw browser open "https://example.com"'
       );
@@ -854,7 +850,7 @@ describe('BrowserEventDetector', () => {
 
       emitToolCallStarted(
         gateway,
-        'agent:main:employee-seo',
+        'agent:seo:main',
         'exec',
         'openclaw browser open "https://example.com"'
       );
@@ -868,13 +864,13 @@ describe('BrowserEventDetector', () => {
 
       emitToolCallStarted(
         gateway,
-        'agent:main:employee-seo',
+        'agent:seo:main',
         'exec',
         'openclaw browser open "https://example.com"'
       );
       emitToolCallStarted(
         gateway,
-        'agent:main:employee-seo',
+        'agent:seo:main',
         'exec',
         'openclaw browser snapshot --format ai'
       );
@@ -885,13 +881,13 @@ describe('BrowserEventDetector', () => {
     it('removes session on browser stop command', () => {
       emitToolCallStarted(
         gateway,
-        'agent:main:employee-seo',
+        'agent:seo:main',
         'exec',
         'openclaw browser open "https://example.com"'
       );
       expect(detector.isEmployeeBrowsing('seo')).toBe(true);
 
-      emitToolCallStarted(gateway, 'agent:main:employee-seo', 'exec', 'openclaw browser stop');
+      emitToolCallStarted(gateway, 'agent:seo:main', 'exec', 'openclaw browser stop');
       expect(detector.isEmployeeBrowsing('seo')).toBe(false);
     });
 
@@ -901,11 +897,11 @@ describe('BrowserEventDetector', () => {
 
       emitToolCallStarted(
         gateway,
-        'agent:main:employee-seo',
+        'agent:seo:main',
         'exec',
         'openclaw browser open "https://example.com"'
       );
-      emitToolCallStarted(gateway, 'agent:main:employee-seo', 'exec', 'openclaw browser stop');
+      emitToolCallStarted(gateway, 'agent:seo:main', 'exec', 'openclaw browser stop');
 
       expect(inactiveEvents).toEqual(['seo']);
     });
@@ -913,13 +909,13 @@ describe('BrowserEventDetector', () => {
     it('tracks multiple employees independently', () => {
       emitToolCallStarted(
         gateway,
-        'agent:main:employee-seo',
+        'agent:seo:main',
         'exec',
         'openclaw browser open "https://a.com"'
       );
       emitToolCallStarted(
         gateway,
-        'agent:main:employee-researcher',
+        'agent:researcher:main',
         'exec',
         'openclaw browser open "https://b.com"'
       );
@@ -932,7 +928,7 @@ describe('BrowserEventDetector', () => {
     it('getSession returns last action details', () => {
       emitToolCallStarted(
         gateway,
-        'agent:main:employee-seo',
+        'agent:seo:main',
         'exec',
         'openclaw browser open "https://example.com"'
       );
@@ -952,13 +948,13 @@ describe('BrowserEventDetector', () => {
     it('updates lastUrl when navigating to new page', () => {
       emitToolCallStarted(
         gateway,
-        'agent:main:employee-seo',
+        'agent:seo:main',
         'exec',
         'openclaw browser open "https://a.com"'
       );
       emitToolCallStarted(
         gateway,
-        'agent:main:employee-seo',
+        'agent:seo:main',
         'exec',
         'openclaw browser open "https://b.com"'
       );
@@ -970,11 +966,11 @@ describe('BrowserEventDetector', () => {
     it('preserves lastUrl for non-navigation actions', () => {
       emitToolCallStarted(
         gateway,
-        'agent:main:employee-seo',
+        'agent:seo:main',
         'exec',
         'openclaw browser open "https://example.com"'
       );
-      emitToolCallStarted(gateway, 'agent:main:employee-seo', 'exec', 'openclaw browser click 5');
+      emitToolCallStarted(gateway, 'agent:seo:main', 'exec', 'openclaw browser click 5');
 
       const session = detector.getSession('seo');
       expect(session!.lastUrl).toBe('https://example.com');
@@ -989,7 +985,7 @@ describe('BrowserEventDetector', () => {
 
       emitToolCallStarted(
         gateway,
-        'agent:main:employee-seo',
+        'agent:seo:main',
         'exec',
         'openclaw browser open "https://example.com"'
       );
@@ -1009,7 +1005,7 @@ describe('BrowserEventDetector', () => {
 
       emitToolCallStarted(
         gateway,
-        'agent:main:employee-seo',
+        'agent:seo:main',
         'exec',
         'openclaw browser open "https://example.com"'
       );
@@ -1019,7 +1015,7 @@ describe('BrowserEventDetector', () => {
       expect(detector.isEmployeeBrowsing('seo')).toBe(true);
 
       // New action resets the timer
-      emitToolCallStarted(gateway, 'agent:main:employee-seo', 'exec', 'openclaw browser click 3');
+      emitToolCallStarted(gateway, 'agent:seo:main', 'exec', 'openclaw browser click 3');
 
       // Advance another 50s (total 100s from first, but only 50s from last)
       vi.advanceTimersByTime(50_000);
@@ -1035,13 +1031,13 @@ describe('BrowserEventDetector', () => {
     it('clears all sessions on destroy', () => {
       emitToolCallStarted(
         gateway,
-        'agent:main:employee-seo',
+        'agent:seo:main',
         'exec',
         'openclaw browser open "https://a.com"'
       );
       emitToolCallStarted(
         gateway,
-        'agent:main:employee-researcher',
+        'agent:researcher:main',
         'exec',
         'openclaw browser open "https://b.com"'
       );
@@ -1057,7 +1053,7 @@ describe('BrowserEventDetector', () => {
       detector.on('browser-action', (e: BrowserActionEvent) => events.push(e));
 
       detector.feedToolCall(
-        'agent:main:employee-manual',
+        'agent:manual:main',
         'exec',
         { command: 'openclaw browser open "https://test.com"' },
         true,
@@ -1086,7 +1082,7 @@ describe('BrowserEventDetector', () => {
       const events: BrowserActionEvent[] = [];
       detector.on('browser-action', (e: BrowserActionEvent) => events.push(e));
 
-      detector.feedToolCall('agent:main:employee-test', 'exec', { command: 'python3 script.py' });
+      detector.feedToolCall('agent:test:main', 'exec', { command: 'python3 script.py' });
 
       expect(events).toHaveLength(0);
     });
@@ -1095,7 +1091,7 @@ describe('BrowserEventDetector', () => {
       const events: BrowserActionEvent[] = [];
       detector.on('browser-action', (e: BrowserActionEvent) => events.push(e));
 
-      detector.feedToolCall('agent:main:employee-test', 'web-search', {
+      detector.feedToolCall('agent:test:main', 'web-search', {
         command: 'openclaw browser open "https://test.com"',
       });
 
@@ -1107,7 +1103,7 @@ describe('BrowserEventDetector', () => {
       detector.on('browser-action', (e: BrowserActionEvent) => events.push(e));
       detector.destroy();
 
-      detector.feedToolCall('agent:main:employee-test', 'exec', {
+      detector.feedToolCall('agent:test:main', 'exec', {
         command: 'openclaw browser open "https://test.com"',
       });
 
@@ -1126,7 +1122,7 @@ describe('BrowserEventDetector', () => {
           tool_call: {
             name: 'exec',
             arguments: { command: 'openclaw browser open "https://example.com"' },
-            sessionKey: 'agent:main:employee-nested-test',
+            sessionKey: 'agent:nested-test:main',
           },
         },
       });
@@ -1143,7 +1139,7 @@ describe('BrowserEventDetector', () => {
       gateway.emit('notification', {
         method: 'tool.call_started',
         params: {
-          session: 'agent:main:employee-direct',
+          session: 'agent:direct:main',
           command: 'openclaw browser click 7',
         },
       });
@@ -1159,7 +1155,7 @@ describe('BrowserEventDetector', () => {
       gateway.emit('notification', {
         method: 'tool.call_started',
         params: {
-          session: 'agent:main:employee-bash-test',
+          session: 'agent:bash-test:main',
           tool: 'Bash',
           args: { command: 'openclaw browser scroll down' },
         },
@@ -1176,7 +1172,7 @@ describe('BrowserEventDetector', () => {
       gateway.emit('notification', {
         method: 'tool.call_completed',
         params: {
-          session: 'agent:main:employee-err-test',
+          session: 'agent:err-test:main',
           tool: 'exec',
           args: { command: 'openclaw browser click 99' },
           success: false,
@@ -1198,7 +1194,7 @@ describe('BrowserEventDetector', () => {
 
       emitToolCallStarted(
         gateway,
-        'agent:main:employee-seo',
+        'agent:seo:main',
         'exec',
         'openclaw browser open "https://example.com"'
       );
@@ -1212,7 +1208,7 @@ describe('BrowserEventDetector', () => {
       expect(event).toHaveProperty('sessionKey');
       expect(typeof event.timestamp).toBe('number');
       expect(event.timestamp).toBeGreaterThan(0);
-      expect(event.sessionKey).toBe('agent:main:employee-seo');
+      expect(event.sessionKey).toBe('agent:seo:main');
     });
   });
 });

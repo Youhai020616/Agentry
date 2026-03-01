@@ -62,9 +62,12 @@ import {
   setChannelEnabled,
   validateChannelConfig,
   validateChannelCredentials,
+  readOpenClawConfig,
+  writeOpenClawConfig,
 } from '../utils/channel-config';
 import { checkUvInstalled, installUv, setupManagedPython } from '../utils/uv-setup';
 import { updateSkillConfig, getSkillConfig, getAllSkillConfigs } from '../utils/skill-config';
+import { configUpdateQueue } from '../engine/config-update-queue';
 import { whatsAppLoginManager } from '../utils/whatsapp-login';
 import { getProviderConfig } from '../utils/provider-registry';
 import { EmployeeManager } from '../engine/employee-manager';
@@ -564,21 +567,8 @@ function registerLogHandlers(): void {
 function registerGatewayHandlers(
   gatewayManager: GatewayManager,
   mainWindow: BrowserWindow,
-  engineRef: EngineRef
+  _engineRef: EngineRef
 ): void {
-  // Helper: look up the compiled system prompt for an employee session.
-  // Returns the prompt string or undefined if not available.
-  function getEmployeeSystemPrompt(employeeId: string): string | undefined {
-    try {
-      const mgr = engineRef.current?.employeeManager;
-      if (!mgr) return undefined;
-      const emp = mgr.get(employeeId);
-      return emp?.systemPrompt ?? undefined;
-    } catch {
-      return undefined;
-    }
-  }
-
   // Get Gateway status
   ipcMain.handle('gateway:status', () => {
     return gatewayManager.getStatus();
@@ -642,46 +632,30 @@ function registerGatewayHandlers(
     return raw;
   }
 
-  // Gateway RPC call — intercepts chat.send for employee sessions:
-  //  1. Upgrades to the 'agent' RPC method (which supports extraSystemPrompt)
-  //  2. Injects the compiled SKILL.md system prompt as extraSystemPrompt
-  //  3. Injects per-employee model override
+  // Gateway RPC call — passes through to Gateway.
+  // Per-employee system prompts are handled natively by OpenClaw via AGENTS.md in
+  // the agent workspace (see employee-manager.ts ensureAgentWorkspace).
+  // Per-employee model overrides are still injected here at RPC time.
   ipcMain.handle('gateway:rpc', async (_, method: string, params?: unknown, timeoutMs?: number) => {
     try {
-      let finalMethod = method;
       let finalParams = params;
 
-      // Intercept chat.send for employee sessions → upgrade to 'agent' with system prompt
+      // Inject per-employee model override for employee sessions.
+      // Native multi-agent session key pattern: agent:{slug}:main
       if (method === 'chat.send' && params && typeof params === 'object') {
         const p = params as Record<string, unknown>;
         const sessionKey = (p.sessionKey ?? p.session ?? '') as string;
 
-        // Employee sessions use the pattern: agent:main:employee-<slug>
-        const empMatch = sessionKey.match(/^agent:main:employee-(.+)$/);
+        const empMatch = sessionKey.match(/^agent:(?!main:)(.+):main$/);
         if (empMatch) {
           const employeeId = empMatch[1];
-          const merged: Record<string, unknown> = { ...p };
-
-          // Inject compiled SKILL.md system prompt via extraSystemPrompt.
-          // The Gateway's 'agent' method passes this into the LLM system prompt,
-          // so the employee actually follows its SKILL.md instructions instead of
-          // only seeing the skill name/description in the available_skills list.
-          const systemPrompt = getEmployeeSystemPrompt(employeeId);
-          if (systemPrompt) {
-            merged.extraSystemPrompt = systemPrompt;
-            // Upgrade from chat.send → agent (only 'agent' supports extraSystemPrompt)
-            finalMethod = 'agent';
-            logger.debug(
-              `[gateway:rpc] Upgraded chat.send → agent for employee ${employeeId}, injected systemPrompt (${systemPrompt.length} chars)`
-            );
-          }
-
-          // Inject per-employee model override
           try {
             const store = await getEmployeeSecretsStore();
             const modelId = (store.get(`employee-models.${employeeId}`) ?? '') as string;
             if (modelId) {
+              const merged: Record<string, unknown> = { ...p };
               merged.model = `openrouter/${modelId}`;
+              finalParams = merged;
               logger.debug(
                 `[gateway:rpc] Injected per-employee model for ${employeeId}: openrouter/${modelId}`
               );
@@ -691,12 +665,10 @@ function registerGatewayHandlers(
               `[gateway:rpc] Failed to look up model for employee ${employeeId}: ${err}`
             );
           }
-
-          finalParams = merged;
         }
       }
 
-      const result = await gatewayManager.rpc(finalMethod, finalParams, timeoutMs);
+      const result = await gatewayManager.rpc(method, finalParams, timeoutMs);
       return { success: true, result };
     } catch (error) {
       const raw = String(error);
@@ -783,23 +755,12 @@ function registerGatewayHandlers(
           rpcParams.attachments = imageAttachments;
         }
 
-        // Inject per-employee system prompt + model override if this session belongs to an employee
-        let rpcMethod = 'chat.send';
-        const empMatch = params.sessionKey.match(/^agent:main:employee-(.+)$/);
+        // Inject per-employee model override if this session belongs to an employee.
+        // System prompts are handled natively by OpenClaw via AGENTS.md in the agent workspace.
+        // Native multi-agent session key pattern: agent:{slug}:main
+        const empMatch = params.sessionKey.match(/^agent:(?!main:)(.+):main$/);
         if (empMatch) {
           const employeeId = empMatch[1];
-
-          // Inject compiled SKILL.md system prompt → upgrade to 'agent' method
-          const systemPrompt = getEmployeeSystemPrompt(employeeId);
-          if (systemPrompt) {
-            rpcParams.extraSystemPrompt = systemPrompt;
-            rpcMethod = 'agent';
-            logger.info(
-              `[chat:sendWithMedia] Upgraded to agent for employee ${employeeId}, injected systemPrompt (${systemPrompt.length} chars)`
-            );
-          }
-
-          // Inject per-employee model override
           try {
             const store = await getEmployeeSecretsStore();
             const modelId = (store.get(`employee-models.${employeeId}`) ?? '') as string;
@@ -817,12 +778,12 @@ function registerGatewayHandlers(
         }
 
         logger.info(
-          `[chat:sendWithMedia] Sending via ${rpcMethod}: message="${message.substring(0, 100)}", attachments=${imageAttachments.length}, fileRefs=${fileReferences.length}`
+          `[chat:sendWithMedia] Sending via chat.send: message="${message.substring(0, 100)}", attachments=${imageAttachments.length}, fileRefs=${fileReferences.length}`
         );
 
         // Use a longer timeout when images are present (120s vs default 30s)
         const timeoutMs = imageAttachments.length > 0 ? 120000 : 30000;
-        const result = await gatewayManager.rpc(rpcMethod, rpcParams, timeoutMs);
+        const result = await gatewayManager.rpc('chat.send', rpcParams, timeoutMs);
         logger.info(`[chat:sendWithMedia] RPC result: ${JSON.stringify(result)}`);
         return { success: true, result };
       } catch (error) {
@@ -2053,20 +2014,50 @@ function registerEmployeeHandlers(employeeManager: EmployeeManager): void {
     }
   });
 
-  // employee:setModel — Save per-employee model override (per-session, no global mutation)
+  // employee:setModel — Save per-employee model override and sync to openclaw.json
   ipcMain.handle('employee:setModel', async (_event, employeeId: string, modelId: string) => {
     try {
       const store = await getEmployeeSecretsStore();
       if (modelId) {
         store.set(`employee-models.${employeeId}`, modelId);
         logger.info(`Set model override for employee ${employeeId}: ${modelId}`);
-        // Model is now injected per-session in gateway:rpc and chat:sendWithMedia handlers.
-        // No global config mutation needed — each chat.send RPC carries the model param.
       } else {
         // Clear the override — employee will use global default
         store.set(`employee-models.${employeeId}`, '');
         logger.info(`Cleared model override for employee ${employeeId}`);
       }
+
+      // Sync model to openclaw.json agent entry if the employee is currently activated.
+      // This keeps the native OpenClaw agent config in sync so that even requests
+      // not intercepted by RPC-time injection (e.g. cron jobs) use the correct model.
+      const employee = employeeManager.get(employeeId);
+      if (employee?.gatewaySessionKey) {
+        try {
+          await configUpdateQueue.enqueue(async () => {
+            const config = readOpenClawConfig();
+            const agents = (config as Record<string, unknown>).agents as
+              | Record<string, unknown>
+              | undefined;
+            const agentsList = (agents?.list ?? []) as Array<Record<string, unknown>>;
+            const entry = agentsList.find((a) => a.id === employeeId);
+            if (entry) {
+              if (modelId) {
+                entry.model = `openrouter/${modelId}`;
+              } else {
+                delete entry.model;
+              }
+              writeOpenClawConfig(config);
+              logger.info(
+                `[employee:setModel] Synced model to openclaw.json for ${employeeId}: ${modelId || '(cleared)'}`
+              );
+            }
+          });
+        } catch (err) {
+          // Non-fatal — RPC-time injection still works as fallback
+          logger.warn(`[employee:setModel] Failed to sync model to openclaw.json: ${err}`);
+        }
+      }
+
       return { success: true };
     } catch (error) {
       logger.error('employee:setModel failed:', error);

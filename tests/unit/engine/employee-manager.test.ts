@@ -24,6 +24,24 @@ vi.mock('../../../electron/utils/logger', () => ({
 
 vi.mock('../../../electron/utils/paths', () => ({
   getOpenClawSkillsDir: vi.fn().mockReturnValue('/tmp/.openclaw/skills'),
+  getEmployeeWorkspaceDir: vi
+    .fn()
+    .mockImplementation((id: string) => `/tmp/.clawx/employees/${id}`),
+}));
+
+vi.mock('../../../electron/utils/channel-config', () => ({
+  readOpenClawConfig: vi.fn().mockReturnValue({}),
+  writeOpenClawConfig: vi.fn(),
+}));
+
+vi.mock('../../../electron/engine/config-update-queue', () => ({
+  configUpdateQueue: {
+    enqueue: vi.fn().mockImplementation(async (fn: () => Promise<unknown>) => fn()),
+    get size() {
+      return 0;
+    },
+  },
+  ConfigUpdateQueue: vi.fn(),
 }));
 
 vi.mock('electron', () => ({
@@ -41,6 +59,7 @@ vi.mock('node:fs', async (importOriginal) => {
     readdirSync: vi.fn().mockReturnValue([]),
     cpSync: vi.fn(),
     mkdirSync: vi.fn(),
+    writeFileSync: vi.fn(),
   };
   return { ...mocked, default: mocked };
 });
@@ -170,11 +189,173 @@ describe('EmployeeManager', () => {
       const activated = await manager.activate('seo-expert');
 
       expect(activated.status).toBe('idle');
-      expect(activated.gatewaySessionKey).toBe('agent:main:employee-seo-expert');
+      // Native multi-agent session key format: agent:{slug}:main
+      expect(activated.gatewaySessionKey).toBe('agent:seo-expert:main');
     });
 
     it('should throw for non-existent employee', async () => {
       await expect(manager.activate('nonexistent')).rejects.toThrow('Employee not found');
+    });
+
+    it('should write AGENTS.md and CLAUDE.md to agent workspace', async () => {
+      setupScanMocks();
+      await manager.scan();
+
+      await manager.activate('seo-expert');
+
+      const { writeFileSync } = await import('node:fs');
+      // AGENTS.md should be written with compiled system prompt
+      expect(writeFileSync).toHaveBeenCalledWith(
+        expect.stringContaining('AGENTS.md'),
+        'You are SEO Expert...',
+        'utf-8'
+      );
+      // CLAUDE.md should also be written (OpenClaw compat)
+      expect(writeFileSync).toHaveBeenCalledWith(
+        expect.stringContaining('CLAUDE.md'),
+        'You are SEO Expert...',
+        'utf-8'
+      );
+    });
+
+    it('should create workspace directory when it does not exist', async () => {
+      // existsSync returns true for skill dirs (scan needs it), but false for workspace dir
+      vi.mocked(existsSync).mockImplementation((p: unknown) => {
+        const path = String(p);
+        // Workspace dir doesn't exist yet
+        if (path.includes('.clawx') && path.includes('employees')) return false;
+        // Skill dirs exist (needed for scan)
+        return true;
+      });
+      vi.mocked(readdirSync).mockReturnValue([
+        { name: 'seo-expert', isDirectory: () => true },
+      ] as unknown as ReturnType<typeof readdirSync>);
+      mockParseFromPath.mockReturnValue(mockManifest);
+      await manager.scan();
+
+      await manager.activate('seo-expert');
+
+      const { mkdirSync } = await import('node:fs');
+      expect(mkdirSync).toHaveBeenCalledWith(expect.stringContaining('seo-expert'), {
+        recursive: true,
+      });
+    });
+
+    it('should register agent in openclaw.json via ConfigUpdateQueue', async () => {
+      setupScanMocks();
+      await manager.scan();
+
+      const { configUpdateQueue } = await import('../../../electron/engine/config-update-queue');
+      const { writeOpenClawConfig } = await import('../../../electron/utils/channel-config');
+
+      await manager.activate('seo-expert');
+
+      // ConfigUpdateQueue.enqueue should have been called
+      expect(configUpdateQueue.enqueue).toHaveBeenCalled();
+      // writeOpenClawConfig should have been called with agents.list containing the employee
+      expect(writeOpenClawConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agents: expect.objectContaining({
+            list: expect.arrayContaining([
+              expect.objectContaining({
+                id: 'seo-expert',
+                workspace: expect.stringContaining('seo-expert'),
+              }),
+            ]),
+          }),
+        })
+      );
+    });
+
+    it('should map tool policy from manifest to agent config', async () => {
+      setupScanMocks();
+      // Override manifest to include tools
+      mockParseFromPath.mockReturnValue({
+        ...mockManifest,
+        tools: [
+          { name: 'browser', description: 'Browser automation' },
+          { name: 'web_search', description: 'Search the web' },
+          { name: 'custom-tool', cli: 'python run.py', description: 'Custom' },
+        ],
+      });
+      await manager.scan();
+
+      const { writeOpenClawConfig } = await import('../../../electron/utils/channel-config');
+
+      await manager.activate('seo-expert');
+
+      // Only OpenClaw built-in tools should be in the allow list, not custom CLI tools
+      expect(writeOpenClawConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agents: expect.objectContaining({
+            list: expect.arrayContaining([
+              expect.objectContaining({
+                id: 'seo-expert',
+                tools: { allow: expect.arrayContaining(['browser', 'web_search']) },
+              }),
+            ]),
+          }),
+        })
+      );
+
+      // custom-tool should NOT be in the allow list
+      const call = vi.mocked(writeOpenClawConfig).mock.calls[0][0] as Record<string, unknown>;
+      const agents = call.agents as { list: Array<{ tools?: { allow: string[] } }> };
+      const entry = agents.list.find((a: Record<string, unknown>) => a.id === 'seo-expert') as {
+        tools?: { allow: string[] };
+      };
+      expect(entry?.tools?.allow).not.toContain('custom-tool');
+    });
+
+    it('should not include tools field when manifest has no built-in tools', async () => {
+      setupScanMocks();
+      // Manifest with no tools
+      mockParseFromPath.mockReturnValue({
+        ...mockManifest,
+        tools: undefined,
+      });
+      await manager.scan();
+
+      const { writeOpenClawConfig } = await import('../../../electron/utils/channel-config');
+
+      await manager.activate('seo-expert');
+
+      const call = vi.mocked(writeOpenClawConfig).mock.calls[0][0] as Record<string, unknown>;
+      const agents = call.agents as { list: Array<Record<string, unknown>> };
+      const entry = agents.list.find((a) => a.id === 'seo-expert');
+      expect(entry?.tools).toBeUndefined();
+    });
+
+    it('should update existing agent entry on re-activation', async () => {
+      setupScanMocks();
+      await manager.scan();
+
+      const { readOpenClawConfig, writeOpenClawConfig } =
+        await import('../../../electron/utils/channel-config');
+
+      // Simulate an existing agent in config from a previous activation
+      vi.mocked(readOpenClawConfig).mockReturnValue({
+        agents: {
+          list: [
+            { id: 'seo-expert', name: 'Old Name', workspace: '/old/path' },
+            { id: 'other-agent', name: 'Other', workspace: '/other' },
+          ],
+        },
+      } as ReturnType<typeof readOpenClawConfig>);
+
+      await manager.activate('seo-expert');
+
+      const call = vi.mocked(writeOpenClawConfig).mock.calls[0][0] as Record<string, unknown>;
+      const agents = call.agents as { list: Array<Record<string, unknown>> };
+      // Should have exactly 2 entries (old one replaced, other kept)
+      expect(agents.list).toHaveLength(2);
+      // The seo-expert entry should have the new workspace path
+      const entry = agents.list.find((a) => a.id === 'seo-expert');
+      expect(entry?.workspace).toContain('seo-expert');
+      expect(entry?.workspace).not.toBe('/old/path');
+      // Other agent should be untouched
+      const other = agents.list.find((a) => a.id === 'other-agent');
+      expect(other).toBeDefined();
     });
   });
 
