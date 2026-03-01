@@ -296,7 +296,7 @@ interface ConversationsState {
                                    │
                               ┌────▼────────────────┐
                               │ Gateway (OpenClaw)   │
-                              │ WebSocket :18789     │
+                              │ WebSocket :18790     │
                               └─────────────────────┘
 ```
 

@@ -59,7 +59,7 @@ Phase 0 target (new steps after step 9):
 
 ## Gateway RPC Protocol
 
-JSON-RPC 2.0 over WebSocket on `:18789`. Key methods:
+JSON-RPC 2.0 over WebSocket on `:18790`. Key methods:
 - `sessions.create` / `sessions.list` / `sessions.delete`
 - `chat.send` / `chat.history`
 - `skills.status` / `skills.enable` / `skills.disable`
