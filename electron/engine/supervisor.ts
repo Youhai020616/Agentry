@@ -4,6 +4,12 @@
  * execute via employees, monitor progress, synthesize results.
  *
  * The Supervisor coordinates TaskQueue + MessageBus + EmployeeManager + Gateway.
+ *
+ * Fixed issues:
+ *  - Issue #1: TaskExecutor is sole execution authority (no messageBus.send for execution)
+ *  - Issue #3: Transaction safety via taskQueue.createProjectWithTasks()
+ *  - Issue #4: Event-driven monitoring (task-changed) + 60s heartbeat
+ *  - Issue #5: Two-stage stuck recovery (5min notify, 10min auto-cancel)
  */
 import { EventEmitter } from 'node:events';
 import { logger } from '../utils/logger';
@@ -11,6 +17,7 @@ import type { TaskQueue } from './task-queue';
 import type { MessageBus } from './message-bus';
 import type { EmployeeManager } from './employee-manager';
 import type { GatewayManager } from '../gateway/manager';
+import type { TaskExecutor } from './task-executor';
 import type { Task, Project, CreateTaskInput } from '../../src/types/task';
 
 /** Parsed task from PM's response */
@@ -38,34 +45,101 @@ export class SupervisorEngine extends EventEmitter {
   private messageBus: MessageBus;
   private employeeManager: EmployeeManager;
   private gateway: GatewayManager;
+  private taskExecutor: TaskExecutor;
 
-  /** Active monitor intervals keyed by projectId */
-  private monitors: Map<string, ReturnType<typeof setInterval>> = new Map();
+  /** Active heartbeat intervals keyed by projectId */
+  private heartbeats: Map<string, ReturnType<typeof setInterval>> = new Map();
 
-  /** Monitor poll interval (ms) */
-  private static readonly POLL_INTERVAL = 30_000;
-  /** Threshold to consider a task stuck (ms) */
-  private static readonly STUCK_THRESHOLD = 300_000;
+  /** Track stuck task notification timestamps (taskId → first-notified-at) */
+  private stuckNotifiedAt: Map<string, number> = new Map();
 
-  // ── Dedup tracking (P0 fix) ─────────────────────────────────────
-  /** Task IDs already reported as stuck — avoids spamming PM every 30s tick */
-  private notifiedStuckTasks = new Set<string>();
-  /** Task IDs already notified as unblocked — avoids repeated "unblocked" messages */
-  private notifiedUnblockedTasks = new Set<string>();
-  /** Reusable "feishu-delegations" project ID for persisting delegation tasks */
-  private feishuDelegationProjectId: string | null = null;
+  /**
+   * Per-project debounce timers for reactive monitoring (fix M5).
+   * Previously a single global timer caused only the last projectId in a
+   * debounce window to be monitored.
+   */
+  private debouncedMonitorTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+
+  /** Heartbeat interval (ms) — safety net, not primary driver */
+  private static readonly HEARTBEAT_INTERVAL = 60_000;
+  /** Threshold to consider a task stuck (ms) — 5 minutes */
+  private static readonly STUCK_NOTIFY_THRESHOLD = 300_000;
+  /** Threshold to auto-cancel a stuck task (ms) — 10 minutes */
+  private static readonly STUCK_CANCEL_THRESHOLD = 600_000;
+  /** Debounce delay for reactive monitoring (ms) */
+  private static readonly DEBOUNCE_MS = 100;
 
   constructor(
     taskQueue: TaskQueue,
     messageBus: MessageBus,
     employeeManager: EmployeeManager,
-    gateway: GatewayManager
+    gateway: GatewayManager,
+    taskExecutor: TaskExecutor
   ) {
     super();
     this.taskQueue = taskQueue;
     this.messageBus = messageBus;
     this.employeeManager = employeeManager;
     this.gateway = gateway;
+    this.taskExecutor = taskExecutor;
+  }
+
+  // ── Reactive Monitoring (Issue #4) ────────────────────────────────
+
+  /**
+   * Called by bootstrap when TaskQueue emits 'task-changed'.
+   * Debounced per-project to prevent concurrent storms (fix M5).
+   *
+   * Also clears `stuckNotifiedAt` when a task leaves `in_progress` (fix M3).
+   */
+  onTaskChanged(task: Task): void {
+    // M3 fix: clear stuck tracking when a task is no longer in_progress
+    if (task.status !== 'in_progress' && this.stuckNotifiedAt.has(task.id)) {
+      this.stuckNotifiedAt.delete(task.id);
+    }
+
+    const projectId = task.projectId;
+    if (!projectId || projectId === 'adhoc') return;
+
+    // M5 fix: per-project debounce so changes from different projects
+    // don't clobber each other's monitoring
+    const existing = this.debouncedMonitorTimers.get(projectId);
+    if (existing) {
+      clearTimeout(existing);
+    }
+
+    const timer = setTimeout(() => {
+      this.debouncedMonitorTimers.delete(projectId);
+      void this.reactiveMonitor(projectId).catch((err) => {
+        logger.error(`Reactive monitor error for project ${projectId}: ${err}`);
+      });
+    }, SupervisorEngine.DEBOUNCE_MS);
+
+    this.debouncedMonitorTimers.set(projectId, timer);
+  }
+
+  /**
+   * Reactive monitor: check project state after a task changes.
+   * Handles auto-unblock, completion detection.
+   */
+  private async reactiveMonitor(projectId: string): Promise<void> {
+    const tasks = this.taskQueue.list(projectId);
+    if (tasks.length === 0) return;
+
+    // Auto-unblock: claim newly available tasks
+    await this.claimAvailableTasks(projectId);
+
+    // Check if all tasks are completed
+    const allDone = tasks.every((t) => t.status === 'completed');
+    if (allDone) {
+      // Stop heartbeat
+      const heartbeat = this.heartbeats.get(projectId);
+      if (heartbeat) {
+        clearInterval(heartbeat);
+        this.heartbeats.delete(projectId);
+      }
+      await this.onProjectComplete(projectId);
+    }
   }
 
   // ── Plan Phase ──────────────────────────────────────────────────
@@ -73,6 +147,7 @@ export class SupervisorEngine extends EventEmitter {
   /**
    * Decompose a user goal into a task DAG via the PM employee.
    * The PM analyzes the goal and creates tasks with dependencies.
+   * Uses transactional creation (Issue #3).
    */
   async planProject(userGoal: string, pmEmployeeId: string): Promise<Project> {
     logger.info(`Planning project: "${userGoal}" with PM: ${pmEmployeeId}`);
@@ -93,13 +168,6 @@ export class SupervisorEngine extends EventEmitter {
     const employeeList = activeEmployees
       .map((e) => `- ${e.role} (${e.name}): ID=${e.id}`)
       .join('\n');
-
-    // Create project first
-    const project = this.taskQueue.createProject({
-      goal: userGoal,
-      pmEmployeeId,
-      employees: [pmEmployeeId, ...activeEmployees.map((e) => e.id)],
-    });
 
     // Ask PM to plan
     const planPrompt = `You are the Project Manager. Analyze the following goal and create a task plan.
@@ -136,60 +204,42 @@ Do NOT include any text outside the JSON array.`;
           ? response
           : (response?.content ?? response?.text ?? JSON.stringify(response));
 
-      const tasks = this.parsePMTaskPlan(responseText);
+      const planTasks = this.parsePMTaskPlan(responseText);
 
-      // Map temporary IDs for blockedBy references
-      const tempToReal = new Map<string, string>();
+      // Build CreateTaskInput array for transactional creation
+      const taskInputs: CreateTaskInput[] = planTasks.map((planTask) => ({
+        projectId: '', // Will be set by createProjectWithTasks
+        subject: planTask.subject,
+        description: planTask.description,
+        owner: planTask.assignTo ?? undefined,
+        assignedBy: 'pm' as const,
+        blockedBy: planTask.blockedBy ?? [],
+        priority: planTask.priority ?? 'medium',
+        requiresApproval: planTask.requiresApproval ?? false,
+        estimatedDuration: planTask.estimatedDuration ?? 0,
+        wave: planTask.wave ?? 0,
+      }));
 
-      for (let i = 0; i < tasks.length; i++) {
-        const planTask = tasks[i];
-        const input: CreateTaskInput = {
-          projectId: project.id,
-          subject: planTask.subject,
-          description: planTask.description,
-          owner: planTask.assignTo ?? undefined,
-          assignedBy: 'pm',
-          blockedBy: [],
-          priority: planTask.priority ?? 'medium',
-          requiresApproval: planTask.requiresApproval ?? false,
-          estimatedDuration: planTask.estimatedDuration ?? 0,
-          wave: planTask.wave ?? 0,
-        };
+      // Issue #3: Atomic creation of project + all tasks
+      const { project } = this.taskQueue.createProjectWithTasks(
+        {
+          goal: userGoal,
+          pmEmployeeId,
+          employees: [pmEmployeeId, ...activeEmployees.map((e) => e.id)],
+        },
+        taskInputs
+      );
 
-        const created = this.taskQueue.create(input);
-        tempToReal.set(`T${i}`, created.id);
-        tempToReal.set(String(i), created.id);
-
-        // Update project tasks list
-        const currentProject = this.taskQueue.getProject(project.id);
-        if (currentProject) {
-          this.taskQueue.updateProject(project.id, {
-            tasks: [...currentProject.tasks, created.id],
-          });
-        }
-      }
-
-      // Resolve blockedBy references (PM may use T0, T1 or indices)
-      for (let i = 0; i < tasks.length; i++) {
-        const planTask = tasks[i];
-        if (planTask.blockedBy && planTask.blockedBy.length > 0) {
-          const realId = tempToReal.get(`T${i}`) ?? tempToReal.get(String(i));
-          if (realId) {
-            const resolvedDeps = planTask.blockedBy
-              .map((ref) => tempToReal.get(ref) ?? ref)
-              .filter(Boolean);
-            if (resolvedDeps.length > 0) {
-              this.taskQueue.update(realId, { blockedBy: resolvedDeps });
-            }
-          }
-        }
-      }
-
-      logger.info(`Project planned: ${project.id} with ${tasks.length} tasks`);
+      logger.info(`Project planned: ${project.id} with ${planTasks.length} tasks`);
       return this.taskQueue.getProject(project.id) ?? project;
     } catch (err) {
       logger.error(`Failed to plan project: ${err}`);
-      // Keep the empty project so user can manually add tasks
+      // Create an empty project so user can manually add tasks
+      const project = this.taskQueue.createProject({
+        goal: userGoal,
+        pmEmployeeId,
+        employees: [pmEmployeeId, ...activeEmployees.map((e) => e.id)],
+      });
       return project;
     }
   }
@@ -197,7 +247,8 @@ Do NOT include any text outside the JSON array.`;
   // ── Execute Phase ───────────────────────────────────────────────
 
   /**
-   * Begin project execution: notify employees and start monitor loop
+   * Begin project execution: claim wave-0 tasks and start heartbeat.
+   * Issue #1: Uses taskQueue.claim() instead of messageBus.send()
    */
   async executeProject(projectId: string): Promise<void> {
     const project = this.taskQueue.getProject(projectId);
@@ -210,155 +261,128 @@ Do NOT include any text outside the JSON array.`;
     // Update project status
     this.taskQueue.updateProject(projectId, { status: 'executing' });
 
-    // Notify all employees that work is available
-    for (const employeeId of project.employees) {
-      if (employeeId === project.pmEmployeeId) continue;
-      this.messageBus.send({
-        type: 'message',
-        from: project.pmEmployeeId,
-        recipient: employeeId,
-        content: `New project started: "${project.goal}". Check the task board for available work.`,
-        summary: 'New project — check task board',
-      });
-    }
+    // Issue #1: Claim wave-0 tasks via taskQueue.claim() → TaskExecutor auto-executes
+    await this.claimAvailableTasks(projectId);
 
-    // Start monitoring
-    this.startMonitorLoop(projectId);
+    // Start heartbeat (Issue #4: safety net, 60s interval)
+    this.startHeartbeat(projectId);
 
     this.emit('project-started', project);
   }
 
-  // ── Monitor Loop ────────────────────────────────────────────────
+  /**
+   * Claim available (unblocked, pending) tasks for a project.
+   * Issue #1: TaskExecutor will auto-execute when tasks are claimed.
+   *
+   * Fix M6: tasks without an `owner` are now assigned to any idle employee
+   * instead of being silently skipped forever.
+   */
+  private async claimAvailableTasks(projectId: string): Promise<void> {
+    const available = this.taskQueue.listAvailable(projectId);
+
+    for (const task of available) {
+      if (task.owner) {
+        // Task has an assigned owner — claim it for that employee
+        const employee = this.employeeManager.get(task.owner);
+        if (employee && (employee.status === 'idle' || employee.status === 'error')) {
+          try {
+            this.taskQueue.claim(task.id, task.owner);
+            logger.info(`Claimed task ${task.id} for employee ${task.owner}`);
+          } catch (err) {
+            logger.warn(`Failed to claim task ${task.id} for ${task.owner}: ${err}`);
+          }
+        }
+      } else {
+        // M6 fix: task has no assigned owner — find any idle employee to claim it
+        const idleEmployees = this.employeeManager.list('idle');
+        if (idleEmployees.length > 0) {
+          const assignee = idleEmployees[0];
+          try {
+            this.taskQueue.claim(task.id, assignee.id);
+            logger.info(
+              `Claimed ownerless task ${task.id} for idle employee ${assignee.id} (${assignee.name})`
+            );
+          } catch (err) {
+            logger.warn(`Failed to claim ownerless task ${task.id} for ${assignee.id}: ${err}`);
+          }
+        } else {
+          logger.warn(
+            `Task ${task.id} "${task.subject}" has no owner and no idle employees available — will retry on next monitor cycle`
+          );
+        }
+      }
+    }
+  }
+
+  // ── Heartbeat (Issue #4) ──────────────────────────────────────
 
   /**
-   * Poll-based monitor: detect stuck tasks, auto-unblock, detect completion
+   * Heartbeat loop: safety net to detect stuck tasks and missed events.
    */
-  private startMonitorLoop(projectId: string): void {
-    // Clear existing monitor if any
-    const existing = this.monitors.get(projectId);
+  private startHeartbeat(projectId: string): void {
+    const existing = this.heartbeats.get(projectId);
     if (existing) clearInterval(existing);
 
     const interval = setInterval(async () => {
       try {
-        await this.monitorTick(projectId);
+        await this.heartbeatTick(projectId);
       } catch (err) {
-        logger.error(`Monitor loop error for project ${projectId}: ${err}`);
+        logger.error(`Heartbeat error for project ${projectId}: ${err}`);
       }
-    }, SupervisorEngine.POLL_INTERVAL);
+    }, SupervisorEngine.HEARTBEAT_INTERVAL);
 
-    this.monitors.set(projectId, interval);
-    logger.debug(`Monitor loop started for project: ${projectId}`);
+    this.heartbeats.set(projectId, interval);
+    logger.debug(
+      `Heartbeat started for project: ${projectId} (${SupervisorEngine.HEARTBEAT_INTERVAL}ms)`
+    );
   }
 
-  private async monitorTick(projectId: string): Promise<void> {
+  private async heartbeatTick(projectId: string): Promise<void> {
     const tasks = this.taskQueue.list(projectId);
     if (tasks.length === 0) return;
 
-    // Prune dedup sets: remove tasks that are no longer stuck (status changed)
-    for (const task of tasks) {
-      if (task.status !== 'in_progress' && this.notifiedStuckTasks.has(task.id)) {
-        this.notifiedStuckTasks.delete(task.id);
-      }
-      if (task.status !== 'pending' && this.notifiedUnblockedTasks.has(task.id)) {
-        this.notifiedUnblockedTasks.delete(task.id);
-      }
-    }
-
-    // Check for stuck tasks
+    // Check for stuck tasks (Issue #5: two-stage recovery)
     for (const task of tasks) {
       if (task.status === 'in_progress' && task.startedAt) {
         const elapsed = Date.now() - task.startedAt;
-        if (elapsed > SupervisorEngine.STUCK_THRESHOLD) {
-          await this.handleStuckTask(task, projectId);
+
+        if (elapsed > SupervisorEngine.STUCK_CANCEL_THRESHOLD) {
+          // Stage 2: Auto-cancel and reset to pending
+          await this.autoRecoverStuckTask(task, projectId);
+        } else if (elapsed > SupervisorEngine.STUCK_NOTIFY_THRESHOLD) {
+          // Stage 1: Notify PM
+          if (!this.stuckNotifiedAt.has(task.id)) {
+            await this.handleStuckTask(task, projectId);
+            this.stuckNotifiedAt.set(task.id, Date.now());
+          }
         }
       }
     }
 
-    // Auto-unblock: notify employees and auto-dispatch when dependencies resolve
-    await this.checkAutoUnblock(tasks, projectId);
+    // Also claim any newly available tasks
+    await this.claimAvailableTasks(projectId);
 
     // Check if all tasks are completed
     const allDone = tasks.every((t) => t.status === 'completed');
     if (allDone) {
-      const monitor = this.monitors.get(projectId);
-      if (monitor) {
-        clearInterval(monitor);
-        this.monitors.delete(projectId);
+      const heartbeat = this.heartbeats.get(projectId);
+      if (heartbeat) {
+        clearInterval(heartbeat);
+        this.heartbeats.delete(projectId);
       }
       await this.onProjectComplete(projectId);
     }
   }
 
   /**
-   * When dependencies resolve, auto-dispatch (if owned) or notify PM (if unassigned).
-   * Dedup: only processes each task once via notifiedUnblockedTasks set.
-   */
-  private async checkAutoUnblock(tasks: Task[], projectId: string): Promise<void> {
-    const completedIds = new Set(tasks.filter((t) => t.status === 'completed').map((t) => t.id));
-
-    const project = this.taskQueue.getProject(projectId);
-    if (!project) return;
-
-    for (const task of tasks) {
-      if (task.status !== 'pending' || task.blockedBy.length === 0) continue;
-      if (this.notifiedUnblockedTasks.has(task.id)) continue;
-
-      const allDepsCompleted = task.blockedBy.every((dep) => completedIds.has(dep));
-      if (!allDepsCompleted) continue;
-
-      // Mark as notified BEFORE acting to prevent re-entry on next tick
-      this.notifiedUnblockedTasks.add(task.id);
-
-      if (task.owner) {
-        // Auto-claim → triggers TaskExecutor auto-execute via task-changed event
-        try {
-          this.taskQueue.claim(task.id, task.owner);
-          logger.info(`Auto-dispatched unblocked task "${task.subject}" to owner ${task.owner}`);
-        } catch (err) {
-          // Remove from dedup set so it can be retried on next tick
-          this.notifiedUnblockedTasks.delete(task.id);
-          logger.error(`Failed to auto-claim unblocked task ${task.id}: ${err}`);
-          continue;
-        }
-
-        this.messageBus.send({
-          type: 'message',
-          from: project.pmEmployeeId,
-          recipient: task.owner,
-          content: `Task "${task.subject}" is now unblocked and has been dispatched to you.`,
-          summary: `Task unblocked & dispatched: ${task.subject}`,
-        });
-      } else {
-        // No owner — ask PM to assign
-        logger.warn(`Unblocked task "${task.subject}" (${task.id}) has no owner — notifying PM`);
-        this.messageBus.send({
-          type: 'message',
-          from: 'system',
-          recipient: project.pmEmployeeId,
-          content: `Task "${task.subject}" is now unblocked but has no assigned employee. Please assign it to an available team member.`,
-          summary: `Unblocked & unassigned: ${task.subject}`,
-        });
-      }
-    }
-  }
-
-  /**
-   * Handle a task that has been in_progress too long.
-   * Dedup: only notifies PM once per stuck task via notifiedStuckTasks set.
+   * Issue #5: Stage 1 — Notify PM about stuck task
    */
   private async handleStuckTask(task: Task, projectId: string): Promise<void> {
-    // Dedup: skip if already notified for this task
-    if (this.notifiedStuckTasks.has(task.id)) return;
-
     logger.warn(`Task stuck: ${task.id} "${task.subject}" — elapsed since start`);
 
     const project = this.taskQueue.getProject(projectId);
     if (!project) return;
 
-    // Mark as notified BEFORE sending to prevent re-entry
-    this.notifiedStuckTasks.add(task.id);
-
-    // Notify PM about the stuck task
     this.messageBus.send({
       type: 'message',
       from: 'system',
@@ -370,12 +394,44 @@ Do NOT include any text outside the JSON array.`;
     this.emit('task-stuck', task);
   }
 
+  /**
+   * Issue #5: Stage 2 — Auto-cancel stuck task and reset to pending
+   */
+  private async autoRecoverStuckTask(task: Task, _projectId: string): Promise<void> {
+    logger.warn(
+      `Auto-recovering stuck task: ${task.id} "${task.subject}" — cancelling and resetting to pending`
+    );
+
+    try {
+      // Cancel the task (resets to pending, clears owner)
+      this.taskQueue.cancel(task.id);
+
+      // Recover the employee from error/working state
+      if (task.owner) {
+        const employee = this.employeeManager.get(task.owner);
+        if (employee && (employee.status === 'working' || employee.status === 'error')) {
+          this.employeeManager.recover(task.owner);
+        }
+      }
+
+      // Cancel execution if running
+      this.taskExecutor.cancel(task.id);
+
+      // Clean up stuck tracking
+      this.stuckNotifiedAt.delete(task.id);
+
+      logger.info(`Task ${task.id} auto-recovered: reset to pending`);
+    } catch (err) {
+      logger.error(`Failed to auto-recover task ${task.id}: ${err}`);
+    }
+  }
+
   // ── Plan Approval ───────────────────────────────────────────────
 
   /**
    * Employee submits a plan for PM review
    */
-  async handlePlanSubmission(taskId: string, plan: string): Promise<void> {
+  async submitPlan(taskId: string, plan: string): Promise<void> {
     const task = this.taskQueue.update(taskId, {
       plan,
       planStatus: 'submitted',
@@ -434,21 +490,13 @@ Do NOT include any text outside the JSON array.`;
   // ── Synthesis ───────────────────────────────────────────────────
 
   /**
-   * All tasks done → PM synthesizes results into a final deliverable.
-   * Also clears dedup sets for the completed project's tasks.
+   * All tasks done → PM synthesizes results into a final deliverable
    */
   private async onProjectComplete(projectId: string): Promise<void> {
     logger.info(`All tasks completed for project: ${projectId}`);
 
     const project = this.taskQueue.getProject(projectId);
     if (!project) return;
-
-    // Clear dedup tracking for this project's tasks
-    const projectTasks = this.taskQueue.list(projectId);
-    for (const task of projectTasks) {
-      this.notifiedStuckTasks.delete(task.id);
-      this.notifiedUnblockedTasks.delete(task.id);
-    }
 
     this.taskQueue.updateProject(projectId, { status: 'reviewing' });
 
@@ -526,11 +574,11 @@ and provide actionable next steps.`;
 
     logger.info(`Closing project: ${projectId}`);
 
-    // Stop monitor
-    const monitor = this.monitors.get(projectId);
-    if (monitor) {
-      clearInterval(monitor);
-      this.monitors.delete(projectId);
+    // Stop heartbeat
+    const heartbeat = this.heartbeats.get(projectId);
+    if (heartbeat) {
+      clearInterval(heartbeat);
+      this.heartbeats.delete(projectId);
     }
 
     // Notify employees
@@ -573,17 +621,19 @@ After each task, check the task board for more work:
   }
 
   /**
-   * Clean up: stop all monitors, clear dedup sets
+   * Clean up: stop all heartbeats
    */
   destroy(): void {
-    for (const [projectId, interval] of this.monitors) {
-      clearInterval(interval);
-      logger.debug(`Stopped monitor for project: ${projectId}`);
+    for (const [_projectId, timer] of this.debouncedMonitorTimers) {
+      clearTimeout(timer);
     }
-    this.monitors.clear();
-    this.notifiedStuckTasks.clear();
-    this.notifiedUnblockedTasks.clear();
-    this.feishuDelegationProjectId = null;
+    this.debouncedMonitorTimers.clear();
+    for (const [projectId, interval] of this.heartbeats) {
+      clearInterval(interval);
+      logger.debug(`Stopped heartbeat for project: ${projectId}`);
+    }
+    this.heartbeats.clear();
+    this.stuckNotifiedAt.clear();
     this.disableFeishuDelegation();
     this.removeAllListeners();
   }
@@ -688,15 +738,6 @@ After each task, check the task board for more work:
   /**
    * Parse a delegation block from a Supervisor response.
    * Returns null if no delegation is found.
-   *
-   * Expected format in the response:
-   * ```
-   * Human-readable acknowledgment text...
-   *
-   * <!-- DELEGATE
-   * {"employee": "slug", "task": "description", "context": "optional context"}
-   * -->
-   * ```
    */
   parseDelegation(response: string): {
     acknowledgment: string;
@@ -733,7 +774,6 @@ After each task, check the task board for more work:
 
   /**
    * Dispatch a task to an employee's Gateway session and wait for the response.
-   * This is the bridge between the Supervisor's delegation and the employee's execution.
    */
   async dispatchToEmployee(
     employeeId: string,
@@ -758,7 +798,7 @@ After each task, check the task board for more work:
       throw new Error(`Employee ${employeeId} has no session key after activation`);
     }
 
-    // Mark employee as working
+    // Mark employee as working (Issue #6: allows recovery from error)
     this.employeeManager.assignTask(employeeId);
 
     const prompt = context ? `${taskDescription}\n\n## Context\n${context}` : taskDescription;
@@ -786,12 +826,6 @@ After each task, check the task board for more work:
 
   /**
    * Handle a delegation from the Supervisor's Feishu response.
-   *
-   * Flow:
-   * 1. The Supervisor's acknowledgment text is already delivered to Feishu (Gateway auto-reply)
-   * 2. This method dispatches the task to the target employee
-   * 3. The employee's result is sent back to the Supervisor session
-   * 4. The Supervisor synthesizes and responds (second Feishu message)
    */
   async handleFeishuDelegation(
     supervisorSessionKey: string,
@@ -799,30 +833,9 @@ After each task, check the task board for more work:
   ): Promise<void> {
     logger.info(`Feishu delegation: dispatching to ${delegation.employee}`);
 
-    // ── Persist delegation as a Task in TaskQueue (P0 fix) ──────
-    // Gracefully degrade: if persistence fails, still dispatch the delegation.
-    let persistedTaskId: string | null = null;
-    try {
-      const projectId = this.getOrCreateFeishuDelegationProject();
-      const persistedTask = this.taskQueue.create({
-        projectId,
-        subject: `[Delegation] ${delegation.task.substring(0, 100)}`,
-        description: delegation.task,
-        owner: delegation.employee,
-        assignedBy: this.supervisorSlug ?? 'supervisor',
-        priority: 'medium',
-      });
-      persistedTaskId = persistedTask.id;
-      // Claim the task so it shows as in_progress on the TaskBoard
-      this.taskQueue.claim(persistedTask.id, delegation.employee);
-    } catch (persistErr) {
-      logger.warn(`Failed to persist delegation task (non-fatal): ${persistErr}`);
-    }
-
     this.emit('delegation-started', {
       employee: delegation.employee,
       task: delegation.task,
-      taskId: persistedTaskId,
     });
 
     try {
@@ -831,15 +844,6 @@ After each task, check the task board for more work:
         delegation.task,
         delegation.context
       );
-
-      // Mark the persisted task as completed with the employee's output
-      if (persistedTaskId) {
-        try {
-          this.taskQueue.complete(persistedTaskId, employeeResponse);
-        } catch (completeErr) {
-          logger.warn(`Failed to mark delegation task completed: ${completeErr}`);
-        }
-      }
 
       // Send result back to Supervisor session for synthesis
       const synthesisPrompt = `[Employee Result — ${delegation.employee}]
@@ -861,22 +865,9 @@ Please present this result to the user. Be concise and helpful. If the result is
       this.emit('delegation-completed', {
         employee: delegation.employee,
         task: delegation.task,
-        taskId: persistedTaskId,
       });
     } catch (err) {
       logger.error(`Feishu delegation to ${delegation.employee} failed: ${err}`);
-
-      // Mark the persisted task as failed
-      if (persistedTaskId) {
-        try {
-          this.taskQueue.update(persistedTaskId, {
-            status: 'cancelled',
-            output: `Error: ${String(err)}`,
-          });
-        } catch (updateErr) {
-          logger.warn(`Failed to mark delegation task cancelled: ${updateErr}`);
-        }
-      }
 
       // Inform the Supervisor so it can tell the user
       const errorMsg = `[System] Delegation to ${delegation.employee} failed: ${String(err)}. Please inform the user and suggest alternatives.`;
@@ -888,31 +879,8 @@ Please present this result to the user. Be concise and helpful. If the result is
       this.emit('delegation-failed', {
         employee: delegation.employee,
         error: String(err),
-        taskId: persistedTaskId,
       });
     }
-  }
-
-  /**
-   * Get or create a reusable project for Feishu delegation tasks.
-   * All ad-hoc delegations are grouped under one project for visibility.
-   */
-  private getOrCreateFeishuDelegationProject(): string {
-    if (this.feishuDelegationProjectId) {
-      const existing = this.taskQueue.getProject(this.feishuDelegationProjectId);
-      if (existing) return this.feishuDelegationProjectId;
-    }
-
-    const project = this.taskQueue.createProject({
-      goal: 'Feishu Delegations',
-      pmEmployeeId: this.supervisorSlug ?? 'supervisor',
-      employees: [],
-    });
-    this.feishuDelegationProjectId = project.id;
-    // Set to executing so tasks can be tracked
-    this.taskQueue.updateProject(project.id, { status: 'executing' });
-    logger.info(`Created Feishu delegation project: ${project.id}`);
-    return project.id;
   }
 
   // ── Private Helpers ─────────────────────────────────────────────
@@ -922,7 +890,6 @@ Please present this result to the user. Be concise and helpful. If the result is
    */
   private parsePMTaskPlan(responseText: string): PMTaskPlan[] {
     // Try to extract JSON array from the response
-    // PM may wrap it in markdown code blocks or add commentary
     let jsonStr = responseText.trim();
 
     // Strip markdown code fences

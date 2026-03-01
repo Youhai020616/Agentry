@@ -723,8 +723,16 @@ export class TaskQueue extends EventEmitter {
           const realId = tempToReal.get(`T${i}`) ?? tempToReal.get(String(i));
           if (realId) {
             const resolvedDeps = input.blockedBy
-              .map((ref) => tempToReal.get(ref) ?? ref)
-              .filter(Boolean);
+              .map((ref) => {
+                const resolved = tempToReal.get(ref);
+                if (!resolved) {
+                  logger.warn(
+                    `Task T${i}: unresolved dependency ref "${ref}" — skipping to prevent permanent blocking`
+                  );
+                }
+                return resolved;
+              })
+              .filter((id): id is string => id != null);
             if (resolvedDeps.length > 0) {
               this.db
                 .prepare('UPDATE tasks SET blockedBy = ? WHERE id = ?')
@@ -757,9 +765,7 @@ export class TaskQueue extends EventEmitter {
       this.emit('task-changed', task);
     }
 
-    logger.info(
-      `Project created atomically: ${projectId} with ${tasks.length} tasks`
-    );
+    logger.info(`Project created atomically: ${projectId} with ${tasks.length} tasks`);
 
     return { project, tasks };
   }

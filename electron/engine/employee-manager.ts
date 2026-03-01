@@ -313,12 +313,18 @@ export class EmployeeManager extends EventEmitter {
   }
 
   /**
-   * Recover an employee from error state back to idle.
+   * Recover an employee from error or working state back to idle.
+   *
+   * Fix H2: Previously only handled `error→idle`. Now also handles `working→idle`
+   * so that `autoRecoverStuckTask()` can unstick employees that are still in
+   * `working` state after their task is cancelled.
    */
   recover(id: string): void {
     const employee = this.requireEmployee(id);
-    if (employee.status !== 'error') {
-      logger.warn(`Cannot recover ${id}: status is '${employee.status}', expected 'error'`);
+    if (employee.status !== 'error' && employee.status !== 'working') {
+      logger.warn(
+        `Cannot recover ${id}: status is '${employee.status}', expected 'error' or 'working'`
+      );
       return;
     }
     this.setStatus(employee, 'idle');

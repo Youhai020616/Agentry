@@ -18,6 +18,7 @@ import {
   readFileSync,
   writeFileSync,
   appendFileSync,
+  renameSync,
 } from 'node:fs';
 import { logger } from '../utils/logger';
 import type { EpisodicMemory } from '../../src/types/memory';
@@ -28,6 +29,16 @@ const CLAWX_DIR = join(homedir(), '.clawx');
 const EMPLOYEES_DIR = join(CLAWX_DIR, 'employees');
 const SHARED_DIR = join(CLAWX_DIR, 'shared');
 const BRAND_FILE = join(SHARED_DIR, 'BRAND.md');
+
+/**
+ * Memory entry separator — uses an HTML comment that won't appear in normal
+ * Markdown content (fixes M2: `---` conflicted with Markdown horizontal rules).
+ */
+const MEMORY_SEPARATOR = '<!-- end-memory -->';
+
+// ── File permission constants (M7: restrict access on multi-user systems) ──
+const DIR_MODE = 0o700;
+const FILE_MODE = 0o600;
 
 // ── MemoryEngine ─────────────────────────────────────────────────────
 
@@ -40,8 +51,8 @@ export class MemoryEngine extends EventEmitter {
   init(): void {
     logger.info('MemoryEngine initializing (file-backed)...');
     try {
-      mkdirSync(EMPLOYEES_DIR, { recursive: true });
-      mkdirSync(SHARED_DIR, { recursive: true });
+      mkdirSync(EMPLOYEES_DIR, { recursive: true, mode: DIR_MODE });
+      mkdirSync(SHARED_DIR, { recursive: true, mode: DIR_MODE });
 
       // Auto-detect old SQLite database and migrate if present
       this.autoMigrate();
@@ -76,22 +87,7 @@ export class MemoryEngine extends EventEmitter {
   ): string {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
-    const clampedImportance = Math.max(1, Math.min(5, importance));
-
-    const entry = this.formatMemoryEntry(id, now, clampedImportance, tags, taskId, content);
-
-    const memoryFile = this.getMemoryFilePath(employeeId);
-    this.ensureEmployeeDir(employeeId);
-
-    try {
-      appendFileSync(memoryFile, entry, 'utf-8');
-      logger.debug(`Episodic memory stored: ${id} for employee ${employeeId}`);
-      this.emit('memory-changed', { type: 'episodic', action: 'store' });
-      return id;
-    } catch (err) {
-      logger.error(`Failed to store episodic memory: ${err}`);
-      throw err;
-    }
+    return this.storeEpisodicRaw(employeeId, id, now, content, tags, importance, taskId);
   }
 
   /**
@@ -139,10 +135,7 @@ export class MemoryEngine extends EventEmitter {
     if (memories.length === 0) return '';
 
     const memoryLines = memories
-      .map(
-        (m, i) =>
-          `${i + 1}. ${m.content}${m.tags.length > 0 ? ` [${m.tags.join(', ')}]` : ''}`
-      )
+      .map((m, i) => `${i + 1}. ${m.content}${m.tags.length > 0 ? ` [${m.tags.join(', ')}]` : ''}`)
       .join('\n');
 
     return `\n\n## Past Experience\n\nYou have the following relevant experiences from previous tasks:\n${memoryLines}`;
@@ -155,7 +148,7 @@ export class MemoryEngine extends EventEmitter {
    */
   setBrandContext(markdown: string): void {
     try {
-      writeFileSync(BRAND_FILE, markdown, 'utf-8');
+      writeFileSync(BRAND_FILE, markdown, { encoding: 'utf-8', mode: FILE_MODE });
       logger.debug('Brand context updated');
       this.emit('memory-changed', { type: 'brand', action: 'set' });
     } catch (err) {
@@ -208,6 +201,11 @@ export class MemoryEngine extends EventEmitter {
 
   /**
    * Migrate episodic and semantic memories from an old SQLite database to files.
+   *
+   * Fix M1: preserves original `id` and `createdAt` from SQLite rows.
+   * Fix H1: caller is responsible for renaming the DB after success to prevent
+   *          duplicate runs (see `autoMigrate()`).
+   *
    * @returns counts of migrated records
    */
   static async migrateFromSQLite(
@@ -253,8 +251,12 @@ export class MemoryEngine extends EventEmitter {
 
         for (const row of rows) {
           const tags = JSON.parse(row.tags || '[]') as string[];
-          engine.storeEpisodic(
+          // Fix M1: preserve original id and createdAt from SQLite
+          const originalTimestamp = new Date(row.createdAt).toISOString();
+          engine.storeEpisodicRaw(
             row.employeeId,
+            row.id,
+            originalTimestamp,
             row.content,
             tags,
             row.importance,
@@ -266,9 +268,7 @@ export class MemoryEngine extends EventEmitter {
 
       // Migrate semantic memories → BRAND.md
       const semTables = db
-        .prepare(
-          "SELECT name FROM sqlite_master WHERE type='table' AND name='semantic_memories'"
-        )
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='semantic_memories'")
         .all();
 
       if (semTables.length > 0) {
@@ -309,12 +309,44 @@ export class MemoryEngine extends EventEmitter {
   // ── Private helpers ──────────────────────────────────────────────
 
   /**
+   * Low-level episodic store that accepts an explicit `id` and `timestamp`.
+   * Used by both `storeEpisodic()` (new entries) and `migrateFromSQLite()`
+   * (preserving original values — fix M1).
+   */
+  private storeEpisodicRaw(
+    employeeId: string,
+    id: string,
+    timestamp: string,
+    content: string,
+    tags: string[],
+    importance: number,
+    taskId?: string
+  ): string {
+    const clampedImportance = Math.max(1, Math.min(5, importance));
+
+    const entry = this.formatMemoryEntry(id, timestamp, clampedImportance, tags, taskId, content);
+
+    const memoryFile = this.getMemoryFilePath(employeeId);
+    this.ensureEmployeeDir(employeeId);
+
+    try {
+      appendFileSync(memoryFile, entry, { encoding: 'utf-8', mode: FILE_MODE });
+      logger.debug(`Episodic memory stored: ${id} for employee ${employeeId}`);
+      this.emit('memory-changed', { type: 'episodic', action: 'store' });
+      return id;
+    } catch (err) {
+      logger.error(`Failed to store episodic memory: ${err}`);
+      throw err;
+    }
+  }
+
+  /**
    * Ensure the employee memory directory exists.
    */
   ensureEmployeeDir(employeeId: string): void {
     const dir = join(EMPLOYEES_DIR, employeeId);
     if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
+      mkdirSync(dir, { recursive: true, mode: DIR_MODE });
     }
   }
 
@@ -324,6 +356,7 @@ export class MemoryEngine extends EventEmitter {
 
   /**
    * Format a single memory entry as Markdown.
+   * Uses `<!-- end-memory -->` as delimiter (fix M2: safe from Markdown conflicts).
    */
   private formatMemoryEntry(
     id: string,
@@ -346,7 +379,7 @@ export class MemoryEngine extends EventEmitter {
     lines.push('');
     lines.push(content);
     lines.push('');
-    lines.push('---');
+    lines.push(MEMORY_SEPARATOR);
     lines.push('');
     return lines.join('\n');
   }
@@ -354,13 +387,21 @@ export class MemoryEngine extends EventEmitter {
   /**
    * Parse a MEMORY.md file into EpisodicMemory objects.
    * Entries are returned in file order (oldest first).
+   *
+   * Supports both the new `<!-- end-memory -->` separator and the legacy `---`
+   * separator for backward compatibility with files written before the M2 fix.
    */
   private parseMemoryFile(fileContent: string, employeeId: string): EpisodicMemory[] {
     if (!fileContent.trim()) return [];
 
     const entries: EpisodicMemory[] = [];
-    // Split on --- separator
-    const blocks = fileContent.split(/^---$/m);
+
+    // Split on the new safe separator first; fall back to legacy `---` only if
+    // the file doesn't contain the new separator at all (backward compat).
+    const usesNewSeparator = fileContent.includes(MEMORY_SEPARATOR);
+    const blocks = usesNewSeparator
+      ? fileContent.split(MEMORY_SEPARATOR)
+      : fileContent.split(/^---$/m);
 
     for (const block of blocks) {
       const trimmed = block.trim();
@@ -436,6 +477,10 @@ export class MemoryEngine extends EventEmitter {
 
   /**
    * Auto-detect old SQLite database and migrate if present.
+   *
+   * Fix H1: After successful migration the `.db` file is renamed to
+   * `.db.migrated`, making this operation idempotent — subsequent startups
+   * won't find the original file and won't re-run migration.
    */
   private autoMigrate(): void {
     try {
@@ -445,9 +490,22 @@ export class MemoryEngine extends EventEmitter {
       if (existsSync(oldDbPath)) {
         logger.info('Old SQLite memory database detected, auto-migrating...');
         // Run migration asynchronously — don't block init
-        void MemoryEngine.migrateFromSQLite(oldDbPath, this).catch((err) => {
-          logger.warn(`Auto-migration from SQLite failed: ${err}`);
-        });
+        void MemoryEngine.migrateFromSQLite(oldDbPath, this)
+          .then(() => {
+            // H1 fix: rename the DB so migration won't run again
+            const migratedPath = oldDbPath + '.migrated';
+            try {
+              renameSync(oldDbPath, migratedPath);
+              logger.info(`SQLite DB renamed to ${migratedPath} — migration won't re-run`);
+            } catch (renameErr) {
+              logger.warn(
+                `Failed to rename migrated DB (migration may re-run on next start): ${renameErr}`
+              );
+            }
+          })
+          .catch((err) => {
+            logger.warn(`Auto-migration from SQLite failed: ${err}`);
+          });
       }
     } catch {
       // app not available (e.g. in tests), skip migration check

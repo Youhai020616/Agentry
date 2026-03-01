@@ -24,7 +24,7 @@ const {
   mockReaddirSync,
   mockUnlinkSync,
   mockChmodSync,
-  mockHttpGet,
+  _mockHttpGet,
 } = vi.hoisted(() => ({
   mockIsPythonReady: vi.fn(),
   mockCheckUvInstalled: vi.fn(),
@@ -43,7 +43,7 @@ const {
     end: vi.fn(),
     destroy: vi.fn(),
   }),
-  mockHttpGet: vi.fn(),
+  _mockHttpGet: vi.fn(),
   mockRenameSync: vi.fn(),
   mockReaddirSync: vi.fn().mockReturnValue([]),
   mockUnlinkSync: vi.fn(),

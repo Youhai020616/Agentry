@@ -180,6 +180,9 @@ export class MessageBus extends EventEmitter {
   /**
    * Deliver all pending (unread) messages to an employee by emitting them.
    * Called when an employee comes back online.
+   *
+   * Fix M4: marks all delivered messages as read immediately after emitting,
+   * so that subsequent activations won't re-deliver the same messages.
    */
   deliverPendingMessages(employeeId: string): void {
     const messages = this.getInbox(employeeId);
@@ -187,6 +190,8 @@ export class MessageBus extends EventEmitter {
       this.emit('new-message', message);
     }
     if (messages.length > 0) {
+      // M4 fix: mark as read to prevent duplicate delivery on next activation
+      this.markAllRead(employeeId);
       logger.info(`Delivered ${messages.length} pending message(s) to ${employeeId}`);
     }
   }

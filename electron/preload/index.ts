@@ -312,6 +312,7 @@ const electronAPI = {
         'task:changed',
         'browser:status-changed',
         'project:changed',
+        'message:new',
         'ollama:pull-progress',
         'extension:install-progress',
         'supervisor:delegation-started',
