@@ -109,7 +109,7 @@ ClawX/
 │   │   ├── task-queue.ts         # Persistent task queue (SQLite)
 │   │   ├── supervisor.ts         # PM agent orchestration (Phase 1)
 │   │   ├── message-bus.ts        # Inter-employee messaging (Phase 1)
-│   │   └── memory.ts             # Three-layer memory (Phase 1)
+│   │   └── memory.ts             # File-backed memory (episodic + brand)
 │   ├── utils/
 │   │   ├── logger.ts             # Logging
 │   │   ├── store.ts              # electron-store (ESM-only, lazy import!)
@@ -362,7 +362,7 @@ Phase 0 目标: **"雇第一个 AI 员工"** — 从 Skill 市场安装一个 Sk
 - Employee = Skill + System Prompt + Gateway Session
 - 每个员工独立一个 Gateway chat session
 - 员工状态机: `idle` → `working` → `idle` / `blocked` / `error`
-- Task Queue 用 SQLite (better-sqlite3) 持久化
+- Task Queue 用 SQLite (better-sqlite3) 持久化，Memory 用 Markdown 文件存储
 - 新路由: `/` → Employee Hub, `/employees/:id` → Chat View, `/tasks` → Task Board
 
 **新 IPC 通道命名空间**:
@@ -370,5 +370,5 @@ Phase 0 目标: **"雇第一个 AI 员工"** — 从 Skill 市场安装一个 Sk
 - `task:*` — 任务操作
 - `supervisor:*` — PM 编排 (Phase 1)
 - `message:*` — 消息总线 (Phase 1)
-- `memory:*` — 记忆系统 (Phase 1)
+- `memory:*` — 记忆系统 (episodic + brand, file-backed)
 - `credits:*` — Credits 追踪

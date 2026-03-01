@@ -1,7 +1,7 @@
 /**
- * Unit tests for ToolRegistry built-in tool support (Phase 6).
+ * Unit tests for ToolRegistry built-in tool support.
  *
- * Tests the new built-in tool tracking (e.g. 'browser') alongside
+ * Tests built-in tool tracking (browser, web_search, web_fetch) alongside
  * the existing custom CLI tool functionality.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -53,6 +53,51 @@ describe('ToolRegistry — built-in tool support', () => {
       expect(registry.getBuiltinTools(employeeId)).toEqual(['browser']);
     });
 
+    it('registers web_search as a built-in tool when manifest declares it', () => {
+      const manifest = makeManifest([{ name: 'web_search' }]);
+
+      registry.registerFromManifest(employeeId, manifest);
+
+      expect(registry.hasBuiltinTool(employeeId, 'web_search')).toBe(true);
+      expect(registry.getBuiltinTools(employeeId)).toContain('web_search');
+    });
+
+    it('registers web_fetch as a built-in tool when manifest declares it', () => {
+      const manifest = makeManifest([{ name: 'web_fetch' }]);
+
+      registry.registerFromManifest(employeeId, manifest);
+
+      expect(registry.hasBuiltinTool(employeeId, 'web_fetch')).toBe(true);
+      expect(registry.getBuiltinTools(employeeId)).toContain('web_fetch');
+    });
+
+    it('registers multiple web tools together', () => {
+      const manifest = makeManifest([{ name: 'web_search' }, { name: 'web_fetch' }]);
+
+      registry.registerFromManifest(employeeId, manifest);
+
+      expect(registry.hasBuiltinTool(employeeId, 'web_search')).toBe(true);
+      expect(registry.hasBuiltinTool(employeeId, 'web_fetch')).toBe(true);
+      expect(registry.getBuiltinTools(employeeId)).toHaveLength(2);
+      // No custom tools
+      expect(registry.getTools(employeeId)).toHaveLength(0);
+    });
+
+    it('registers all built-in tools (browser + web_search + web_fetch) together', () => {
+      const manifest = makeManifest([
+        { name: 'browser' },
+        { name: 'web_search' },
+        { name: 'web_fetch' },
+      ]);
+
+      registry.registerFromManifest(employeeId, manifest);
+
+      expect(registry.hasBuiltinTool(employeeId, 'browser')).toBe(true);
+      expect(registry.hasBuiltinTool(employeeId, 'web_search')).toBe(true);
+      expect(registry.hasBuiltinTool(employeeId, 'web_fetch')).toBe(true);
+      expect(registry.getBuiltinTools(employeeId)).toHaveLength(3);
+    });
+
     it('registers custom tools with cli field as before', () => {
       const manifest = makeManifest([
         { name: 'web-search', cli: 'python search.py', requiredSecret: 'TAVILY_API_KEY' },
@@ -84,6 +129,44 @@ describe('ToolRegistry — built-in tool support', () => {
       const customTools = registry.getTools(employeeId);
       expect(customTools).toHaveLength(1);
       expect(customTools[0].name).toBe('web-search');
+    });
+
+    it('handles mixed custom + web built-in tools in the same manifest', () => {
+      const manifest = makeManifest([
+        { name: 'web_search' },
+        { name: 'web_fetch' },
+        { name: 'generate-image', cli: 'python gen.py', requiredSecret: 'DEERAPI_KEY' },
+      ]);
+
+      registry.registerFromManifest(employeeId, manifest);
+
+      // Built-in
+      expect(registry.hasBuiltinTool(employeeId, 'web_search')).toBe(true);
+      expect(registry.hasBuiltinTool(employeeId, 'web_fetch')).toBe(true);
+      expect(registry.getBuiltinTools(employeeId)).toHaveLength(2);
+
+      // Custom
+      const customTools = registry.getTools(employeeId);
+      expect(customTools).toHaveLength(1);
+      expect(customTools[0].name).toBe('generate-image');
+    });
+
+    it('distinguishes web-search (custom, hyphenated) from web_search (built-in, underscored)', () => {
+      // web-search with cli = custom tool (old Tavily pattern)
+      const customManifest = makeManifest([
+        { name: 'web-search', cli: 'python search.py', requiredSecret: 'TAVILY_API_KEY' },
+      ]);
+      registry.registerFromManifest('emp-custom', customManifest);
+
+      expect(registry.hasBuiltinTool('emp-custom', 'web-search')).toBe(false);
+      expect(registry.getTools('emp-custom')).toHaveLength(1);
+
+      // web_search without cli = built-in tool (Gateway native)
+      const builtinManifest = makeManifest([{ name: 'web_search' }]);
+      registry.registerFromManifest('emp-builtin', builtinManifest);
+
+      expect(registry.hasBuiltinTool('emp-builtin', 'web_search')).toBe(true);
+      expect(registry.getTools('emp-builtin')).toHaveLength(0);
     });
 
     it('skips tools that are neither built-in nor have a cli field', () => {
@@ -228,6 +311,60 @@ describe('ToolRegistry — built-in tool support', () => {
       expect(section).not.toContain('openclaw browser snapshot');
     });
 
+    it('generates web_search tool prompt when web_search is registered', () => {
+      registry.registerFromManifest(employeeId, makeManifest([{ name: 'web_search' }]));
+
+      const section = registry.generateToolPromptSection(employeeId);
+
+      expect(section).toBeTruthy();
+      expect(section).toContain('Web Search Tool');
+      expect(section).toContain('web_search');
+      // Should include usage guidance
+      expect(section).toContain('specific queries');
+      expect(section).toContain('Cross-reference');
+      // Should NOT contain exec-based commands or Python references
+      expect(section).not.toContain('python');
+      expect(section).not.toContain('openclaw');
+    });
+
+    it('generates web_fetch tool prompt when web_fetch is registered', () => {
+      registry.registerFromManifest(employeeId, makeManifest([{ name: 'web_fetch' }]));
+
+      const section = registry.generateToolPromptSection(employeeId);
+
+      expect(section).toBeTruthy();
+      expect(section).toContain('Web Fetch Tool');
+      expect(section).toContain('web_fetch');
+      expect(section).toContain('readable markdown');
+    });
+
+    it('generates both web_search and web_fetch prompts when both registered', () => {
+      registry.registerFromManifest(
+        employeeId,
+        makeManifest([{ name: 'web_search' }, { name: 'web_fetch' }])
+      );
+
+      const section = registry.generateToolPromptSection(employeeId);
+
+      expect(section).toContain('Web Search Tool');
+      expect(section).toContain('Web Fetch Tool');
+      // Should NOT have custom tools section
+      expect(section).not.toContain('Available Tools');
+    });
+
+    it('generates all built-in prompts when browser + web tools registered', () => {
+      registry.registerFromManifest(
+        employeeId,
+        makeManifest([{ name: 'browser' }, { name: 'web_search' }, { name: 'web_fetch' }])
+      );
+
+      const section = registry.generateToolPromptSection(employeeId);
+
+      expect(section).toContain('Browser Tool');
+      expect(section).toContain('Web Search Tool');
+      expect(section).toContain('Web Fetch Tool');
+    });
+
     it('generates only custom tool section when no built-ins registered', () => {
       registry.registerFromManifest(employeeId, makeManifest([{ name: 'tool-a', cli: 'a.sh' }]));
 
@@ -243,15 +380,15 @@ describe('ToolRegistry — built-in tool support', () => {
     it('generates both custom and browser sections when both registered', () => {
       registry.registerFromManifest(
         employeeId,
-        makeManifest([{ name: 'browser' }, { name: 'web-search', cli: 'python search.py' }])
+        makeManifest([{ name: 'browser' }, { name: 'custom-tool', cli: 'python tool.py' }])
       );
 
       const section = registry.generateToolPromptSection(employeeId);
 
       // Custom tools section
       expect(section).toContain('Available Tools');
-      expect(section).toContain('**web-search**');
-      expect(section).toContain('python search.py');
+      expect(section).toContain('**custom-tool**');
+      expect(section).toContain('python tool.py');
 
       // Browser section (behavioral guidance, not exec-based CLI commands)
       expect(section).toContain('Browser Tool');
@@ -284,7 +421,7 @@ describe('ToolRegistry — built-in tool support', () => {
     it('resolves custom tools with secrets', () => {
       registry.registerFromManifest(
         employeeId,
-        makeManifest([{ name: 'web-search', cli: 'python search.py', requiredSecret: 'API_KEY' }])
+        makeManifest([{ name: 'custom-tool', cli: 'python tool.py', requiredSecret: 'API_KEY' }])
       );
 
       const resolved = registry.resolveTools(employeeId, { API_KEY: 'secret123' });
@@ -296,7 +433,7 @@ describe('ToolRegistry — built-in tool support', () => {
     it('returns empty env when secret not provided', () => {
       registry.registerFromManifest(
         employeeId,
-        makeManifest([{ name: 'web-search', cli: 'python search.py', requiredSecret: 'API_KEY' }])
+        makeManifest([{ name: 'custom-tool', cli: 'python tool.py', requiredSecret: 'API_KEY' }])
       );
 
       const resolved = registry.resolveTools(employeeId, {});
@@ -309,6 +446,23 @@ describe('ToolRegistry — built-in tool support', () => {
       registry.registerFromManifest(
         employeeId,
         makeManifest([{ name: 'browser' }, { name: 'tool-a', cli: 'a.sh' }])
+      );
+
+      const resolved = registry.resolveTools(employeeId, {});
+
+      // Only custom tools should appear
+      expect(resolved).toHaveLength(1);
+      expect(resolved[0].name).toBe('tool-a');
+    });
+
+    it('does not include web_search or web_fetch in resolveTools output', () => {
+      registry.registerFromManifest(
+        employeeId,
+        makeManifest([
+          { name: 'web_search' },
+          { name: 'web_fetch' },
+          { name: 'tool-a', cli: 'a.sh' },
+        ])
       );
 
       const resolved = registry.resolveTools(employeeId, {});

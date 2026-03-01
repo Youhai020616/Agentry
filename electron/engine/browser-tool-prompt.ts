@@ -1,39 +1,36 @@
 /**
- * Browser Tool Prompt Template
+ * Built-in Tool Prompt Templates
  *
- * Generates a lightweight behavioral guidance section for employees that use
- * the Gateway's **native `browser` tool**. The Gateway already provides the
- * full tool schema (open, snapshot, click, type, scroll, screenshot, …) so
- * we do NOT duplicate API documentation here.
+ * Generates lightweight behavioral guidance sections for employees that use
+ * Gateway-native tools. The Gateway already provides the full tool schemas,
+ * so we do NOT duplicate API documentation here — only behavioral patterns.
  *
- * What this prompt adds:
- *   1. Workflow pattern  — navigate → observe → act → verify
- *   2. Safety rules      — credentials, payments, CAPTCHAs
- *   3. Error handling    — extension not connected, browser not running
- *   4. Output guidance   — structured formats for extracted data
+ * Supported built-in tools:
+ *   - `browser`    — full browser automation (CDP, OpenClaw-managed Chrome)
+ *   - `web_search` — internet search (Brave / Gemini / Perplexity / Grok)
+ *   - `web_fetch`  — HTTP GET + readable extraction (HTML → markdown)
  *
  * Architecture (native tool path):
  *   Employee (LLM)
- *     ↓ tool_call: browser({ action: "snapshot", ... })
- *   Gateway built-in `browser` tool
- *     ↓ CDP / Chrome Extension Relay
- *   Chrome Tab
+ *     ↓ tool_call: <tool_name>({ ... })
+ *   Gateway built-in tool handler
+ *     ↓ provider-specific implementation
+ *   External service (Chrome, Brave Search, etc.)
  *
- * This replaces the earlier exec-wrapper approach where the LLM had to
- * call `exec("openclaw browser <cmd>")`. The native tool is cleaner,
- * schema-validated, and the LLM can call it directly as a structured
- * function call.
+ * When a manifest declares `tools: [{ name: "browser" }]` (no `cli` field),
+ * the ToolRegistry recognizes it as a Gateway-native tool and injects
+ * behavioral guidance (not API docs — the Gateway handles that).
  */
 
 // ── Built-in Tool Names ──────────────────────────────────────────────
 
 /**
  * Well-known built-in tool names provided by the Gateway.
- * When a manifest declares `tools: [{ name: "browser" }]`, the ToolRegistry
- * recognizes it as a Gateway-native tool and injects behavioral guidance
- * (not API docs — the Gateway handles that).
+ * When a manifest declares `tools: [{ name: "<tool>" }]` (no `cli` field),
+ * the ToolRegistry recognizes it as a Gateway-native tool and injects
+ * behavioral guidance (not API docs — the Gateway handles that).
  */
-export const BUILTIN_TOOL_NAMES = ['browser'] as const;
+export const BUILTIN_TOOL_NAMES = ['browser', 'web_search', 'web_fetch'] as const;
 export type BuiltinToolName = (typeof BUILTIN_TOOL_NAMES)[number];
 
 /**
@@ -83,10 +80,10 @@ Repeat steps 2–4 as needed. Always snapshot before interacting — you need fr
 
 ### Error Handling
 
-- **"no tab is connected" / "extension relay" errors** → Tell the user: "请在 Chrome 浏览器中点击 OpenClaw 扩展图标来连接一个标签页，然后我会重试。"
-- **"extension is not installed" errors** → Tell the user: "需要先安装 OpenClaw Chrome 扩展。请在终端运行 \`openclaw browser extension install\`，然后在 Chrome 的 chrome://extensions 页面加载该扩展。"
-- **"not running" / "no browser" errors** → Try starting the browser, then retry.
+- **"not running" / "no browser" errors** → Try starting the browser with the \`browser\` tool, then retry the action.
+- **"no browser detected" errors** → Tell the user: "未检测到 Chrome/Chromium 浏览器，请先安装 Google Chrome。"
 - **Element not found** → Take a fresh snapshot — the page may have changed.
+- **CDP connection errors** → The managed browser may have crashed. Try stopping and restarting it.
 - **Do not guess recovery steps.** Report the exact error to the user if you cannot resolve it.
 
 ### Safety Rules
@@ -99,6 +96,75 @@ Repeat steps 2–4 as needed. Always snapshot before interacting — you need fr
 `;
 }
 
+// ── Web Search Tool Prompt ────────────────────────────────────────────
+
+/**
+ * Generate a behavioral guidance prompt section for employees that have
+ * access to the Gateway's native `web_search` tool.
+ *
+ * This is a lightweight fallback for employees that declare `web_search`
+ * in their manifest but don't provide comprehensive search guidance in
+ * their SKILL.md. Employees like Researcher already have detailed search
+ * instructions in SKILL.md — this prompt complements rather than replaces.
+ *
+ * @returns Markdown section to append to the system prompt
+ */
+export function generateWebSearchToolPrompt(): string {
+  return `
+
+## 🔍 Web Search Tool — Behavioral Guide
+
+You have access to a native \`web_search\` tool for searching the internet. Call it directly as a tool — do NOT wrap it in \`exec\`.
+
+### Usage Pattern
+
+1. **Formulate specific queries** — targeted searches yield better results than broad questions.
+   - ✅ \`"OpenAI revenue 2025 annual report"\`
+   - ❌ \`"tell me about OpenAI"\`
+2. **Run multiple searches** — vary the angle for comprehensive coverage (3–5 per topic).
+3. **Cross-reference** — compare findings from multiple sources before drawing conclusions.
+4. **Cite sources** — always note URLs from search results for traceability.
+
+### Tips
+
+- Include year or date ranges for time-sensitive queries (e.g. \`"EV market share 2025"\`).
+- Search in both Chinese and English for topics relevant to both markets.
+- Use site-specific queries for authoritative sources (e.g. \`"site:techcrunch.com AI funding"\`).
+- Follow up with \`web_fetch\` to read full pages when a search result looks promising.
+`;
+}
+
+// ── Web Fetch Tool Prompt ─────────────────────────────────────────────
+
+/**
+ * Generate a behavioral guidance prompt section for employees that have
+ * access to the Gateway's native `web_fetch` tool.
+ *
+ * @returns Markdown section to append to the system prompt
+ */
+export function generateWebFetchToolPrompt(): string {
+  return `
+
+## 📄 Web Fetch Tool — Behavioral Guide
+
+You have access to a native \`web_fetch\` tool for reading web pages. It fetches a URL and returns the page content as readable markdown. Call it directly as a tool — do NOT wrap it in \`exec\`.
+
+### When to Use
+
+- After \`web_search\` finds a promising result — fetch the full page for deeper data.
+- When the user provides a specific URL to read or extract information from.
+- To verify claims by reading the original source.
+
+### Tips
+
+- Prefer authoritative source URLs (official docs, news outlets, research papers).
+- Extract key data points and quotes — don't dump the entire page back to the user.
+- If a page is too large or returns an error, try an alternative source.
+`;
+}
+
+// ── Dispatch ──────────────────────────────────────────────────────────
+
 /**
  * Generate a prompt section for a specific built-in tool.
  * Returns empty string for unknown tool names.
@@ -110,6 +176,10 @@ export function generateBuiltinToolPrompt(toolName: string): string {
   switch (toolName) {
     case 'browser':
       return generateBrowserToolPrompt();
+    case 'web_search':
+      return generateWebSearchToolPrompt();
+    case 'web_fetch':
+      return generateWebFetchToolPrompt();
     default:
       return '';
   }

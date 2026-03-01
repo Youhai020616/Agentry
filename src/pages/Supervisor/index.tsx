@@ -39,7 +39,7 @@ export function Supervisor() {
 
   const [selectedId, setSelectedId] = useState<string>(SUPERVISOR_ID);
   const [activating, setActivating] = useState(false);
-  const [panelOpen, setPanelOpen] = useState(true);
+  const [panelOpen, setPanelOpen] = useState(false);
 
   // Initialize employees store
   useEffect(() => {
@@ -174,7 +174,9 @@ export function Supervisor() {
             employeeName={
               selectedId === SUPERVISOR_ID ? t('supervisor.title') : selectedEmployee?.name
             }
-            employeeAvatar={selectedId === SUPERVISOR_ID ? '\uD83D\uDC54' : selectedEmployee?.avatar}
+            employeeAvatar={
+              selectedId === SUPERVISOR_ID ? '\uD83D\uDC54' : selectedEmployee?.avatar
+            }
           />
         </div>
 
@@ -203,11 +205,7 @@ export function Supervisor() {
 
       {/* MessageDock */}
       <div className="shrink-0 flex justify-center py-2 border-t border-border/40">
-        <MessageDock
-          characters={dockCharacters}
-          selectedId={selectedId}
-          onSelect={handleSelect}
-        />
+        <MessageDock characters={dockCharacters} selectedId={selectedId} onSelect={handleSelect} />
       </div>
     </div>
   );
