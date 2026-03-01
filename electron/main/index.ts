@@ -136,7 +136,7 @@ async function initialize(): Promise<void> {
   // Override security headers ONLY for the OpenClaw Gateway Control UI
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const isGatewayUrl =
-      details.url.includes('127.0.0.1:18789') || details.url.includes('localhost:18789');
+      details.url.includes('127.0.0.1:18790') || details.url.includes('localhost:18790');
 
     if (!isGatewayUrl) {
       callback({ responseHeaders: details.responseHeaders });

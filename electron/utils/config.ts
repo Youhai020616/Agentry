@@ -13,8 +13,8 @@ export const PORTS = {
   /** PocketCrow GUI production port (for reference) */
   POCKETCROW_GUI: 23333,
 
-  /** OpenClaw Gateway port */
-  OPENCLAW_GATEWAY: 18789,
+  /** OpenClaw Gateway port (18790 to avoid conflict with standalone OpenClaw on 18789) */
+  OPENCLAW_GATEWAY: 18790,
 } as const;
 
 /**

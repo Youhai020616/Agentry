@@ -63,7 +63,7 @@ const defaultSettings = {
   startMinimized: false,
   launchAtStartup: false,
   gatewayAutoStart: true,
-  gatewayPort: 18789,
+  gatewayPort: 18790,
   updateChannel: 'stable' as UpdateChannel,
   autoCheckUpdate: true,
   autoDownloadUpdate: false,

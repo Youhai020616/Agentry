@@ -118,9 +118,9 @@ export const PROVIDER_TYPE_INFO: ProviderTypeInfo[] = [
     model: 'Qwen',
     requiresApiKey: true,
     defaultBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-    defaultModelId: 'qwen-plus',
+    defaultModelId: 'qwen-coder-plus',
     showModelId: true,
-    modelIdPlaceholder: 'qwen-plus / qwen-max / qwen-turbo',
+    modelIdPlaceholder: 'qwen-coder-plus / qwen-plus / qwen-max',
   },
   {
     id: 'ollama',

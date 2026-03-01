@@ -839,7 +839,7 @@ function registerGatewayHandlers(
     try {
       const status = gatewayManager.getStatus();
       const token = await getSetting('gatewayToken');
-      const port = status.port || 18789;
+      const port = status.port || 18790;
       // Pass token as query param - Control UI will store it in localStorage
       const url = `http://127.0.0.1:${port}/?token=${encodeURIComponent(token)}`;
       return { success: true, url, port, token };

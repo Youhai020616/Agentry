@@ -59,7 +59,7 @@ const defaults: AppSettings = {
 
   // Gateway
   gatewayAutoStart: true,
-  gatewayPort: 18789,
+  gatewayPort: 18790,
   gatewayToken: generateToken(),
 
   // Update
