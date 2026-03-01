@@ -121,6 +121,16 @@ export class GatewayManager extends EventEmitter {
   private _pendingSendConnect: (() => void) | null = null;
   private processExitedDuringStart = false;
   private _lastConfigError = false;
+
+  /**
+   * Dedup: prevent duplicate chat:message emissions from channel webhook retries
+   * (e.g. Feishu resends the same event if OpenClaw's response is slow).
+   * Tracks content hashes of recent chat messages; duplicates are silently dropped.
+   */
+  private recentChatHashes = new Set<string>();
+  private chatDedupTimer: NodeJS.Timeout | null = null;
+  private static readonly CHAT_DEDUP_WINDOW_MS = 10_000;
+
   private pendingRequests: Map<
     string,
     {
@@ -1123,6 +1133,10 @@ export class GatewayManager extends EventEmitter {
         // Heartbeat tick, ignore
         break;
       case 'chat':
+        if (this.isDuplicateChatMessage(payload)) {
+          logger.debug('Dropping duplicate chat protocol event');
+          break;
+        }
         this.emit('chat:message', { message: payload });
         break;
       case 'channel.status':
@@ -1147,6 +1161,10 @@ export class GatewayManager extends EventEmitter {
         break;
 
       case GatewayEventType.MESSAGE_RECEIVED:
+        if (this.isDuplicateChatMessage(notification.params)) {
+          logger.debug('Dropping duplicate chat:message_received notification');
+          break;
+        }
         this.emit('chat:message', notification.params as { message: unknown });
         break;
 
@@ -1160,6 +1178,59 @@ export class GatewayManager extends EventEmitter {
         // Unknown notification type, just log it
         logger.debug(`Unknown Gateway notification: ${notification.method}`);
     }
+  }
+
+  /**
+   * Check if a chat message payload is a duplicate (webhook retry / dual delivery).
+   * Builds a lightweight fingerprint from the message content and session key;
+   * if the same fingerprint was seen within CHAT_DEDUP_WINDOW_MS, returns true.
+   */
+  private isDuplicateChatMessage(payload: unknown): boolean {
+    if (!payload || typeof payload !== 'object') return false;
+
+    // Extract a fingerprint from the payload — combine sessionKey + text content
+    const p = payload as Record<string, unknown>;
+    const msg = p.message ?? p;
+    const msgObj = (typeof msg === 'object' && msg !== null ? msg : {}) as Record<string, unknown>;
+
+    // Try multiple fields that could identify the message content
+    const content = String(msgObj.content ?? msgObj.text ?? msgObj.body ?? '');
+    const sessionKey = String(p.sessionKey ?? msgObj.sessionKey ?? '');
+    const runId = String(p.runId ?? msgObj.runId ?? '');
+
+    // If no identifiable content, let it through (can't dedup)
+    if (!content && !runId) return false;
+
+    // Use runId if available (most reliable), otherwise content + sessionKey
+    const fingerprint = runId ? `run:${runId}` : `msg:${sessionKey}:${this.simpleHash(content)}`;
+
+    if (this.recentChatHashes.has(fingerprint)) {
+      return true; // duplicate
+    }
+
+    this.recentChatHashes.add(fingerprint);
+
+    // Periodically clear the dedup set to avoid memory leak
+    if (!this.chatDedupTimer) {
+      this.chatDedupTimer = setTimeout(() => {
+        this.recentChatHashes.clear();
+        this.chatDedupTimer = null;
+      }, GatewayManager.CHAT_DEDUP_WINDOW_MS);
+    }
+
+    return false;
+  }
+
+  /**
+   * Simple string hash for dedup fingerprinting (not crypto-grade).
+   */
+  private simpleHash(str: string): string {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash + char) | 0;
+    }
+    return hash.toString(36);
   }
 
   /**

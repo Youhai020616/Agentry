@@ -617,10 +617,77 @@ export class EmployeeManager extends EventEmitter {
         `[registerAgentInConfig] Updated tools.agentToAgent allow: [${activeIds.join(', ')}]`
       );
 
+      // ── Supervisor-specific: bind configured channels to supervisor ──
+      // OpenClaw uses `bindings` to route channel messages to specific agents.
+      // Without bindings, Feishu (and other channel) messages go to the default
+      // agent instead of the supervisor, so the supervisor never receives them.
+      if (employee.id === 'supervisor') {
+        this.writeChannelBindings(config, employee.id);
+      }
+
       writeOpenClawConfig(config);
       logger.info(
         `Registered agent "${employee.id}" in openclaw.json (workspace: ${normalizedWorkspace})`
       );
+    });
+  }
+
+  // ── Channel → Agent Bindings ─────────────────────────────────────
+
+  /**
+   * Write `bindings` array into an openclaw.json config object.
+   * Routes all configured (enabled) channels to the given agent.
+   *
+   * OpenClaw `bindings` format:
+   * ```json
+   * { "bindings": [{ "agentId": "supervisor", "match": { "channel": "feishu" } }] }
+   * ```
+   *
+   * Without bindings, channel messages go to the default agent — NOT the supervisor.
+   * This is the root cause of "Feishu messages not reaching the supervisor".
+   */
+  private writeChannelBindings(config: Record<string, unknown>, agentId: string): void {
+    // Read configured channels
+    const channels = (config.channels ?? {}) as Record<string, { enabled?: boolean } | undefined>;
+
+    const enabledChannels = Object.entries(channels)
+      .filter(([, cfg]) => cfg?.enabled !== false)
+      .map(([name]) => name);
+
+    if (enabledChannels.length === 0) {
+      logger.debug('[writeChannelBindings] No enabled channels — skipping bindings');
+      return;
+    }
+
+    // Build bindings: one entry per enabled channel → supervisor
+    const bindings = enabledChannels.map((channel) => ({
+      agentId,
+      match: { channel },
+    }));
+
+    config.bindings = bindings;
+    logger.info(
+      `[writeChannelBindings] Bound ${enabledChannels.length} channel(s) to "${agentId}": ${enabledChannels.join(', ')}`
+    );
+  }
+
+  /**
+   * Public helper: sync channel bindings for the supervisor.
+   * Call this when a channel is saved/enabled AFTER the supervisor is already active,
+   * so the new channel is immediately routed to the supervisor.
+   */
+  async syncChannelBindings(): Promise<void> {
+    const supervisor = this.employees.get('supervisor');
+    if (!supervisor || supervisor.status === 'offline') {
+      logger.debug('[syncChannelBindings] Supervisor not active — skipping');
+      return;
+    }
+
+    await configUpdateQueue.enqueue(async () => {
+      const config = readOpenClawConfig();
+      this.writeChannelBindings(config as Record<string, unknown>, 'supervisor');
+      writeOpenClawConfig(config);
+      logger.info('[syncChannelBindings] Channel bindings synced for supervisor');
     });
   }
 
