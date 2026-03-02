@@ -12,6 +12,7 @@ import { createTray, updateTrayMenu } from './tray';
 import type { EmployeeTrayInfo } from './tray';
 import { createMenu } from './menu';
 import { bootstrapEngine } from '../engine/bootstrap';
+import { migrateKeysToEncryptedStorage } from '../utils/secure-storage';
 import type { EngineContext } from '../engine/bootstrap';
 
 import { appUpdater, registerUpdateHandlers } from './updater';
@@ -115,6 +116,18 @@ async function initialize(): Promise<void> {
 
   // Warm up network optimization (non-blocking)
   void warmupNetworkOptimization();
+
+  // Migrate any plaintext API keys to encrypted storage (idempotent, non-blocking).
+  // Must run after app.isReady() so that safeStorage.isEncryptionAvailable() returns true.
+  migrateKeysToEncryptedStorage()
+    .then((stats) => {
+      if (stats.migrated > 0) {
+        logger.info(
+          `API key migration: ${stats.migrated} encrypted, ${stats.skipped} already encrypted, ${stats.failed} failed`
+        );
+      }
+    })
+    .catch((err) => logger.warn('API key migration failed (non-fatal):', err));
 
   // Set application menu
   createMenu();

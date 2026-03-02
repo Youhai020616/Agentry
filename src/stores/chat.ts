@@ -535,6 +535,27 @@ function toMs(ts: number): number {
   return ts < 1e12 ? ts * 1000 : ts;
 }
 
+// ── Completed-run guard ─────────────────────────────────────────────
+// After a run is fully resolved (lifecycle:end promotes streamingMessage, or a
+// normal final with isResolved=true clears sending), late-arriving protocol
+// events for the same runId must be dropped — otherwise they create duplicate
+// messages. We track recently-completed runIds in a small Set with timer-based
+// cleanup to prevent memory leaks.
+const recentCompletedRunIds = new Set<string>();
+let _completedRunCleanupTimer: ReturnType<typeof setTimeout> | null = null;
+const COMPLETED_RUN_TTL_MS = 30_000; // 30 seconds
+
+function markRunCompleted(runId: string): void {
+  if (!runId) return;
+  recentCompletedRunIds.add(runId);
+  if (!_completedRunCleanupTimer) {
+    _completedRunCleanupTimer = setTimeout(() => {
+      recentCompletedRunIds.clear();
+      _completedRunCleanupTimer = null;
+    }, COMPLETED_RUN_TTL_MS);
+  }
+}
+
 // ── pendingFinal safety net ──────────────────────────────────────
 // If pendingFinal stays true (loadHistory didn't find a resolving message),
 // retry loadHistory after a delay, then hard-reset sending state as a last resort.
@@ -1030,15 +1051,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const eventState = String(event.state || '');
     const { activeRunId } = get();
 
-    // Debug: trace incoming chat events
-    if (process.env.NODE_ENV === 'development') {
-      const msgInfo =
-        event.message && typeof event.message === 'object'
-          ? ` msg.role=${(event.message as Record<string, unknown>).role}`
-          : '';
-      console.debug(
-        `[handleChatEvent] state="${eventState}" runId="${runId.slice(0, 8)}" active="${String(activeRunId).slice(0, 8)}"${msgInfo}`
-      );
+    // ── Completed-run guard: drop late events for already-resolved runs ──
+    if (runId && recentCompletedRunIds.has(runId)) {
+      return;
     }
 
     // Only process events for the active run (or if no active run set).
@@ -1114,6 +1129,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           );
           // Run is resolved if we have actual content OR it's an error response
           const isResolved = hasOutput || isErrorResponse;
+
           // BUG FIX: Previously, non-tool messages used `run-${runId}` as ID,
           // meaning multiple assistant messages within the same run would share
           // the same ID. The `alreadyExists` check would then silently drop
@@ -1182,6 +1198,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
                   streamingTools,
                 };
           });
+          // Mark run as completed to block late-arriving duplicate events
+          if (isResolved && runId) {
+            markRunCompleted(runId);
+          }
           // If still pending after set, schedule safety net
           if (get().pendingFinal) {
             schedulePendingFinalSafetyNet(get, set);
@@ -1189,10 +1209,80 @@ export const useChatStore = create<ChatState>((set, get) => ({
             clearPendingFinalTimers();
           }
         } else {
-          // No message in final event - reload history to get complete data
-          set({ streamingText: '', streamingMessage: null, pendingFinal: true });
-          get().loadHistory();
-          schedulePendingFinalSafetyNet(get, set);
+          // No message body in final event (e.g., lifecycle:end from Gateway).
+          // Promote the current streamingMessage to the message history instead
+          // of waiting 8s for the safety net timeout.
+          const { streamingMessage: sm } = get();
+          if (sm && typeof sm === 'object') {
+            const promoted = sm as RawMessage;
+            const promotedId =
+              promoted.id ||
+              `run-${runId || 'unknown'}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+            clearPendingFinalTimers();
+            // Mark run completed BEFORE the set() call so that any late events
+            // arriving synchronously or on the next microtask are blocked.
+            if (runId) {
+              markRunCompleted(runId);
+            }
+            set((s) => {
+              const alreadyExists = s.messages.some((m) => m.id === promotedId);
+              if (alreadyExists) {
+                return {
+                  streamingText: '',
+                  streamingMessage: null,
+                  sending: false,
+                  activeRunId: null,
+                  pendingFinal: false,
+                  streamingTools: [],
+                  lastUserMessageAt: null,
+                };
+              }
+              return {
+                messages: [
+                  ...s.messages,
+                  {
+                    ...promoted,
+                    role: promoted.role || 'assistant',
+                    id: promotedId,
+                  },
+                ],
+                streamingText: '',
+                streamingMessage: null,
+                sending: false,
+                activeRunId: null,
+                pendingFinal: false,
+                streamingTools: [],
+                lastUserMessageAt: null,
+              };
+            });
+
+            // Persist the promoted message to local store (non-blocking)
+            const currentSessionKey = get().currentSessionKey;
+            if (currentSessionKey) {
+              const finalContent =
+                typeof promoted.content === 'string'
+                  ? promoted.content
+                  : JSON.stringify(promoted.content);
+              window.electron.ipcRenderer
+                .invoke('chatMessage:save', {
+                  id: promotedId,
+                  sessionKey: currentSessionKey,
+                  role: promoted.role || 'assistant',
+                  content: finalContent,
+                  timestamp: Date.now(),
+                  raw: promoted,
+                })
+                .catch((err: unknown) =>
+                  console.debug('[handleChatEvent] Failed to persist promoted message:', err)
+                );
+            }
+          } else {
+            // No streamingMessage either — fall back to reload history
+            set({ streamingText: '', streamingMessage: null, pendingFinal: true });
+            get().loadHistory();
+            schedulePendingFinalSafetyNet(get, set);
+          }
         }
         break;
       }
