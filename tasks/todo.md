@@ -9,52 +9,78 @@ Continuing from previous session (OpenClaw Config Race and Plaintext Keys thread
 - [x] CLAUDE.md documentation fix — corrected "OS keychain" → "electron-store (plain JSON)"
 - [x] secure-storage.ts comment — added safeStorage migration TODO
 
-**In progress (branch `fix/streaming-dedup-drops-deltas`):**
-- [x] Committed: Main process `isDuplicateChatMessage()` fingerprint fix (runId → runId:contentHash)
-- [ ] Uncommitted: Diagnostic logging in manager.ts (needs cleanup)
+**Completed (branch `fix/streaming-dedup-drops-deltas`):**
+- [x] Main process `isDuplicateChatMessage()` fingerprint fix (runId → runId:contentHash:stopTag)
+- [x] Renderer `isDuplicateEvent()` fingerprint fix (content-aware, state-aware)
+- [x] safeStorage encryption in `secure-storage.ts` (encrypt/decrypt/migrate/fallback)
+- [x] Startup migration call in `electron/main/index.ts`
+- [x] CLAUDE.md Critical Rule #4 updated for encrypted storage
+- [x] Lifecycle:end detection in `gateway.ts` → synthesizes final event
+- [x] Promoted streamingMessage in `chat.ts` when final has no message body
+- [x] Smart state inference (stopReason → final, else → delta) in both gateway.ts and chat.ts
+- [x] Unique message IDs (`run-${runId}-${timestamp}-${rand}`) to prevent overwrites
+- [x] Exclusive routing for MESSAGE_RECEIVED (no dual emission in manager.ts)
 
 ---
 
-## Plan
+## Remaining Work (Current Session)
 
-### Phase 1: Clean up main process dedup fix (manager.ts)
+### Phase A: Completed-Run Guard (prevent duplicate messages after lifecycle:end)
 
-- [ ] **1.1** Keep the content extraction logic (handles array content blocks properly)
-- [ ] **1.2** Remove `logger.info(...)` diagnostic block (verbose, not for production)
-- [ ] **1.3** Keep `logger.debug(...)` fingerprint log (useful at debug level, not noisy)
-- [ ] **1.4** Amend commit with cleaned-up version
+**Problem:** After lifecycle:end promotes streamingMessage and clears `sending`/`activeRunId`,
+late protocol `final` events still arrive for the same runId. Since `activeRunId` is now null,
+the guard `if (activeRunId && runId && runId !== activeRunId) return` does NOT block them.
+The late final creates a duplicate message in the messages array.
 
-### Phase 2: Fix renderer-side isDuplicateEvent (gateway.ts)
+**Solution:** Maintain a `recentCompletedRunIds` Set in `chat.ts`. When a run is fully resolved
+(sending cleared), add the runId to the set. At the top of `handleChatEvent`, drop events
+whose runId is in the completed set. Timer-based cleanup prevents memory leak.
 
-Current bug: `isDuplicateEvent()` in `src/stores/gateway.ts` uses `${runId}:${seq ?? ''}`.
-If `seq` is undefined (which happens often), key becomes just `runId:` — dedupes ALL events
-for the same run, killing streaming deltas.
+- [x] **A1.** Add `recentCompletedRunIds` Set + cleanup timer (module-level in `chat.ts`)
+- [x] **A2.** Add `markRunCompleted(runId)` helper function
+- [x] **A3.** Add early-return guard at top of `handleChatEvent`: `if (runId && recentCompletedRunIds.has(runId)) return`
+- [x] **A4.** Call `markRunCompleted(runId)` in no-message-body path (lifecycle:end promotion)
+- [x] **A5.** Call `markRunCompleted(runId)` in normal final path when `isResolved === true`
 
-- [ ] **2.1** Add content-aware fingerprinting to renderer `isDuplicateEvent()`
-- [ ] **2.2** Use `runId:seq:contentHash` when seq is available, fall back to `runId:contentHash`
-- [ ] **2.3** Add simple hash function (same approach as main process `simpleHash`)
-- [ ] **2.4** Extract content text properly from event.message (handle array content blocks)
+### Phase B: Remove Diagnostic Logging
 
-### Phase 3: Implement safeStorage for API keys (secure-storage.ts)
+Temporary `[DIAG:...]` console.info / logger.info logs were added during debugging.
+They must be removed before merging. Legitimate info/debug logs are kept.
 
-Current: `electron-store` stores API keys as plain JSON at `~/.config/clawx-providers.json`.
-Target: Use Electron's `safeStorage.encryptString()` / `decryptString()` for at-rest encryption.
+**`src/stores/gateway.ts`:**
+- [x] **B1.** Remove `[DIAG:notification]` deep-inspect block (paramKeys logging)
+- [x] **B2.** Remove `[DIAG:notification:agent]` data.keys + FULL JSON logging
+- [x] **B3.** Remove `[DIAG:notification→normalized]` logging
+- [x] **B4.** Remove `[DIAG:notification] DEDUPED` logging
+- [x] **B5.** Remove `[DIAG:chat-message]` raw keys inspection block
+- [x] **B6.** Remove `[DIAG:chat-message]` message.keys deep inspection block
+- [x] **B7.** Remove `[DIAG:chat-message]` stopReason nested check logs
+- [x] **B8.** Remove `[DIAG:chat-message] Case1` logging
+- [x] **B9.** Remove `[DIAG:chat-message] Case1 DEDUPED` logging
+- [x] **B10.** Remove `[DIAG:chat-message] Case2` logging
+- [x] **B11.** Remove `[DIAG:chat-message] Case2 DEDUPED` logging
 
-- [ ] **3.1** Add `safeStorage` import from electron
-- [ ] **3.2** Create `encryptKey()` / `decryptKey()` wrappers with `safeStorage.isEncryptionAvailable()` guard
-- [ ] **3.3** Modify `storeApiKey()` to encrypt before storing
-- [ ] **3.4** Modify `getApiKey()` to decrypt after reading
-- [ ] **3.5** Add migration: detect plaintext keys (no encryption prefix), encrypt them on first access
-- [ ] **3.6** Ensure fallback to plaintext if safeStorage unavailable (Linux without keyring)
-- [ ] **3.7** Update CLAUDE.md Critical Rule #4 to reflect new encrypted storage
+**`src/stores/chat.ts`:**
+- [x] **B12.** Remove `[DIAG:handleChatEvent]` trace block (role, stopReason, contentType)
+- [x] **B13.** Remove `[DIAG:handleChatEvent]` state-inferred logging
+- [x] **B14.** Remove `[DIAG:handleChatEvent:final]` resolution trace block
 
-### Phase 4: Verify & Ship
+**`electron/gateway/manager.ts`:**
+- [x] **B15.** Remove `[DIAG:protocolEvent]` logger.info block in `handleProtocolEvent()`
 
-- [ ] **4.1** `pnpm typecheck` — zero errors
-- [ ] **4.2** `pnpm test` — all tests pass
-- [ ] **4.3** `pnpm lint` — no new errors
-- [ ] **4.4** Push branch, create PR
-- [ ] **4.5** Merge to develop
+**Keep (legitimate logs):**
+- `[gateway] lifecycle:end received` — useful operational info
+- `[handleChatEvent:final] No message body — promoting streamingMessage` — useful operational info
+- `logger.debug('[isDuplicateChatMessage] fingerprint=...')` — debug-level, not noisy in prod
+
+### Phase C: Verify & Ship
+
+- [x] **C1.** `pnpm typecheck` — zero errors ✅
+- [x] **C2.** `pnpm test` — all 429 tests pass ✅
+- [ ] **C3.** `pnpm lint` — no new errors
+- [ ] **C4.** Push commits to `fix/streaming-dedup-drops-deltas`
+- [ ] **C5.** Update PR #10 description with final change summary
+- [ ] **C6.** Merge to develop
 
 ---
 
@@ -62,13 +88,13 @@ Target: Use Electron's `safeStorage.encryptString()` / `decryptString()` for at-
 
 | File | Phase | Change |
 |------|-------|--------|
-| `electron/gateway/manager.ts` | 1 | Remove diagnostic logging, keep content extraction |
-| `src/stores/gateway.ts` | 2 | Fix `isDuplicateEvent()` with content-aware fingerprint |
-| `electron/utils/secure-storage.ts` | 3 | Add safeStorage encryption/decryption + migration |
-| `CLAUDE.md` | 3 | Update Critical Rule #4 |
+| `src/stores/chat.ts` | A | Add recentCompletedRunIds guard + markRunCompleted calls |
+| `src/stores/chat.ts` | B | Remove DIAG logging (3 blocks) |
+| `src/stores/gateway.ts` | B | Remove DIAG logging (11 blocks) |
+| `electron/gateway/manager.ts` | B | Remove DIAG logging (1 block) |
 
 ## Risk Assessment
 
-- **Phase 1**: Zero risk — removing debug logs only
-- **Phase 2**: Low risk — renderer dedup is a second line of defense; making it smarter can only help
-- **Phase 3**: Medium risk — encryption migration needs careful fallback. If safeStorage unavailable, must gracefully degrade to plaintext (current behavior). Migration must be idempotent.
+- **Phase A**: Low risk — adding a guard that drops known-completed events. False positive risk is near zero because runIds are unique per interaction and the set clears after 30s.
+- **Phase B**: Zero risk — removing console/logger output only, no logic changes.
+- **Phase C**: Verification only.

@@ -143,6 +143,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
         const payload = notification as
           | { method?: string; params?: Record<string, unknown> }
           | undefined;
+
         if (
           !payload ||
           payload.method !== 'agent' ||
@@ -155,11 +156,41 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
         const p = payload.params;
         const data =
           p.data && typeof p.data === 'object' ? (p.data as Record<string, unknown>) : {};
+
+        // ── Lifecycle events ────────────────────────────────────────
+        // The Gateway signals run completion via:
+        //   stream: "lifecycle", data: { phase: "end", endedAt: <ts> }
+        // This is the ONLY reliable completion signal — there is no
+        // explicit state:"final" or stopReason on the protocol.
+        const stream = String(p.stream ?? data.stream ?? '');
+        const phase = String(data.phase ?? '');
+
+        if (stream === 'lifecycle' && phase === 'end') {
+          const runId = p.runId ?? data.runId;
+          const sessionKey = p.sessionKey ?? data.sessionKey;
+          console.info(
+            `[gateway] lifecycle:end received — runId="${String(runId ?? '').slice(0, 12)}" → synthesizing final event`
+          );
+          import('./chat')
+            .then(({ useChatStore }) => {
+              useChatStore.getState().handleChatEvent({
+                state: 'final',
+                runId,
+                sessionKey,
+                // No message body — handleChatEvent will promote streamingMessage
+              });
+            })
+            .catch((err) => {
+              console.warn('Failed to forward lifecycle:end as final event:', err);
+            });
+          return;
+        }
+
         const normalizedEvent: Record<string, unknown> = {
           ...data,
           runId: p.runId ?? data.runId,
           sessionKey: p.sessionKey ?? data.sessionKey,
-          stream: p.stream ?? data.stream,
+          stream,
           seq: p.seq ?? data.seq,
           state: p.state ?? data.state,
           message: p.message ?? data.message,
@@ -169,7 +200,9 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
           return;
         }
 
-        if (isDuplicateEvent(normalizedEvent)) return;
+        if (isDuplicateEvent(normalizedEvent)) {
+          return;
+        }
 
         import('./chat')
           .then(({ useChatStore }) => {
@@ -228,6 +261,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
               sessionKey: chatData.sessionKey ?? payload.sessionKey ?? msgObj.sessionKey,
               seq: chatData.seq ?? payload.seq ?? msgObj.seq,
             };
+
             if (isDuplicateEvent(syntheticEvent)) return;
             useChatStore.getState().handleChatEvent(syntheticEvent);
           })
