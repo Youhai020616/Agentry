@@ -1,16 +1,28 @@
 /**
  * Provider Storage
  * Manages provider configurations and API keys.
- * Keys are stored in plain text alongside provider configs in a single electron-store.
  *
- * TODO: Migrate to `safeStorage.encryptString()` / `safeStorage.decryptString()` for
- * encrypted-at-rest key storage before security audit. This would use the OS keychain
- * (macOS Keychain / Windows Credential Store / Linux libsecret) under the hood.
- * See: https://www.electronjs.org/docs/latest/api/safe-storage
+ * API keys are encrypted at rest using Electron's safeStorage API (OS-level
+ * cryptography: Keychain on macOS, DPAPI on Windows, libsecret/kwallet on Linux).
+ *
+ * Stored format: encrypted keys are stored as base64 strings prefixed with
+ * `enc:v1:` so we can distinguish them from legacy plaintext keys and handle
+ * transparent migration on first read.
+ *
+ * Fallback: if safeStorage is unavailable (e.g., Linux without a keyring daemon),
+ * keys are stored in plaintext (same as the previous behavior). A warning is
+ * logged once per session.
  */
-import { logger } from './logger';
 
-// Lazy-load electron-store (ESM module)
+import { safeStorage } from 'electron';
+
+// ── Constants ───────────────────────────────────────────────────────────────
+
+/** Prefix for encrypted key values — allows distinguishing from plaintext. */
+const ENCRYPTED_PREFIX = 'enc:v1:';
+
+// ── Lazy-load electron-store (ESM module) ───────────────────────────────────
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let providerStore: any = null;
 
@@ -28,6 +40,105 @@ async function getProviderStore() {
   }
   return providerStore;
 }
+
+// ── Encryption helpers ──────────────────────────────────────────────────────
+
+let _encryptionAvailableLogged = false;
+
+/** Check (and cache) whether OS-level encryption is usable. */
+function canEncrypt(): boolean {
+  try {
+    return safeStorage.isEncryptionAvailable();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Encrypt a plaintext API key for storage.
+ * Returns a prefixed base64 string, or the raw key if encryption is unavailable.
+ */
+function encryptKey(plaintext: string): string {
+  if (!canEncrypt()) {
+    if (!_encryptionAvailableLogged) {
+      _encryptionAvailableLogged = true;
+      console.warn(
+        '[secure-storage] safeStorage encryption is NOT available on this platform. ' +
+          'API keys will be stored in plaintext. Install a keyring daemon (Linux) to enable encryption.'
+      );
+    }
+    return plaintext;
+  }
+
+  try {
+    const encrypted = safeStorage.encryptString(plaintext);
+    return ENCRYPTED_PREFIX + encrypted.toString('base64');
+  } catch (error) {
+    console.error('[secure-storage] Failed to encrypt key, storing plaintext:', error);
+    return plaintext;
+  }
+}
+
+/**
+ * Decrypt a stored key value back to plaintext.
+ * Handles both encrypted (prefixed) and legacy plaintext values.
+ *
+ * If a legacy plaintext key is detected AND encryption is available,
+ * it is transparently re-encrypted in the store (migration).
+ *
+ * @param storedValue  The raw value from electron-store.
+ * @param providerId   Used only for the transparent migration write-back.
+ * @param store        The electron-store instance (for write-back).
+ */
+function decryptKey(
+  storedValue: string,
+  providerId?: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  store?: any
+): string {
+  // Case 1: Encrypted value — decrypt it
+  if (storedValue.startsWith(ENCRYPTED_PREFIX)) {
+    if (!canEncrypt()) {
+      // Edge case: encrypted on a previous session/platform but encryption is now
+      // unavailable. We can't decrypt — treat as missing key.
+      console.error(
+        `[secure-storage] Cannot decrypt key for provider "${providerId ?? '?'}" — ` +
+          'safeStorage is no longer available. The user must re-enter the key.'
+      );
+      return '';
+    }
+    try {
+      const base64 = storedValue.slice(ENCRYPTED_PREFIX.length);
+      const buffer = Buffer.from(base64, 'base64');
+      return safeStorage.decryptString(buffer);
+    } catch (error) {
+      console.error(
+        `[secure-storage] Failed to decrypt key for provider "${providerId ?? '?'}":`,
+        error
+      );
+      return '';
+    }
+  }
+
+  // Case 2: Legacy plaintext — migrate transparently if possible
+  if (storedValue && canEncrypt() && providerId && store) {
+    try {
+      const encrypted = encryptKey(storedValue);
+      const keys = (store.get('apiKeys') || {}) as Record<string, string>;
+      keys[providerId] = encrypted;
+      store.set('apiKeys', keys);
+      console.info(
+        `[secure-storage] Migrated plaintext key for provider "${providerId}" to encrypted storage.`
+      );
+    } catch (error) {
+      console.warn('[secure-storage] Migration to encrypted storage failed:', error);
+    }
+  }
+
+  return storedValue;
+}
+
+// ── Public API ──────────────────────────────────────────────────────────────
 
 /**
  * Provider configuration
@@ -55,31 +166,34 @@ export interface ProviderConfig {
 // ==================== API Key Storage ====================
 
 /**
- * Store an API key
+ * Store an API key (encrypted at rest when safeStorage is available).
  */
 export async function storeApiKey(providerId: string, apiKey: string): Promise<boolean> {
   try {
     const s = await getProviderStore();
     const keys = (s.get('apiKeys') || {}) as Record<string, string>;
-    keys[providerId] = apiKey;
+    keys[providerId] = encryptKey(apiKey);
     s.set('apiKeys', keys);
     return true;
   } catch (error) {
-    logger.error('Failed to store API key:', error);
+    console.error('Failed to store API key:', error);
     return false;
   }
 }
 
 /**
- * Retrieve an API key
+ * Retrieve an API key (decrypted transparently; migrates legacy plaintext on read).
  */
 export async function getApiKey(providerId: string): Promise<string | null> {
   try {
     const s = await getProviderStore();
     const keys = (s.get('apiKeys') || {}) as Record<string, string>;
-    return keys[providerId] || null;
+    const stored = keys[providerId];
+    if (!stored) return null;
+    const plaintext = decryptKey(stored, providerId, s);
+    return plaintext || null;
   } catch (error) {
-    logger.error('Failed to retrieve API key:', error);
+    console.error('Failed to retrieve API key:', error);
     return null;
   }
 }
@@ -95,7 +209,7 @@ export async function deleteApiKey(providerId: string): Promise<boolean> {
     s.set('apiKeys', keys);
     return true;
   } catch (error) {
-    logger.error('Failed to delete API key:', error);
+    console.error('Failed to delete API key:', error);
     return false;
   }
 }
@@ -169,7 +283,7 @@ export async function deleteProvider(providerId: string): Promise<boolean> {
 
     return true;
   } catch (error) {
-    logger.error('Failed to delete provider:', error);
+    console.error('Failed to delete provider:', error);
     return false;
   }
 }
@@ -183,11 +297,11 @@ export async function setDefaultProvider(providerId: string): Promise<void> {
 }
 
 /**
- * Get the default provider
+ * Get the default provider ID
  */
-export async function getDefaultProvider(): Promise<string | undefined> {
+export async function getDefaultProvider(): Promise<string | null> {
   const s = await getProviderStore();
-  return s.get('defaultProvider') as string | undefined;
+  return s.get('defaultProvider') || null;
 }
 
 /**
@@ -246,4 +360,62 @@ export async function getAllProvidersWithKeyInfo(): Promise<
   }
 
   return results;
+}
+
+// ==================== Bulk Migration ====================
+
+/**
+ * Migrate all existing plaintext keys to encrypted storage.
+ * Safe to call multiple times — already-encrypted keys are skipped.
+ * Intended to be called once during app startup (after `app.isReady()`).
+ */
+export async function migrateKeysToEncryptedStorage(): Promise<{
+  migrated: number;
+  skipped: number;
+  failed: number;
+}> {
+  const stats = { migrated: 0, skipped: 0, failed: 0 };
+
+  if (!canEncrypt()) {
+    console.warn('[secure-storage] Skipping key migration — safeStorage encryption not available.');
+    return stats;
+  }
+
+  try {
+    const s = await getProviderStore();
+    const keys = (s.get('apiKeys') || {}) as Record<string, string>;
+    let changed = false;
+
+    for (const [providerId, stored] of Object.entries(keys)) {
+      if (!stored) continue;
+      if (stored.startsWith(ENCRYPTED_PREFIX)) {
+        stats.skipped++;
+        continue;
+      }
+      // Plaintext key found — encrypt it
+      try {
+        keys[providerId] = encryptKey(stored);
+        stats.migrated++;
+        changed = true;
+      } catch (error) {
+        console.error(
+          `[secure-storage] Failed to migrate key for provider "${providerId}":`,
+          error
+        );
+        stats.failed++;
+      }
+    }
+
+    if (changed) {
+      s.set('apiKeys', keys);
+      console.info(
+        `[secure-storage] Key migration complete: ${stats.migrated} migrated, ` +
+          `${stats.skipped} already encrypted, ${stats.failed} failed.`
+      );
+    }
+  } catch (error) {
+    console.error('[secure-storage] Key migration failed:', error);
+  }
+
+  return stats;
 }
