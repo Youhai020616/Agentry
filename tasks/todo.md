@@ -77,8 +77,8 @@ They must be removed before merging. Legitimate info/debug logs are kept.
 
 - [x] **C1.** `pnpm typecheck` — zero errors ✅
 - [x] **C2.** `pnpm test` — all 429 tests pass ✅
-- [ ] **C3.** `pnpm lint` — no new errors
-- [ ] **C4.** Push commits to `fix/streaming-dedup-drops-deltas`
+- [x] **C3.** `pnpm lint` — no new errors (4 pre-existing errors in browser-manager.ts + conversations.ts) ✅
+- [x] **C4.** Push commits to `fix/streaming-dedup-drops-deltas` ✅ (74f4a72)
 - [ ] **C5.** Update PR #10 description with final change summary
 - [ ] **C6.** Merge to develop
 
