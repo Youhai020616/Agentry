@@ -1157,20 +1157,23 @@ export class GatewayManager extends EventEmitter {
    * Handle server-initiated notifications
    */
   private handleNotification(notification: JsonRpcNotification): void {
-    this.emit('notification', notification);
-
-    // Route specific events
+    // Route specific events to dedicated channels.
+    // MESSAGE_RECEIVED is routed exclusively to 'chat:message' and returns
+    // early — it must NOT also be emitted on the generic 'notification' channel
+    // because the renderer would then process it twice (once via
+    // gateway:notification and once via gateway:chat-message), producing
+    // duplicate messages in the UI.
     switch (notification.method) {
-      case GatewayEventType.CHANNEL_STATUS_CHANGED:
-        this.emit('channel:status', notification.params as { channelId: string; status: string });
-        break;
-
       case GatewayEventType.MESSAGE_RECEIVED:
         if (this.isDuplicateChatMessage(notification.params)) {
           logger.debug('Dropping duplicate chat:message_received notification');
-          break;
+          return;
         }
         this.emit('chat:message', notification.params as { message: unknown });
+        return; // ← exclusive routing, skip generic 'notification' emit
+
+      case GatewayEventType.CHANNEL_STATUS_CHANGED:
+        this.emit('channel:status', notification.params as { channelId: string; status: string });
         break;
 
       case GatewayEventType.ERROR: {
@@ -1180,15 +1183,27 @@ export class GatewayManager extends EventEmitter {
       }
 
       default:
-        // Unknown notification type, just log it
-        logger.debug(`Unknown Gateway notification: ${notification.method}`);
+        break;
     }
+
+    // Emit generic notification for all OTHER types (agent events, tool events, etc.)
+    // Listeners: ipc-handlers → renderer gateway:notification, BrowserEventDetector
+    this.emit('notification', notification);
   }
 
   /**
    * Check if a chat message payload is a duplicate (webhook retry / dual delivery).
    * Builds a lightweight fingerprint from the message content and session key;
    * if the same fingerprint was seen within CHAT_DEDUP_WINDOW_MS, returns true.
+   *
+   * IMPORTANT: The fingerprint must include content hash even when runId is present,
+   * because streaming deltas share the same runId but carry progressively longer
+   * (cumulative) content. Using runId alone would cause all deltas after the first
+   * to be incorrectly dropped as duplicates.
+   *
+   * The fingerprint also includes stopReason so that a final event (which carries
+   * the same cumulative content as the last delta but adds stopReason) is NOT
+   * treated as a duplicate of that last delta.
    */
   private isDuplicateChatMessage(payload: unknown): boolean {
     if (!payload || typeof payload !== 'object') return false;
@@ -1198,16 +1213,44 @@ export class GatewayManager extends EventEmitter {
     const msg = p.message ?? p;
     const msgObj = (typeof msg === 'object' && msg !== null ? msg : {}) as Record<string, unknown>;
 
-    // Try multiple fields that could identify the message content
-    const content = String(msgObj.content ?? msgObj.text ?? msgObj.body ?? '');
+    // Extract text content — handle string, array content blocks, and object shapes
+    const rawContent = msgObj.content ?? msgObj.text ?? msgObj.body;
+    let content = '';
+    if (typeof rawContent === 'string') {
+      content = rawContent;
+    } else if (Array.isArray(rawContent)) {
+      // Content blocks: [{type: "text", text: "Hi"}, {type: "thinking", ...}]
+      content = (rawContent as Array<Record<string, unknown>>)
+        .map((block) => {
+          if (typeof block === 'string') return block;
+          return String(block.text ?? block.thinking ?? block.body ?? '');
+        })
+        .join('');
+    } else if (rawContent && typeof rawContent === 'object') {
+      content = String((rawContent as Record<string, unknown>).text ?? rawContent);
+    }
     const sessionKey = String(p.sessionKey ?? msgObj.sessionKey ?? '');
     const runId = String(p.runId ?? msgObj.runId ?? '');
+    // Extract stopReason — its presence distinguishes a final event from the last
+    // streaming delta that carries identical content.
+    const stopReason = String(msgObj.stopReason ?? msgObj.stop_reason ?? '');
 
     // If no identifiable content, let it through (can't dedup)
     if (!content && !runId) return false;
 
-    // Use runId if available (most reliable), otherwise content + sessionKey
-    const fingerprint = runId ? `run:${runId}` : `msg:${sessionKey}:${this.simpleHash(content)}`;
+    // Always include content hash AND stopReason in the fingerprint. This ensures:
+    // - True duplicates (same runId + same content + same stop state from dual delivery) are caught
+    // - Streaming deltas (same runId + different cumulative content) pass through
+    // - Final events (same content as last delta but with stopReason) pass through
+    const contentHash = content ? this.simpleHash(content) : 'empty';
+    const stopTag = stopReason ? `:stop=${stopReason}` : '';
+    const fingerprint = runId
+      ? `run:${runId}:${contentHash}${stopTag}`
+      : `msg:${sessionKey}:${contentHash}${stopTag}`;
+
+    logger.debug(
+      `[isDuplicateChatMessage] fingerprint=${fingerprint} alreadySeen=${this.recentChatHashes.has(fingerprint)}`
+    );
 
     if (this.recentChatHashes.has(fingerprint)) {
       return true; // duplicate

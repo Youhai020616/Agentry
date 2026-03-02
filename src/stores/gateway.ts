@@ -10,17 +10,69 @@ let gatewayInitPromise: Promise<void> | null = null;
 /**
  * Dedup: The Gateway may deliver the same streaming event through both the
  * `gateway:notification` (agent) and `gateway:chat-message` (protocol) channels.
- * Track recently seen runId:seq pairs so handleChatEvent is only called once.
+ * We fingerprint events using runId + state + content hash so that true duplicates
+ * (same content delivered via both channels with the same state) are caught, while
+ * streaming deltas (same runId but progressively longer cumulative content) pass
+ * through, AND final events (same content as the last delta but state='final')
+ * also pass through.
+ *
+ * Previous implementation used `runId:seq` which broke streaming when `seq` was
+ * missing (common) — the key collapsed to just `runId:` and every delta after
+ * the first was dropped as a duplicate.
  */
 const recentEventKeys = new Set<string>();
 let dedupTimer: ReturnType<typeof setTimeout> | null = null;
 
+/** Simple string hash for dedup fingerprinting (not crypto-grade). */
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash + char) | 0;
+  }
+  return hash.toString(36);
+}
+
+/** Extract text content from a message object, handling array content blocks. */
+function extractContentText(msgObj: Record<string, unknown>): string {
+  const raw = msgObj.content ?? msgObj.text ?? msgObj.body;
+  if (typeof raw === 'string') return raw;
+  if (Array.isArray(raw)) {
+    return (raw as Array<Record<string, unknown>>)
+      .map((block) => {
+        if (typeof block === 'string') return block;
+        return String(block.text ?? block.thinking ?? block.body ?? '');
+      })
+      .join('');
+  }
+  if (raw && typeof raw === 'object') {
+    return String((raw as Record<string, unknown>).text ?? '');
+  }
+  return '';
+}
+
 function isDuplicateEvent(event: Record<string, unknown>): boolean {
   const runId = event.runId;
-  const seq = event.seq;
   if (!runId) return false; // no key to dedup on — let it through
 
-  const key = `${runId}:${seq ?? ''}`;
+  // Extract content from the message to build a content-aware fingerprint.
+  // This ensures streaming deltas (same runId, growing content) are NOT deduped,
+  // while true duplicates (same runId + identical content + same state from dual
+  // delivery) ARE caught.
+  const msg = event.message;
+  const msgObj = msg && typeof msg === 'object' ? (msg as Record<string, unknown>) : {};
+  const content = extractContentText(msgObj);
+  const contentHash = content ? simpleHash(content) : 'empty';
+
+  // Include state so that the final event (which carries the same cumulative
+  // content as the last delta but has state='final') is NOT deduped against it.
+  // Also check stopReason on the message itself — some paths infer state from it.
+  const state = String(event.state ?? '');
+  const stopReason = String(msgObj.stopReason ?? msgObj.stop_reason ?? '');
+  const stateTag = state || (stopReason ? 'final' : 'delta');
+
+  const key = `${runId}:${stateTag}:${contentHash}`;
+
   if (recentEventKeys.has(key)) return true;
 
   recentEventKeys.add(key);
