@@ -117,7 +117,14 @@ export function StudioStepBrand() {
         {!brandAnalysisResult && (
           <div className="px-6 pb-6">
             <Button
-              onClick={startBrandAnalysis}
+              onClick={() =>
+                startBrandAnalysis({
+                  brandName,
+                  industry: category,
+                  platforms: platforms === 'all' ? ['xhs', 'douyin'] : [platforms],
+                  competitors: competitors.trim() || undefined,
+                })
+              }
               disabled={brandAnalysisRunning || !brandName.trim()}
               className="w-full"
               size="lg"
