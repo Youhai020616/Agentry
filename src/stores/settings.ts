@@ -9,6 +9,28 @@ import i18n from '@/i18n';
 type Theme = 'light' | 'dark' | 'system';
 type UpdateChannel = 'stable' | 'beta' | 'dev';
 
+/** Media Studio API configuration for image/video generation pipeline */
+export interface MediaStudioConfig {
+  /** DeerAPI / Gemini API key for image generation */
+  imageApiKey: string;
+  /** Image generation model ID (e.g. gemini-3-pro-image) */
+  imageModel: string;
+  /** API key for video generation */
+  videoApiKey: string;
+  /** Video generation model ID (e.g. veo-2.0-generate-001) */
+  videoModel: string;
+  /** Video API endpoint URL */
+  videoApiUrl: string;
+}
+
+const defaultMediaStudioConfig: MediaStudioConfig = {
+  imageApiKey: '',
+  imageModel: 'gemini-3-pro-image',
+  videoApiKey: '',
+  videoModel: 'veo-2.0-generate-001',
+  videoApiUrl: 'https://api.deerapi.com/v1/chat/completions',
+};
+
 interface SettingsState {
   // General
   theme: Theme;
@@ -35,6 +57,9 @@ interface SettingsState {
   // BYOK
   byokEnabled: boolean;
 
+  // Media Studio
+  mediaStudio: MediaStudioConfig;
+
   // Actions
   setTheme: (theme: Theme) => void;
   setLanguage: (language: string) => void;
@@ -48,6 +73,8 @@ interface SettingsState {
   setSidebarCollapsed: (value: boolean) => void;
   setDevModeUnlocked: (value: boolean) => void;
   setByokEnabled: (value: boolean) => void;
+  setMediaStudio: (config: Partial<MediaStudioConfig>) => void;
+  resetMediaStudio: () => void;
   markSetupComplete: () => void;
   resetSettings: () => void;
 }
@@ -71,6 +98,7 @@ const defaultSettings = {
   devModeUnlocked: false,
   setupComplete: false,
   byokEnabled: false,
+  mediaStudio: { ...defaultMediaStudioConfig },
 };
 
 export const useSettingsStore = create<SettingsState>()(
@@ -93,6 +121,11 @@ export const useSettingsStore = create<SettingsState>()(
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
       setDevModeUnlocked: (devModeUnlocked) => set({ devModeUnlocked }),
       setByokEnabled: (byokEnabled) => set({ byokEnabled }),
+      setMediaStudio: (config) =>
+        set((state) => ({
+          mediaStudio: { ...state.mediaStudio, ...config },
+        })),
+      resetMediaStudio: () => set({ mediaStudio: { ...defaultMediaStudioConfig } }),
       markSetupComplete: () => set({ setupComplete: true }),
       resetSettings: () => set(defaultSettings),
     }),
