@@ -1,10 +1,12 @@
 /**
  * Media Studio State Store
  * Manages all state for the 新媒体团队工作台 feature
- * All data is mock/local — no IPC calls
+ *
+ * Pipeline Steps 0-4 use real IPC calls to the main process StudioService.
+ * Dashboard/CRM/Reports/Content Library/Workflow remain mock data.
  */
 import { create } from 'zustand';
-import { delay } from '@/lib/utils';
+import { useSettingsStore } from '@/stores/settings';
 import type {
   MediaStudioView,
   Platform,
@@ -19,10 +21,12 @@ import type {
   StudioStep,
   StepStatus,
   ApiLogEntry,
+  BrandAnalysisInput,
   BrandAnalysisResult,
   TextGenerationResult,
   ImageGenerationResult,
   VideoGenerationResult,
+  StudioLogEvent,
   DmConversation,
   CommentItem,
   LeadItem,
@@ -629,8 +633,7 @@ const MOCK_COMMENTS: CommentItem[] = [
     platform: 'xhs',
     postTitle: '这 5 支口红颜色也太绝了吧！',
     replied: false,
-    aiSuggestion:
-      '谢谢喜欢呀～第三支是 MAC Chili，超显白的！链接放在主页合集里啦 💄',
+    aiSuggestion: '谢谢喜欢呀～第三支是 MAC Chili，超显白的！链接放在主页合集里啦 💄',
     time: '15:20',
   },
   {
@@ -649,8 +652,7 @@ const MOCK_COMMENTS: CommentItem[] = [
     platform: 'douyin',
     postTitle: '3 步打造日系穿搭',
     replied: false,
-    aiSuggestion:
-      '外套是优衣库今年春季新款～型号 UQ-2026S，门店和线上都有哦 🧥',
+    aiSuggestion: '外套是优衣库今年春季新款～型号 UQ-2026S，门店和线上都有哦 🧥',
     time: '13:48',
   },
   {
@@ -660,8 +662,7 @@ const MOCK_COMMENTS: CommentItem[] = [
     platform: 'douyin',
     postTitle: '一分钟学会韩式低马尾',
     replied: false,
-    aiSuggestion:
-      '卡粉主要是因为妆前保湿没做好！建议上妆前敷个补水面膜，然后用湿美妆蛋上粉底～',
+    aiSuggestion: '卡粉主要是因为妆前保湿没做好！建议上妆前敷个补水面膜，然后用湿美妆蛋上粉底～',
     time: '12:30',
   },
   {
@@ -680,8 +681,7 @@ const MOCK_COMMENTS: CommentItem[] = [
     platform: 'douyin',
     postTitle: '探店｜藏在胡同里的宝藏面包店',
     replied: false,
-    aiSuggestion:
-      '在东城区南锣鼓巷附近，具体地址：xx胡同12号～周末去的话建议早点，排队人很多！🍞',
+    aiSuggestion: '在东城区南锣鼓巷附近，具体地址：xx胡同12号～周末去的话建议早点，排队人很多！🍞',
     time: '10:00',
   },
 ];
@@ -786,137 +786,6 @@ const MOCK_DAILY_REPORT: DailyReport = {
   ],
 };
 
-const MOCK_BRAND_ANALYSIS_RESULT: BrandAnalysisResult = {
-  competitors: [
-    {
-      name: '完美日记',
-      platform: '小红书',
-      followers: '320 万',
-      style: '国潮美妆 + 明星代言 + 用户 UGC',
-      strengths: ['高频上新引流', '素人种草矩阵', '联名 IP 破圈'],
-    },
-    {
-      name: '花西子',
-      platform: '小红书',
-      followers: '180 万',
-      style: '东方美学 + 国风设计 + 成分党',
-      strengths: ['视觉差异化强', '高客单价定位', '文化故事线'],
-    },
-  ],
-  strategy: {
-    positioning: '学生党 & 职场新人的平价美妆好物指南',
-    toneOfVoice: '闺蜜分享式、真实不做作、数据说话',
-    contentPillars: ['妆教干货', '平价测评', '成分科普', '穿搭灵感'],
-    postFrequency: '小红书 3 篇/周、抖音 2 条/周、公众号 1 篇/周',
-  },
-  calendar: [
-    { day: '周一', platform: 'xhs', topic: '周末妆容复盘 & 好物分享', type: '图文' },
-    { day: '周二', platform: 'douyin', topic: '60 秒妆教短视频', type: '短视频' },
-    { day: '周三', platform: 'xhs', topic: '成分科普 / 避坑指南', type: '图文' },
-    { day: '周四', platform: 'wechat', topic: '深度测评长文', type: '公众号文章' },
-    { day: '周五', platform: 'xhs', topic: '穿搭灵感 / OOTD', type: '图文' },
-    { day: '周六', platform: 'douyin', topic: '探店 / 开箱 vlog', type: '短视频' },
-    { day: '周日', platform: 'xhs', topic: '一周数据复盘 & 下周选题预告', type: '图文' },
-  ],
-};
-
-const MOCK_TEXT_GENERATION_RESULT: TextGenerationResult = {
-  title: '夏日清透妆教程 | 学生党平价好物推荐',
-  body: `姐妹们！夏天到了是不是又开始脱妆斑驳了😭
-
-今天给大家分享一套学生党也能 hold 住的夏日清透妆容，全部都是百元以内的平价好物，效果真的绝绝子！
-
-🌟 妆前准备
-1. 洁面后先用补水喷雾打底，等吸收后再上后续
-2. 防晒一定要涂！推荐碧柔水感防晒，不搓泥不假白
-
-🌟 底妆步骤
-1. 取黄豆大小的隔离霜，点涂在额头、鼻子、下巴、两颊
-2. 用湿美妆蛋按压均匀，不要来回涂抹！
-3. 粉底液选比肤色深半号的，少量多次叠加
-4. 定妆用散粉轻轻按压 T 区，不要全脸暴力定妆
-
-🌟 眼妆 & 唇妆
-1. 大地色眼影盘就够了！浅色打底 + 深色加深眼尾
-2. 内眼线用棕色眼线胶笔，更自然
-3. 唇部先用润唇膏打底，再叠加水唇釉
-
-💰 好物清单（总价不到 200 元）
-· 隔离霜：CEZANNE 倩丽 ¥49
-· 粉底液：Wet n Wild 粉底棒 ¥59
-· 散粉：悦诗风吟薄荷散粉 ¥39
-· 眼影盘：3CE 九宫格 ¥89
-· 唇釉：romand 水膜唇釉 ¥45
-
-这套妆容我从早上 8 点化到晚上 6 点，完全不脱妆！学生党姐妹冲就对了～
-
-你们夏天最困扰的妆容问题是什么？评论区告诉我！👇`,
-  tags: [
-    '#夏日妆容',
-    '#学生党',
-    '#平价好物',
-    '#妆教',
-    '#清透底妆',
-    '#不脱妆',
-    '#百元美妆',
-    '#新手化妆',
-    '#粉底液推荐',
-    '#夏日必备',
-    '#美妆分享',
-    '#化妆教程',
-  ],
-  wordCount: 486,
-  platform: 'xhs',
-};
-
-const MOCK_IMAGE_GENERATION_RESULT: ImageGenerationResult = {
-  images: [
-    {
-      id: 'img-1',
-      label: '封面图',
-      gradientFrom: '#fbc2eb',
-      gradientTo: '#f8a4d0',
-    },
-    {
-      id: 'img-2',
-      label: '底妆步骤图',
-      gradientFrom: '#ffecd2',
-      gradientTo: '#fcb69f',
-    },
-    {
-      id: 'img-3',
-      label: '眼妆细节图',
-      gradientFrom: '#ff9a9e',
-      gradientTo: '#fecfef',
-    },
-    {
-      id: 'img-4',
-      label: '好物清单图',
-      gradientFrom: '#e0c3fc',
-      gradientTo: '#c2b4f2',
-    },
-    {
-      id: 'img-5',
-      label: '对比效果图',
-      gradientFrom: '#89f7fe',
-      gradientTo: '#a0ecb1',
-    },
-  ],
-};
-
-const MOCK_VIDEO_GENERATION_RESULT: VideoGenerationResult = {
-  title: '夏日清透妆教程',
-  duration: '00:18',
-  prompt:
-    '一位年轻女性在明亮的化妆台前，展示夏日清透妆容的化妆步骤，从护肤打底到完成妆容，画面清新自然，柔和的自然光线，特写镜头展示产品和上妆手法',
-  params: {
-    model: 'Seedance 2.0',
-    mode: 'img2video',
-    duration: '18s',
-    resolution: '1080x1920',
-  },
-};
-
 // ---------------------------------------------------------------------------
 // Pipeline cancellation counter
 // ---------------------------------------------------------------------------
@@ -973,7 +842,7 @@ interface MediaStudioState {
   brandAnalysisLog: ApiLogEntry[];
   brandAnalysisResult: BrandAnalysisResult | null;
   brandAnalysisRunning: boolean;
-  startBrandAnalysis: () => Promise<void>;
+  startBrandAnalysis: (params: BrandAnalysisInput) => Promise<void>;
 
   // Step 1: Text Generation
   textGenLog: ApiLogEntry[];
@@ -999,6 +868,7 @@ interface MediaStudioState {
   publishRunning: boolean;
   startPublish: () => Promise<void>;
 
+  cancelStudio: () => Promise<void>;
   resetStudio: () => void;
 
   // CRM
@@ -1069,7 +939,7 @@ export const useMediaStudioStore = create<MediaStudioState>((set, get) => ({
   brandAnalysisResult: null,
   brandAnalysisRunning: false,
 
-  startBrandAnalysis: async () => {
+  startBrandAnalysis: async (params: BrandAnalysisInput) => {
     const runId = ++_runId;
     set({
       brandAnalysisRunning: true,
@@ -1079,55 +949,40 @@ export const useMediaStudioStore = create<MediaStudioState>((set, get) => ({
       stepStatuses: { ...get().stepStatuses, 0: 'running' },
     });
 
-    const push = (entry: ApiLogEntry): boolean => {
-      if (get()._runId !== runId) return false;
-      set((s) => ({ brandAnalysisLog: [...s.brandAnalysisLog, entry] }));
-      return true;
-    };
+    try {
+      const resp = await window.electron.ipcRenderer.invoke('studio:brand-analysis', params);
+      const { success, result, error } = resp as {
+        success: boolean;
+        result?: BrandAnalysisResult;
+        error?: string;
+      };
 
-    if (!push(logEntry('info', '开始品牌竞品分析...'))) return;
-    await delay(800);
+      if (get()._runId !== runId) return; // cancelled
 
-    if (
-      !push(
-        logEntry(
-          'tool',
-          'browser_navigate("https://www.xiaohongshu.com/search?q=清新美妆旗舰店")'
-        )
-      )
-    )
-      return;
-    await delay(1000);
-
-    if (!push(logEntry('info', '正在扫描小红书竞品: 完美日记...'))) return;
-    await delay(900);
-
-    if (!push(logEntry('tool', 'browser_snapshot() → 找到 12 篇笔记'))) return;
-    await delay(800);
-
-    if (!push(logEntry('info', '正在扫描小红书竞品: 花西子...'))) return;
-    await delay(900);
-
-    if (!push(logEntry('tool', 'browser_snapshot() → 找到 8 篇笔记'))) return;
-    await delay(700);
-
-    if (!push(logEntry('info', '分析竞品内容模式...'))) return;
-    await delay(800);
-
-    if (!push(logEntry('request', 'POST /v1/messages (Claude Opus 4.6) — 品牌策略生成'))) return;
-    await delay(1000);
-
-    if (!push(logEntry('response', '200 OK — 1,247 tokens'))) return;
-    await delay(300);
-
-    if (!push(logEntry('success', '品牌诊断完成！'))) return;
-
-    if (get()._runId !== runId) return;
-    set({
-      brandAnalysisResult: MOCK_BRAND_ANALYSIS_RESULT,
-      brandAnalysisRunning: false,
-      stepStatuses: { ...get().stepStatuses, 0: 'done' },
-    });
+      if (success && result) {
+        set({
+          brandAnalysisResult: result,
+          brandAnalysisRunning: false,
+          stepStatuses: { ...get().stepStatuses, 0: 'done' },
+        });
+      } else {
+        set((s) => ({
+          brandAnalysisRunning: false,
+          stepStatuses: { ...s.stepStatuses, 0: 'pending' },
+          brandAnalysisLog: [
+            ...s.brandAnalysisLog,
+            logEntry('error', error ?? 'Brand analysis failed'),
+          ],
+        }));
+      }
+    } catch (err) {
+      if (get()._runId !== runId) return;
+      set((s) => ({
+        brandAnalysisRunning: false,
+        stepStatuses: { ...s.stepStatuses, 0: 'pending' },
+        brandAnalysisLog: [...s.brandAnalysisLog, logEntry('error', String(err))],
+      }));
+    }
   },
 
   // Step 1: Text Generation
@@ -1137,6 +992,9 @@ export const useMediaStudioStore = create<MediaStudioState>((set, get) => ({
 
   startTextGeneration: async () => {
     const runId = ++_runId;
+    const { brandAnalysisResult } = get();
+    if (!brandAnalysisResult) return;
+
     set({
       textGenRunning: true,
       textGenLog: [],
@@ -1145,44 +1003,45 @@ export const useMediaStudioStore = create<MediaStudioState>((set, get) => ({
       stepStatuses: { ...get().stepStatuses, 1: 'running' },
     });
 
-    const push = (entry: ApiLogEntry): boolean => {
-      if (get()._runId !== runId) return false;
-      set((s) => ({ textGenLog: [...s.textGenLog, entry] }));
-      return true;
-    };
+    try {
+      // Derive platform from brand analysis calendar or default to first available
+      const calendarPlatforms = brandAnalysisResult.calendar?.map((c) => c.platform) ?? [];
+      const derivedPlatform: Platform = calendarPlatforms.length > 0 ? calendarPlatforms[0] : 'xhs';
 
-    if (!push(logEntry('info', '正在准备内容创作简报...'))) return;
-    await delay(700);
+      const resp = await window.electron.ipcRenderer.invoke('studio:text-generation', {
+        brandAnalysis: brandAnalysisResult,
+        platform: derivedPlatform,
+        contentType: derivedPlatform === 'douyin' ? '短视频脚本' : '图文笔记',
+      });
+      const { success, result, error } = resp as {
+        success: boolean;
+        result?: TextGenerationResult;
+        error?: string;
+      };
 
-    if (!push(logEntry('request', 'POST https://api.anthropic.com/v1/messages'))) return;
-    await delay(600);
+      if (get()._runId !== runId) return;
 
-    if (!push(logEntry('info', '模型: claude-opus-4-6 | 最大 tokens: 4096'))) return;
-    await delay(500);
-
-    if (!push(logEntry('info', '系统提示词: 你是一位专业的新媒体文案创作专家...'))) return;
-    await delay(800);
-
-    if (!push(logEntry('response', '200 OK — 流式响应中...'))) return;
-    await delay(700);
-
-    if (!push(logEntry('info', '生成标题...'))) return;
-    await delay(600);
-
-    if (!push(logEntry('info', '生成正文内容...'))) return;
-    await delay(800);
-
-    if (!push(logEntry('info', '生成标签推荐...'))) return;
-    await delay(500);
-
-    if (!push(logEntry('success', '文案生成完成 — 486 字, 12 个标签'))) return;
-
-    if (get()._runId !== runId) return;
-    set({
-      textGenResult: MOCK_TEXT_GENERATION_RESULT,
-      textGenRunning: false,
-      stepStatuses: { ...get().stepStatuses, 1: 'done' },
-    });
+      if (success && result) {
+        set({
+          textGenResult: result,
+          textGenRunning: false,
+          stepStatuses: { ...get().stepStatuses, 1: 'done' },
+        });
+      } else {
+        set((s) => ({
+          textGenRunning: false,
+          stepStatuses: { ...s.stepStatuses, 1: 'pending' },
+          textGenLog: [...s.textGenLog, logEntry('error', error ?? 'Text generation failed')],
+        }));
+      }
+    } catch (err) {
+      if (get()._runId !== runId) return;
+      set((s) => ({
+        textGenRunning: false,
+        stepStatuses: { ...s.stepStatuses, 1: 'pending' },
+        textGenLog: [...s.textGenLog, logEntry('error', String(err))],
+      }));
+    }
   },
 
   // Step 2: Image Generation
@@ -1192,6 +1051,9 @@ export const useMediaStudioStore = create<MediaStudioState>((set, get) => ({
 
   startImageGeneration: async () => {
     const runId = ++_runId;
+    const { textGenResult } = get();
+    if (!textGenResult) return;
+
     set({
       imageGenRunning: true,
       imageGenLog: [],
@@ -1200,44 +1062,43 @@ export const useMediaStudioStore = create<MediaStudioState>((set, get) => ({
       stepStatuses: { ...get().stepStatuses, 2: 'running' },
     });
 
-    const push = (entry: ApiLogEntry): boolean => {
-      if (get()._runId !== runId) return false;
-      set((s) => ({ imageGenLog: [...s.imageGenLog, entry] }));
-      return true;
-    };
+    try {
+      const { mediaStudio } = useSettingsStore.getState();
+      const resp = await window.electron.ipcRenderer.invoke('studio:image-generation', {
+        text: textGenResult,
+        count: 5,
+        ...(mediaStudio.imageApiKey ? { imageApiKey: mediaStudio.imageApiKey } : {}),
+        ...(mediaStudio.imageModel ? { imageModel: mediaStudio.imageModel } : {}),
+      });
+      const { success, result, error } = resp as {
+        success: boolean;
+        result?: ImageGenerationResult;
+        error?: string;
+      };
 
-    if (!push(logEntry('info', '根据文案内容准备图片提示词...'))) return;
-    await delay(800);
+      if (get()._runId !== runId) return;
 
-    if (!push(logEntry('request', 'POST https://jimeng.jianying.com/api/v1/generate'))) return;
-    await delay(1000);
-
-    if (!push(logEntry('info', '生成封面图 (1/5)...'))) return;
-    await delay(1200);
-
-    if (!push(logEntry('info', '生成正文配图 (2/5)...'))) return;
-    await delay(1200);
-
-    if (!push(logEntry('info', '生成正文配图 (3/5)...'))) return;
-    await delay(1200);
-
-    if (!push(logEntry('info', '生成正文配图 (4/5)...'))) return;
-    await delay(1200);
-
-    if (!push(logEntry('info', '生成正文配图 (5/5)...'))) return;
-    await delay(1000);
-
-    if (!push(logEntry('response', '200 OK — 5 张图片生成完成'))) return;
-    await delay(300);
-
-    if (!push(logEntry('success', '图片生成完成！'))) return;
-
-    if (get()._runId !== runId) return;
-    set({
-      imageGenResult: MOCK_IMAGE_GENERATION_RESULT,
-      imageGenRunning: false,
-      stepStatuses: { ...get().stepStatuses, 2: 'done' },
-    });
+      if (success && result) {
+        set({
+          imageGenResult: result,
+          imageGenRunning: false,
+          stepStatuses: { ...get().stepStatuses, 2: 'done' },
+        });
+      } else {
+        set((s) => ({
+          imageGenRunning: false,
+          stepStatuses: { ...s.stepStatuses, 2: 'pending' },
+          imageGenLog: [...s.imageGenLog, logEntry('error', error ?? 'Image generation failed')],
+        }));
+      }
+    } catch (err) {
+      if (get()._runId !== runId) return;
+      set((s) => ({
+        imageGenRunning: false,
+        stepStatuses: { ...s.stepStatuses, 2: 'pending' },
+        imageGenLog: [...s.imageGenLog, logEntry('error', String(err))],
+      }));
+    }
   },
 
   // Step 3: Video Generation
@@ -1247,6 +1108,9 @@ export const useMediaStudioStore = create<MediaStudioState>((set, get) => ({
 
   startVideoGeneration: async () => {
     const runId = ++_runId;
+    const { textGenResult, imageGenResult } = get();
+    if (!textGenResult || !imageGenResult) return;
+
     set({
       videoGenRunning: true,
       videoGenLog: [],
@@ -1255,48 +1119,47 @@ export const useMediaStudioStore = create<MediaStudioState>((set, get) => ({
       stepStatuses: { ...get().stepStatuses, 3: 'running' },
     });
 
-    const push = (entry: ApiLogEntry): boolean => {
-      if (get()._runId !== runId) return false;
-      set((s) => ({ videoGenLog: [...s.videoGenLog, entry] }));
-      return true;
-    };
+    try {
+      const { mediaStudio } = useSettingsStore.getState();
+      const resp = await window.electron.ipcRenderer.invoke('studio:video-generation', {
+        text: textGenResult,
+        images: imageGenResult,
+        ...(mediaStudio.videoApiKey ? { videoApiKey: mediaStudio.videoApiKey } : {}),
+        ...(mediaStudio.videoModel ? { videoModel: mediaStudio.videoModel } : {}),
+        ...(mediaStudio.videoApiUrl ? { videoApiUrl: mediaStudio.videoApiUrl } : {}),
+      });
+      const { success, result, error } = resp as {
+        success: boolean;
+        result?: VideoGenerationResult;
+        error?: string;
+      };
 
-    if (!push(logEntry('info', '根据文案和图片素材准备视频提示词...'))) return;
-    await delay(800);
+      if (get()._runId !== runId) return;
 
-    if (!push(logEntry('request', 'POST https://seedance.bytedance.com/api/v2/generate')))
-      return;
-    await delay(700);
-
-    if (!push(logEntry('info', '模型: Seedance 2.0 | 模式: img2video'))) return;
-    await delay(600);
-
-    if (!push(logEntry('info', '上传参考图片...'))) return;
-    await delay(1000);
-
-    if (!push(logEntry('info', '视频生成中... 12%'))) return;
-    await delay(1500);
-
-    if (!push(logEntry('info', '视频生成中... 37%'))) return;
-    await delay(1500);
-
-    if (!push(logEntry('info', '视频生成中... 64%'))) return;
-    await delay(1500);
-
-    if (!push(logEntry('info', '视频生成中... 89%'))) return;
-    await delay(1200);
-
-    if (!push(logEntry('response', '200 OK — 视频生成完成 (18s, 1080x1920)'))) return;
-    await delay(300);
-
-    if (!push(logEntry('success', '视频生成完成！'))) return;
-
-    if (get()._runId !== runId) return;
-    set({
-      videoGenResult: MOCK_VIDEO_GENERATION_RESULT,
-      videoGenRunning: false,
-      stepStatuses: { ...get().stepStatuses, 3: 'done' },
-    });
+      if (success && result) {
+        set({
+          videoGenResult: result,
+          videoGenRunning: false,
+          stepStatuses: {
+            ...get().stepStatuses,
+            3: 'done',
+          },
+        });
+      } else {
+        set((s) => ({
+          videoGenRunning: false,
+          stepStatuses: { ...s.stepStatuses, 3: 'pending' },
+          videoGenLog: [...s.videoGenLog, logEntry('error', error ?? 'Video generation failed')],
+        }));
+      }
+    } catch (err) {
+      if (get()._runId !== runId) return;
+      set((s) => ({
+        videoGenRunning: false,
+        stepStatuses: { ...s.stepStatuses, 3: 'pending' },
+        videoGenLog: [...s.videoGenLog, logEntry('error', String(err))],
+      }));
+    }
   },
 
   // Step 4: Publish
@@ -1306,6 +1169,9 @@ export const useMediaStudioStore = create<MediaStudioState>((set, get) => ({
 
   startPublish: async () => {
     const runId = ++_runId;
+    const { textGenResult, imageGenResult, videoGenResult } = get();
+    if (!textGenResult || !imageGenResult) return;
+
     set({
       publishRunning: true,
       publishLog: [],
@@ -1314,56 +1180,59 @@ export const useMediaStudioStore = create<MediaStudioState>((set, get) => ({
       stepStatuses: { ...get().stepStatuses, 4: 'running' },
     });
 
-    const push = (entry: ApiLogEntry): boolean => {
-      if (get()._runId !== runId) return false;
-      set((s) => ({ publishLog: [...s.publishLog, entry] }));
-      return true;
-    };
+    try {
+      const resp = await window.electron.ipcRenderer.invoke('studio:publish', {
+        platform: textGenResult.platform || 'xhs',
+        text: textGenResult,
+        images: imageGenResult,
+        video: videoGenResult?.status !== 'failed' ? videoGenResult : undefined,
+      });
+      const { success, result, error } = resp as {
+        success: boolean;
+        result?: { success: boolean; url?: string; error?: string };
+        error?: string;
+      };
 
-    if (!push(logEntry('info', '$ npx playwright launch --browser chromium'))) return;
-    await delay(800);
+      if (get()._runId !== runId) return;
 
-    if (!push(logEntry('tool', '正在启动浏览器...'))) return;
-    await delay(1000);
+      if (success && result?.success) {
+        set({
+          publishComplete: true,
+          publishRunning: false,
+          stepStatuses: { ...get().stepStatuses, 4: 'done' },
+        });
+      } else {
+        const errMsg = result?.error || error || 'Publish failed';
+        set((s) => ({
+          publishRunning: false,
+          stepStatuses: { ...s.stepStatuses, 4: 'pending' },
+          publishLog: [...s.publishLog, logEntry('error', errMsg)],
+        }));
+      }
+    } catch (err) {
+      if (get()._runId !== runId) return;
+      set((s) => ({
+        publishRunning: false,
+        stepStatuses: { ...s.stepStatuses, 4: 'pending' },
+        publishLog: [...s.publishLog, logEntry('error', String(err))],
+      }));
+    }
+  },
 
-    if (!push(logEntry('info', '导航到 https://creator.xiaohongshu.com'))) return;
-    await delay(800);
-
-    if (!push(logEntry('info', '检测登录状态...'))) return;
-    await delay(600);
-
-    if (!push(logEntry('success', '登录状态有效'))) return;
-    await delay(500);
-
-    if (!push(logEntry('info', '点击「发布笔记」...'))) return;
-    await delay(700);
-
-    if (!push(logEntry('info', '上传图片 (5 张)...'))) return;
-    await delay(1200);
-
-    if (!push(logEntry('info', '填写标题: "夏日清透妆教程 | 学生党平价好物推荐"'))) return;
-    await delay(500);
-
-    if (!push(logEntry('info', '填写正文内容...'))) return;
-    await delay(600);
-
-    if (!push(logEntry('info', '添加标签: #夏日妆容 #学生党 ...'))) return;
-    await delay(400);
-
-    if (!push(logEntry('info', '点击「发布」按钮...'))) return;
-    await delay(800);
-
-    if (!push(logEntry('info', '等待发布确认...'))) return;
-    await delay(700);
-
-    if (!push(logEntry('success', '发布成功！笔记已上线'))) return;
-
-    if (get()._runId !== runId) return;
+  cancelStudio: async () => {
+    ++_runId;
     set({
-      publishComplete: true,
+      brandAnalysisRunning: false,
+      textGenRunning: false,
+      imageGenRunning: false,
+      videoGenRunning: false,
       publishRunning: false,
-      stepStatuses: { ...get().stepStatuses, 4: 'done' },
     });
+    try {
+      await window.electron.ipcRenderer.invoke('studio:cancel');
+    } catch {
+      // best effort
+    }
   },
 
   resetStudio: () => {
@@ -1387,6 +1256,12 @@ export const useMediaStudioStore = create<MediaStudioState>((set, get) => ({
       publishComplete: false,
       publishRunning: false,
     });
+    // Also cancel any in-flight backend work
+    try {
+      window.electron.ipcRenderer.invoke('studio:cancel');
+    } catch {
+      // best effort
+    }
   },
 
   // -- CRM --
@@ -1407,3 +1282,55 @@ export const useMediaStudioStore = create<MediaStudioState>((set, get) => ({
   // -- Internal --
   _runId: 0,
 }));
+
+// ---------------------------------------------------------------------------
+// studio:log IPC listener — appends real-time logs from main process
+// ---------------------------------------------------------------------------
+
+let _studioLogCleanup: (() => void) | null = null;
+
+/**
+ * Call once (e.g. in a top-level useEffect in MediaStudio/index.tsx) to wire
+ * the main-process log stream into the store.  Returns a cleanup function.
+ *
+ * Safe to call multiple times — only the first registration takes effect
+ * until the previous cleanup is called.
+ */
+export function setupStudioLogListener(): () => void {
+  // Prevent duplicate registration (HMR / StrictMode)
+  if (_studioLogCleanup) return _studioLogCleanup;
+
+  const LOG_KEYS: Record<
+    number,
+    keyof Pick<
+      MediaStudioState,
+      'brandAnalysisLog' | 'textGenLog' | 'imageGenLog' | 'videoGenLog' | 'publishLog'
+    >
+  > = {
+    0: 'brandAnalysisLog',
+    1: 'textGenLog',
+    2: 'imageGenLog',
+    3: 'videoGenLog',
+    4: 'publishLog',
+  };
+
+  const handler = (...args: unknown[]) => {
+    const logEvent = args[1] as StudioLogEvent;
+    if (!logEvent || typeof logEvent.step !== 'number') return;
+    const key = LOG_KEYS[logEvent.step];
+    if (!key) return;
+    const state = useMediaStudioStore.getState();
+    useMediaStudioStore.setState({
+      [key]: [...(state[key] as ApiLogEntry[]), logEvent],
+    });
+  };
+
+  window.electron.ipcRenderer.on('studio:log', handler);
+
+  _studioLogCleanup = () => {
+    window.electron.ipcRenderer.off('studio:log', handler);
+    _studioLogCleanup = null;
+  };
+
+  return _studioLogCleanup;
+}
