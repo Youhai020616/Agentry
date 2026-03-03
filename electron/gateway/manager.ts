@@ -1248,11 +1248,8 @@ export class GatewayManager extends EventEmitter {
       ? `run:${runId}:${contentHash}${stopTag}`
       : `msg:${sessionKey}:${contentHash}${stopTag}`;
 
-    logger.debug(
-      `[isDuplicateChatMessage] fingerprint=${fingerprint} alreadySeen=${this.recentChatHashes.has(fingerprint)}`
-    );
-
     if (this.recentChatHashes.has(fingerprint)) {
+      logger.debug(`[isDuplicateChatMessage] duplicate dropped: ${fingerprint}`);
       return true; // duplicate
     }
 

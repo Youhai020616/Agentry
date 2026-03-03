@@ -1287,37 +1287,41 @@ export const useMediaStudioStore = create<MediaStudioState>((set, get) => ({
 // studio:log IPC listener — appends real-time logs from main process
 // ---------------------------------------------------------------------------
 
-let _studioLogCleanup: (() => void) | null = null;
+let _studioLogHandler: ((...args: unknown[]) => void) | null = null;
+
+const STUDIO_LOG_KEYS: Record<
+  number,
+  keyof Pick<
+    MediaStudioState,
+    'brandAnalysisLog' | 'textGenLog' | 'imageGenLog' | 'videoGenLog' | 'publishLog'
+  >
+> = {
+  0: 'brandAnalysisLog',
+  1: 'textGenLog',
+  2: 'imageGenLog',
+  3: 'videoGenLog',
+  4: 'publishLog',
+};
 
 /**
  * Call once (e.g. in a top-level useEffect in MediaStudio/index.tsx) to wire
  * the main-process log stream into the store.  Returns a cleanup function.
  *
- * Safe to call multiple times — only the first registration takes effect
- * until the previous cleanup is called.
+ * Safe to call multiple times — always removes the previous listener before
+ * registering a new one, preventing the MaxListenersExceededWarning that
+ * occurred during HMR / React StrictMode double-mount cycles.
  */
 export function setupStudioLogListener(): () => void {
-  // Prevent duplicate registration (HMR / StrictMode)
-  if (_studioLogCleanup) return _studioLogCleanup;
-
-  const LOG_KEYS: Record<
-    number,
-    keyof Pick<
-      MediaStudioState,
-      'brandAnalysisLog' | 'textGenLog' | 'imageGenLog' | 'videoGenLog' | 'publishLog'
-    >
-  > = {
-    0: 'brandAnalysisLog',
-    1: 'textGenLog',
-    2: 'imageGenLog',
-    3: 'videoGenLog',
-    4: 'publishLog',
-  };
+  // Always remove previous listener first to prevent accumulation
+  if (_studioLogHandler) {
+    window.electron.ipcRenderer.off('studio:log', _studioLogHandler);
+    _studioLogHandler = null;
+  }
 
   const handler = (...args: unknown[]) => {
     const logEvent = args[1] as StudioLogEvent;
     if (!logEvent || typeof logEvent.step !== 'number') return;
-    const key = LOG_KEYS[logEvent.step];
+    const key = STUDIO_LOG_KEYS[logEvent.step];
     if (!key) return;
     const state = useMediaStudioStore.getState();
     useMediaStudioStore.setState({
@@ -1325,12 +1329,13 @@ export function setupStudioLogListener(): () => void {
     });
   };
 
+  _studioLogHandler = handler;
   window.electron.ipcRenderer.on('studio:log', handler);
 
-  _studioLogCleanup = () => {
-    window.electron.ipcRenderer.off('studio:log', handler);
-    _studioLogCleanup = null;
+  return () => {
+    if (_studioLogHandler === handler) {
+      window.electron.ipcRenderer.off('studio:log', handler);
+      _studioLogHandler = null;
+    }
   };
-
-  return _studioLogCleanup;
 }
