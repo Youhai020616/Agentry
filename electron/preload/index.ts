@@ -272,6 +272,13 @@ const electronAPI = {
         'conversation:delete',
         'conversation:get',
         'conversation:listAll',
+        // Studio Pipeline
+        'studio:brand-analysis',
+        'studio:text-generation',
+        'studio:image-generation',
+        'studio:video-generation',
+        'studio:publish',
+        'studio:cancel',
       ];
 
       if (validChannels.includes(channel)) {
@@ -314,6 +321,7 @@ const electronAPI = {
         'message:new',
         'ollama:pull-progress',
         'extension:install-progress',
+        'studio:log',
       ];
 
       if (validChannels.includes(channel)) {
@@ -363,6 +371,7 @@ const electronAPI = {
         'browser:status-changed',
         'ollama:pull-progress',
         'extension:install-progress',
+        'studio:log',
       ];
 
       if (validChannels.includes(channel)) {
@@ -404,6 +413,7 @@ const electronAPI = {
         'browser:status-changed',
         'ollama:pull-progress',
         'extension:install-progress',
+        'studio:log',
       ];
 
       if (!validChannels.includes(channel)) {
