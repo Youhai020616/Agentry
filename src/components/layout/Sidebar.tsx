@@ -19,7 +19,6 @@ import {
   ChevronRight,
   Terminal,
   ExternalLink,
-  Clapperboard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSettingsStore } from '@/stores/settings';
@@ -101,11 +100,6 @@ export function Sidebar() {
     { to: '/dashboard', icon: <Activity className="h-5 w-5" />, label: t('nav.dashboard') },
     { to: '/channels', icon: <Radio className="h-5 w-5" />, label: t('nav.channels') },
     { to: '/browser', icon: <Globe className="h-5 w-5" />, label: t('nav.browser') },
-    {
-      to: '/media-studio',
-      icon: <Clapperboard className="h-5 w-5" />,
-      label: t('nav.mediaStudio'),
-    },
     { to: '/skills', icon: <Wrench className="h-5 w-5" />, label: t('nav.skills') },
     { to: '/cron', icon: <Clock className="h-5 w-5" />, label: t('nav.cron') },
     { to: '/settings', icon: <Settings className="h-5 w-5" />, label: t('nav.settings') },
