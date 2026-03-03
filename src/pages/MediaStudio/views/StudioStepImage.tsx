@@ -66,9 +66,7 @@ export function StudioStepImage() {
             <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
               {t('studio.step2.imageStyle')}
             </div>
-            <div className="text-sm font-semibold">
-              {'\u6E05\u65B0\u81EA\u7136'}
-            </div>
+            <div className="text-sm font-semibold">{'\u6E05\u65B0\u81EA\u7136'}</div>
           </div>
         </div>
 
@@ -141,12 +139,23 @@ export function StudioStepImage() {
                   idx === 0 ? 'col-span-2 row-span-2' : ''
                 )}
               >
-                <div
-                  className="aspect-[3/4] w-full"
-                  style={{
-                    background: `linear-gradient(135deg, ${img.gradientFrom}, ${img.gradientTo})`,
-                  }}
-                />
+                {img.url || img.filePath ? (
+                  <img
+                    src={img.url || `file://${img.filePath}`}
+                    alt={img.label}
+                    className="aspect-[3/4] w-full object-cover"
+                    style={{
+                      background: `linear-gradient(135deg, ${img.gradientFrom}, ${img.gradientTo})`,
+                    }}
+                  />
+                ) : (
+                  <div
+                    className="aspect-[3/4] w-full"
+                    style={{
+                      background: `linear-gradient(135deg, ${img.gradientFrom}, ${img.gradientTo})`,
+                    }}
+                  />
+                )}
                 {/* Label overlay */}
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-3 py-2">
                   <span className="text-xs font-medium text-white">{img.label}</span>

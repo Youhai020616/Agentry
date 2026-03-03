@@ -136,7 +136,14 @@ export interface TextGenerationResult {
 }
 
 export interface ImageGenerationResult {
-  images: Array<{ id: string; label: string; gradientFrom: string; gradientTo: string }>;
+  images: Array<{
+    id: string;
+    label: string;
+    url?: string;
+    filePath?: string;
+    gradientFrom: string;
+    gradientTo: string;
+  }>;
 }
 
 export interface VideoGenerationResult {
@@ -144,6 +151,25 @@ export interface VideoGenerationResult {
   duration: string;
   prompt: string;
   params: Record<string, string>;
+  videoUrl?: string;
+  thumbnailUrl?: string;
+  status?: 'generating' | 'completed' | 'failed';
+  error?: string;
+}
+
+// -- Studio Pipeline Backend --
+
+/** Input parameters for brand analysis (Step 0) */
+export interface BrandAnalysisInput {
+  brandName: string;
+  industry: string;
+  platforms: string[];
+  competitors?: string;
+}
+
+/** Log event pushed from main process via studio:log IPC event */
+export interface StudioLogEvent extends ApiLogEntry {
+  step: StudioStep;
 }
 
 // -- CRM --

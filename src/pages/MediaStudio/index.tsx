@@ -3,8 +3,9 @@
  * Main page component that renders an internal sidebar + view switching area.
  * Uses negative margin to escape MainLayout padding for full-bleed layout.
  */
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useMediaStudioStore } from '@/stores/media-studio';
+import { useMediaStudioStore, setupStudioLogListener } from '@/stores/media-studio';
 import type { MediaStudioView } from '@/types/media-studio';
 import { MediaSidebar } from './MediaSidebar';
 import { DashboardView } from './views/DashboardView';
@@ -81,6 +82,12 @@ function ViewSwitch({ activeView }: { activeView: MediaStudioView }) {
 
 export function MediaStudio() {
   const activeView = useMediaStudioStore((s) => s.activeView);
+
+  // Wire main-process studio:log events into the store; cleanup on unmount
+  useEffect(() => {
+    const cleanup = setupStudioLogListener();
+    return cleanup;
+  }, []);
 
   return (
     <div className="-m-6 flex h-[calc(100%+48px)]">

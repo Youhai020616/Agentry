@@ -15,6 +15,7 @@ import {
   Copy,
   FileText,
   Users,
+  Clapperboard,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,6 +30,7 @@ import { useGatewayStore } from '@/stores/gateway';
 import { useUpdateStore } from '@/stores/update';
 import { ProvidersSettings } from '@/components/settings/ProvidersSettings';
 import { UpdateSettings } from '@/components/settings/UpdateSettings';
+import { MediaStudioSettings } from '@/components/settings/MediaStudioSettings';
 import { useTranslation } from 'react-i18next';
 import { SUPPORTED_LANGUAGES } from '@/i18n';
 type ControlUiInfo = {
@@ -73,7 +75,7 @@ export function Settings() {
 
   const handleShowLogs = async () => {
     try {
-      const logs = await window.electron.ipcRenderer.invoke('log:readFile', 100) as string;
+      const logs = (await window.electron.ipcRenderer.invoke('log:readFile', 100)) as string;
       setLogContent(logs);
       setShowLogs(true);
     } catch {
@@ -84,7 +86,7 @@ export function Settings() {
 
   const handleOpenLogDir = async () => {
     try {
-      const logDir = await window.electron.ipcRenderer.invoke('log:getDir') as string;
+      const logDir = (await window.electron.ipcRenderer.invoke('log:getDir')) as string;
       if (logDir) {
         await window.electron.ipcRenderer.invoke('shell:showItemInFolder', logDir);
       }
@@ -96,7 +98,7 @@ export function Settings() {
   // Open developer console
   const openDevConsole = async () => {
     try {
-      const result = await window.electron.ipcRenderer.invoke('gateway:getControlUiUrl') as {
+      const result = (await window.electron.ipcRenderer.invoke('gateway:getControlUiUrl')) as {
         success: boolean;
         url?: string;
         token?: string;
@@ -116,7 +118,7 @@ export function Settings() {
 
   const refreshControlUiInfo = async () => {
     try {
-      const result = await window.electron.ipcRenderer.invoke('gateway:getControlUiUrl') as {
+      const result = (await window.electron.ipcRenderer.invoke('gateway:getControlUiUrl')) as {
         success: boolean;
         url?: string;
         token?: string;
@@ -146,7 +148,7 @@ export function Settings() {
 
     const loadCliCommand = async () => {
       try {
-        const result = await window.electron.ipcRenderer.invoke('openclaw:getCliCommand') as {
+        const result = (await window.electron.ipcRenderer.invoke('openclaw:getCliCommand')) as {
           success: boolean;
           command?: string;
           error?: string;
@@ -237,7 +239,7 @@ export function Settings() {
   const handleInstallCliCommand = async () => {
     if (!isMac || installingCli) return;
     try {
-      const confirmation = await window.electron.ipcRenderer.invoke('dialog:message', {
+      const confirmation = (await window.electron.ipcRenderer.invoke('dialog:message', {
         type: 'question',
         title: t('developer.installTitle'),
         message: t('developer.installMessage'),
@@ -245,12 +247,12 @@ export function Settings() {
         buttons: ['Cancel', 'Install'],
         defaultId: 1,
         cancelId: 0,
-      }) as { response: number };
+      })) as { response: number };
 
       if (confirmation.response !== 1) return;
 
       setInstallingCli(true);
-      const result = await window.electron.ipcRenderer.invoke('openclaw:installCliMac') as {
+      const result = (await window.electron.ipcRenderer.invoke('openclaw:installCliMac')) as {
         success: boolean;
         path?: string;
         error?: string;
@@ -272,9 +274,7 @@ export function Settings() {
     <div className="space-y-6 p-6">
       <div>
         <h1 className="text-2xl font-bold">{t('title')}</h1>
-        <p className="text-muted-foreground">
-          {t('subtitle')}
-        </p>
+        <p className="text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {/* Appearance */}
@@ -345,6 +345,20 @@ export function Settings() {
         </CardContent>
       </Card>
 
+      {/* Media Studio */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clapperboard className="h-5 w-5" />
+            {t('mediaStudio.title')}
+          </CardTitle>
+          <CardDescription>{t('mediaStudio.description')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <MediaStudioSettings />
+        </CardContent>
+      </Card>
+
       {/* Gateway */}
       <Card>
         <CardHeader>
@@ -387,11 +401,21 @@ export function Settings() {
               <div className="flex items-center justify-between mb-2">
                 <p className="font-medium text-sm">{t('gateway.appLogs')}</p>
                 <div className="flex gap-2">
-                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleOpenLogDir}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={handleOpenLogDir}
+                  >
                     <ExternalLink className="h-3 w-3 mr-1" />
                     {t('gateway.openFolder')}
                   </Button>
-                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowLogs(false)}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => setShowLogs(false)}
+                  >
                     {t('common:actions.close')}
                   </Button>
                 </div>
@@ -407,14 +431,9 @@ export function Settings() {
           <div className="flex items-center justify-between">
             <div>
               <Label>{t('gateway.autoStart')}</Label>
-              <p className="text-sm text-muted-foreground">
-                {t('gateway.autoStartDesc')}
-              </p>
+              <p className="text-sm text-muted-foreground">{t('gateway.autoStartDesc')}</p>
             </div>
-            <Switch
-              checked={gatewayAutoStart}
-              onCheckedChange={setGatewayAutoStart}
-            />
+            <Switch checked={gatewayAutoStart} onCheckedChange={setGatewayAutoStart} />
           </div>
         </CardContent>
       </Card>
@@ -462,22 +481,15 @@ export function Settings() {
           <div className="flex items-center justify-between">
             <div>
               <Label>{t('updates.autoCheck')}</Label>
-              <p className="text-sm text-muted-foreground">
-                {t('updates.autoCheckDesc')}
-              </p>
+              <p className="text-sm text-muted-foreground">{t('updates.autoCheckDesc')}</p>
             </div>
-            <Switch
-              checked={autoCheckUpdate}
-              onCheckedChange={setAutoCheckUpdate}
-            />
+            <Switch checked={autoCheckUpdate} onCheckedChange={setAutoCheckUpdate} />
           </div>
 
           <div className="flex items-center justify-between">
             <div>
               <Label>{t('updates.autoDownload')}</Label>
-              <p className="text-sm text-muted-foreground">
-                {t('updates.autoDownloadDesc')}
-              </p>
+              <p className="text-sm text-muted-foreground">{t('updates.autoDownloadDesc')}</p>
             </div>
             <Switch
               checked={autoDownloadUpdate}
@@ -500,14 +512,9 @@ export function Settings() {
           <div className="flex items-center justify-between">
             <div>
               <Label>{t('advanced.devMode')}</Label>
-              <p className="text-sm text-muted-foreground">
-                {t('advanced.devModeDesc')}
-              </p>
+              <p className="text-sm text-muted-foreground">{t('advanced.devModeDesc')}</p>
             </div>
-            <Switch
-              checked={devModeUnlocked}
-              onCheckedChange={setDevModeUnlocked}
-            />
+            <Switch checked={devModeUnlocked} onCheckedChange={setDevModeUnlocked} />
           </div>
         </CardContent>
       </Card>
@@ -522,22 +529,16 @@ export function Settings() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label>{t('developer.console')}</Label>
-              <p className="text-sm text-muted-foreground">
-                {t('developer.consoleDesc')}
-              </p>
+              <p className="text-sm text-muted-foreground">{t('developer.consoleDesc')}</p>
               <Button variant="outline" onClick={openDevConsole}>
                 <Terminal className="h-4 w-4 mr-2" />
                 {t('developer.openConsole')}
                 <ExternalLink className="h-3 w-3 ml-2" />
               </Button>
-              <p className="text-xs text-muted-foreground">
-                {t('developer.consoleNote')}
-              </p>
+              <p className="text-xs text-muted-foreground">{t('developer.consoleNote')}</p>
               <div className="space-y-2 pt-2">
                 <Label>{t('developer.gatewayToken')}</Label>
-                <p className="text-sm text-muted-foreground">
-                  {t('developer.gatewayTokenDesc')}
-                </p>
+                <p className="text-sm text-muted-foreground">{t('developer.gatewayTokenDesc')}</p>
                 <div className="flex gap-2">
                   <Input
                     readOnly
@@ -571,13 +572,9 @@ export function Settings() {
                 <Separator />
                 <div className="space-y-2">
                   <Label>{t('developer.cli')}</Label>
-                  <p className="text-sm text-muted-foreground">
-                    {t('developer.cliDesc')}
-                  </p>
+                  <p className="text-sm text-muted-foreground">{t('developer.cliDesc')}</p>
                   {isWindows && (
-                    <p className="text-xs text-muted-foreground">
-                      {t('developer.cliPowershell')}
-                    </p>
+                    <p className="text-xs text-muted-foreground">{t('developer.cliPowershell')}</p>
                   )}
                   <div className="flex gap-2">
                     <Input
@@ -618,7 +615,6 @@ export function Settings() {
           </CardContent>
         </Card>
       )}
-
     </div>
   );
 }

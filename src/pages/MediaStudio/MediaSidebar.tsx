@@ -3,6 +3,7 @@
  * Internal sidebar for the Media Studio page with navigation,
  * team members, and mode toggle.
  */
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Pause } from 'lucide-react';
@@ -17,27 +18,6 @@ interface NavItemConfig {
   labelKey: string;
   badge?: { count: number; variant: 'red' | 'green' };
 }
-
-const navItems: NavItemConfig[] = [
-  { view: 'dashboard', emoji: '\uD83D\uDCCA', labelKey: 'nav.dashboard' },
-  {
-    view: 'workflow',
-    emoji: '\uD83D\uDD04',
-    labelKey: 'nav.workflow',
-    badge: { count: 3, variant: 'red' },
-  },
-  { view: 'chat', emoji: '\uD83D\uDCAC', labelKey: 'nav.chat' },
-  {
-    view: 'content',
-    emoji: '\uD83D\uDCDD',
-    labelKey: 'nav.content',
-    badge: { count: 12, variant: 'green' },
-  },
-  { view: 'studio', emoji: '\uD83C\uDFA8', labelKey: 'nav.studio' },
-  { view: 'crm', emoji: '\uD83D\uDC65', labelKey: 'nav.crm' },
-  { view: 'cost', emoji: '\uD83D\uDCB0', labelKey: 'nav.cost' },
-  { view: 'reports', emoji: '\uD83D\uDCCB', labelKey: 'nav.reports' },
-];
 
 const statusColorMap: Record<TeamMemberStatus, string> = {
   online: 'bg-green-500',
@@ -55,6 +35,41 @@ export function MediaSidebar() {
   const teamMembers = useMediaStudioStore((s) => s.teamMembers);
   const operationMode = useMediaStudioStore((s) => s.operationMode);
   const toggleOperationMode = useMediaStudioStore((s) => s.toggleOperationMode);
+  const workflowTasks = useMediaStudioStore((s) => s.workflowTasks);
+  const contentItems = useMediaStudioStore((s) => s.contentItems);
+
+  // Derive badge counts dynamically from store data
+  const navItems: NavItemConfig[] = useMemo(() => {
+    const pendingWorkflow = workflowTasks.filter(
+      (t) => t.column === 'topic' || t.column === 'creating'
+    ).length;
+    const publishedContent = contentItems.filter((c) => c.status === 'published').length;
+
+    return [
+      { view: 'dashboard', emoji: '\uD83D\uDCCA', labelKey: 'nav.dashboard' },
+      {
+        view: 'workflow',
+        emoji: '\uD83D\uDD04',
+        labelKey: 'nav.workflow',
+        ...(pendingWorkflow > 0
+          ? { badge: { count: pendingWorkflow, variant: 'red' as const } }
+          : {}),
+      },
+      { view: 'chat', emoji: '\uD83D\uDCAC', labelKey: 'nav.chat' },
+      {
+        view: 'content',
+        emoji: '\uD83D\uDCDD',
+        labelKey: 'nav.content',
+        ...(publishedContent > 0
+          ? { badge: { count: publishedContent, variant: 'green' as const } }
+          : {}),
+      },
+      { view: 'studio', emoji: '\uD83C\uDFA8', labelKey: 'nav.studio' },
+      { view: 'crm', emoji: '\uD83D\uDC65', labelKey: 'nav.crm' },
+      { view: 'cost', emoji: '\uD83D\uDCB0', labelKey: 'nav.cost' },
+      { view: 'reports', emoji: '\uD83D\uDCCB', labelKey: 'nav.reports' },
+    ];
+  }, [workflowTasks, contentItems]);
 
   const onlineCount = teamMembers.filter(
     (m) => m.status === 'online' || m.status === 'busy'
@@ -166,13 +181,7 @@ export function MediaSidebar() {
 }
 
 /** Small pill-style toggle for auto/manual mode */
-function ModeToggle({
-  value,
-  onToggle,
-}: {
-  value: 'auto' | 'manual';
-  onToggle: () => void;
-}) {
+function ModeToggle({ value, onToggle }: { value: 'auto' | 'manual'; onToggle: () => void }) {
   const { t } = useTranslation('media-studio');
 
   return (

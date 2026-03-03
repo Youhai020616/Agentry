@@ -1,122 +1,144 @@
 {
-    "title": "設定",
-    "subtitle": "PocketCrow の体験をカスタマイズ",
-    "appearance": {
-        "title": "外観",
-        "description": "外観とスタイルをカスタマイズ",
-        "theme": "テーマ",
-        "light": "ライト",
-        "dark": "ダーク",
-        "system": "システム",
-        "language": "言語"
+  "title": "設定",
+  "subtitle": "PocketCrow の体験をカスタマイズ",
+  "appearance": {
+    "title": "外観",
+    "description": "外観とスタイルをカスタマイズ",
+    "theme": "テーマ",
+    "light": "ライト",
+    "dark": "ダーク",
+    "system": "システム",
+    "language": "言語"
+  },
+  "aiProviders": {
+    "title": "AI プロバイダー",
+    "description": "AI モデルプロバイダーと API キーを設定",
+    "add": "プロバイダーを追加",
+    "custom": "カスタム",
+    "notRequired": "不要",
+    "empty": {
+      "title": "プロバイダーが構成されていません",
+      "desc": "PocketCrow の使用を開始するには AI プロバイダーを追加してください",
+      "cta": "最初のプロバイダーを追加"
     },
-    "aiProviders": {
-        "title": "AI プロバイダー",
-        "description": "AI モデルプロバイダーと API キーを設定",
-        "add": "プロバイダーを追加",
-        "custom": "カスタム",
-        "notRequired": "不要",
-        "empty": {
-            "title": "プロバイダーが構成されていません",
-            "desc": "PocketCrow の使用を開始するには AI プロバイダーを追加してください",
-            "cta": "最初のプロバイダーを追加"
-        },
-        "dialog": {
-            "title": "AI プロバイダーを追加",
-            "desc": "新しい AI モデルプロバイダーを構成",
-            "displayName": "表示名",
-            "apiKey": "API キー",
-            "apiKeyStored": "API キーはローカルマシンに保存されます。",
-            "baseUrl": "ベース URL",
-            "modelId": "モデル ID",
-            "cancel": "キャンセル",
-            "change": "プロバイダーを変更",
-            "add": "プロバイダーを追加",
-            "save": "保存",
-            "validate": "検証"
-        },
-        "card": {
-            "default": "デフォルト",
-            "configured": "構成済み",
-            "noKey": "API キー未設定",
-            "setDefault": "デフォルトに設定",
-            "editKey": "API キーを編集",
-            "delete": "プロバイダーを削除"
-        },
-        "toast": {
-            "added": "プロバイダーが正常に追加されました",
-            "failedAdd": "プロバイダーの追加に失敗しました",
-            "deleted": "プロバイダーが削除されました",
-            "failedDelete": "プロバイダーの削除に失敗しました",
-            "defaultUpdated": "デフォルトプロバイダーが更新されました",
-            "failedDefault": "デフォルトの設定に失敗しました",
-            "updated": "プロバイダーが更新されました",
-            "failedUpdate": "プロバイダーの更新に失敗しました",
-            "invalidKey": "無効な API キー",
-            "modelRequired": "モデル ID が必要です"
-        }
+    "dialog": {
+      "title": "AI プロバイダーを追加",
+      "desc": "新しい AI モデルプロバイダーを構成",
+      "displayName": "表示名",
+      "apiKey": "API キー",
+      "apiKeyStored": "API キーはローカルマシンに保存されます。",
+      "baseUrl": "ベース URL",
+      "modelId": "モデル ID",
+      "cancel": "キャンセル",
+      "change": "プロバイダーを変更",
+      "add": "プロバイダーを追加",
+      "save": "保存",
+      "validate": "検証"
     },
-    "gateway": {
-        "title": "ゲートウェイ",
-        "description": "OpenClaw ゲートウェイ設定",
-        "status": "ステータス",
-        "port": "ポート",
-        "logs": "ログ",
-        "appLogs": "アプリケーションログ",
-        "openFolder": "フォルダーを開く",
-        "autoStart": "ゲートウェイ自動起動",
-        "autoStartDesc": "PocketCrow 起動時にゲートウェイを自動起動"
+    "card": {
+      "default": "デフォルト",
+      "configured": "構成済み",
+      "noKey": "API キー未設定",
+      "setDefault": "デフォルトに設定",
+      "editKey": "API キーを編集",
+      "delete": "プロバイダーを削除"
     },
-    "updates": {
-        "title": "アップデート",
-        "description": "PocketCrow を最新に保つ",
-        "autoCheck": "自動更新チェック",
-        "autoCheckDesc": "起動時に更新を確認",
-        "autoDownload": "自動ダウンロード",
-        "autoDownloadDesc": "バックグラウンドで更新をダウンロード"
-    },
-    "advanced": {
-        "title": "詳細設定",
-        "description": "上級ユーザー向けオプション",
-        "devMode": "開発者モード",
-        "devModeDesc": "開発者ツールとショートカットを表示"
-    },
-    "developer": {
-        "title": "開発者",
-        "description": "開発者向け詳細オプション",
-        "console": "OpenClaw コンソール",
-        "consoleDesc": "ネイティブ OpenClaw 管理インターフェースにアクセス",
-        "openConsole": "開発者コンソールを開く",
-        "consoleNote": "ゲートウェイトークンを注入して Control UI を開きます",
-        "gatewayToken": "ゲートウェイトークン",
-        "gatewayTokenDesc": "Control UI の設定に求められた場合、これを貼り付けてください",
-        "tokenUnavailable": "トークンが利用できません",
-        "tokenCopied": "ゲートウェイトークンをコピーしました",
-        "cli": "OpenClaw CLI",
-        "cliDesc": "PATH を変更せずに OpenClaw を実行するコマンドをコピー。",
-        "cliPowershell": "PowerShell コマンド。",
-        "cmdUnavailable": "コマンドが利用できません",
-        "cmdCopied": "CLI コマンドをコピーしました",
-        "installCmd": "\"openclaw\" コマンドをインストール",
-        "installCmdDesc": "~/.local/bin/openclaw をインストール（管理者権限不要）",
-        "installTitle": "OpenClaw コマンドをインストール",
-        "installMessage": "\"openclaw\" コマンドをインストールしますか？",
-        "installDetail": "~/.local/bin/openclaw が作成されます。グローバルに実行するには ~/.local/bin が PATH に含まれていることを確認してください。"
-    },
-    "brandMemory": {
-        "title": "ブランドコンテキスト",
-        "description": "ブランド、製品、ターゲットオーディエンスのコンテキストを Markdown で記述してください。すべての従業員のシステムプロンプトに注入されます。",
-        "placeholder": "# ブランド\n- 名前: Acme Corp\n- タグライン: 世界をより良く\n\n# 製品\n- 名前: Product X\n- 説明: 簡単な説明...\n\n# オーディエンス\n- 属性: ...\n- 課題: ...",
-        "save": "保存",
-        "saved": "ブランドコンテキストを保存しました"
-    },
-    "about": {
-        "title": "バージョン情報",
-        "appName": "PocketCrow",
-        "tagline": "グラフィカル AI アシスタント",
-        "basedOn": "OpenClaw ベース",
-        "version": "バージョン {{version}}",
-        "docs": "公式サイト",
-        "github": "GitHub"
+    "toast": {
+      "added": "プロバイダーが正常に追加されました",
+      "failedAdd": "プロバイダーの追加に失敗しました",
+      "deleted": "プロバイダーが削除されました",
+      "failedDelete": "プロバイダーの削除に失敗しました",
+      "defaultUpdated": "デフォルトプロバイダーが更新されました",
+      "failedDefault": "デフォルトの設定に失敗しました",
+      "updated": "プロバイダーが更新されました",
+      "failedUpdate": "プロバイダーの更新に失敗しました",
+      "invalidKey": "無効な API キー",
+      "modelRequired": "モデル ID が必要です"
     }
+  },
+  "gateway": {
+    "title": "ゲートウェイ",
+    "description": "OpenClaw ゲートウェイ設定",
+    "status": "ステータス",
+    "port": "ポート",
+    "logs": "ログ",
+    "appLogs": "アプリケーションログ",
+    "openFolder": "フォルダーを開く",
+    "autoStart": "ゲートウェイ自動起動",
+    "autoStartDesc": "PocketCrow 起動時にゲートウェイを自動起動"
+  },
+  "updates": {
+    "title": "アップデート",
+    "description": "PocketCrow を最新に保つ",
+    "autoCheck": "自動更新チェック",
+    "autoCheckDesc": "起動時に更新を確認",
+    "autoDownload": "自動ダウンロード",
+    "autoDownloadDesc": "バックグラウンドで更新をダウンロード"
+  },
+  "advanced": {
+    "title": "詳細設定",
+    "description": "上級ユーザー向けオプション",
+    "devMode": "開発者モード",
+    "devModeDesc": "開発者ツールとショートカットを表示"
+  },
+  "developer": {
+    "title": "開発者",
+    "description": "開発者向け詳細オプション",
+    "console": "OpenClaw コンソール",
+    "consoleDesc": "ネイティブ OpenClaw 管理インターフェースにアクセス",
+    "openConsole": "開発者コンソールを開く",
+    "consoleNote": "ゲートウェイトークンを注入して Control UI を開きます",
+    "gatewayToken": "ゲートウェイトークン",
+    "gatewayTokenDesc": "Control UI の設定に求められた場合、これを貼り付けてください",
+    "tokenUnavailable": "トークンが利用できません",
+    "tokenCopied": "ゲートウェイトークンをコピーしました",
+    "cli": "OpenClaw CLI",
+    "cliDesc": "PATH を変更せずに OpenClaw を実行するコマンドをコピー。",
+    "cliPowershell": "PowerShell コマンド。",
+    "cmdUnavailable": "コマンドが利用できません",
+    "cmdCopied": "CLI コマンドをコピーしました",
+    "installCmd": "\"openclaw\" コマンドをインストール",
+    "installCmdDesc": "~/.local/bin/openclaw をインストール（管理者権限不要）",
+    "installTitle": "OpenClaw コマンドをインストール",
+    "installMessage": "\"openclaw\" コマンドをインストールしますか？",
+    "installDetail": "~/.local/bin/openclaw が作成されます。グローバルに実行するには ~/.local/bin が PATH に含まれていることを確認してください。"
+  },
+  "brandMemory": {
+    "title": "ブランドコンテキスト",
+    "description": "ブランド、製品、ターゲットオーディエンスのコンテキストを Markdown で記述してください。すべての従業員のシステムプロンプトに注入されます。",
+    "placeholder": "# ブランド\n- 名前: Acme Corp\n- タグライン: 世界をより良く\n\n# 製品\n- 名前: Product X\n- 説明: 簡単な説明...\n\n# オーディエンス\n- 属性: ...\n- 課題: ...",
+    "save": "保存",
+    "saved": "ブランドコンテキストを保存しました"
+  },
+  "mediaStudio": {
+    "title": "メディアスタジオ",
+    "description": "メディアスタジオのコンテンツ制作パイプラインに必要な API キーとモデルを設定",
+    "imageApi": "画像生成 API",
+    "imageApiDesc": "AI 画像生成用の API キー（DeerAPI / Gemini）",
+    "imageModel": "画像モデル",
+    "imageModelPlaceholder": "例: gemini-3-pro-image",
+    "videoApi": "動画生成 API",
+    "videoApiDesc": "AI 動画生成用の API キー",
+    "videoModel": "動画モデル",
+    "videoModelPlaceholder": "例: veo-2.0-generate-001",
+    "videoApiUrl": "動画 API URL",
+    "videoApiUrlPlaceholder": "例: https://api.deerapi.com/v1/chat/completions",
+    "apiKey": "API キー",
+    "apiKeyPlaceholder": "API キーを入力",
+    "apiKeyStored": "API キーはローカルマシンに安全に保存されます。",
+    "save": "保存",
+    "saved": "メディアスタジオの設定を保存しました",
+    "saveFailed": "メディアスタジオの設定の保存に失敗しました",
+    "reset": "デフォルトに戻す",
+    "resetDone": "設定をデフォルトに戻しました"
+  },
+  "about": {
+    "title": "バージョン情報",
+    "appName": "PocketCrow",
+    "tagline": "グラフィカル AI アシスタント",
+    "basedOn": "OpenClaw ベース",
+    "version": "バージョン {{version}}",
+    "docs": "公式サイト",
+    "github": "GitHub"
+  }
 }

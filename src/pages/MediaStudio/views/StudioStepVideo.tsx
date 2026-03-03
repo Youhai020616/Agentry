@@ -1,12 +1,12 @@
 /**
  * StudioStepVideo Component
- * Step 3: AI Video Generation using Seedance 2.0
- * Config display, simulated API log, mock video player frame,
+ * Step 3: AI Video Generation (configurable API, default DeerAPI)
+ * Config display, real-time API log, video player frame (or error state),
  * prompt text, and generation parameter grid.
  */
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import { Video, ArrowRight, Play, Sparkles } from 'lucide-react';
+import { Video, ArrowRight, Play, Sparkles, AlertTriangle, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useMediaStudioStore } from '@/stores/media-studio';
@@ -109,8 +109,68 @@ export function StudioStepVideo() {
         </motion.div>
       )}
 
-      {/* Video result */}
-      {videoGenResult && (
+      {/* Video result — failed / error state */}
+      {videoGenResult && videoGenResult.status === 'failed' && (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+          className="space-y-6"
+        >
+          <div className="rounded-2xl border border-amber-200 bg-amber-50/50 dark:border-amber-900/50 dark:bg-amber-950/20 p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-900/30">
+                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="flex-1 space-y-1">
+                <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                  {t('studio.step3.failedTitle', '视频生成暂不可用')}
+                </h3>
+                <p className="text-xs text-amber-700/80 dark:text-amber-400/70 leading-relaxed">
+                  {videoGenResult.error ||
+                    t(
+                      'studio.step3.failedDesc',
+                      '当前 API 不支持视频生成。你可以跳过此步骤直接发布，或在设置中配置其他视频生成 API。'
+                    )}
+                </p>
+              </div>
+            </div>
+
+            {/* Params grid — show what was attempted */}
+            {Object.keys(videoGenResult.params).length > 0 && (
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                {Object.entries(videoGenResult.params).map(([key, value]) => (
+                  <div
+                    key={key}
+                    className="rounded-xl bg-amber-100/50 dark:bg-amber-900/20 p-3 space-y-1"
+                  >
+                    <div className="text-[10px] font-medium uppercase tracking-wider text-amber-600/70 dark:text-amber-500/60">
+                      {key}
+                    </div>
+                    <div className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                      {value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Action buttons — skip or retry */}
+          <div className="flex items-center justify-end gap-3">
+            <Button variant="outline" onClick={handleRegenerate}>
+              {t('studio.regenerate')}
+            </Button>
+            <Button onClick={handleAccept} className="gap-2">
+              <SkipForward className="h-4 w-4" />
+              {t('studio.step3.skipToPublish', '跳过，直接发布')}
+            </Button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Video result — success state */}
+      {videoGenResult && videoGenResult.status !== 'failed' && (
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -126,53 +186,70 @@ export function StudioStepVideo() {
           </div>
 
           <div className="rounded-2xl border bg-card p-6 space-y-6">
-            {/* Mock video player */}
+            {/* Video player */}
             <div className="mx-auto max-w-xs">
-              <div className="relative aspect-[9/16] overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-950">
-                {/* Play button */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <motion.div
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20 backdrop-blur-md cursor-pointer"
-                  >
-                    <Play className="h-7 w-7 text-white ml-1" />
-                  </motion.div>
+              {videoGenResult.videoUrl ? (
+                <div className="relative aspect-[9/16] overflow-hidden rounded-2xl bg-black">
+                  <video
+                    src={videoGenResult.videoUrl}
+                    controls
+                    className="h-full w-full object-contain"
+                    poster={videoGenResult.thumbnailUrl}
+                  />
                 </div>
-
-                {/* Title overlay */}
-                <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/60 to-transparent p-4">
-                  <div className="text-sm font-semibold text-white">{videoGenResult.title}</div>
-                  <div className="mt-0.5 text-[10px] text-white/70">Seedance 2.0 | AI Generated</div>
-                </div>
-
-                {/* Duration bar */}
-                <div className="absolute inset-x-0 bottom-0 p-4 space-y-2">
-                  <div className="flex items-center justify-between text-[10px] text-white/70">
-                    <span>00:00</span>
-                    <span>{videoGenResult.duration}</span>
+              ) : (
+                <div className="relative aspect-[9/16] overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-950">
+                  {/* Play button placeholder */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <motion.div
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20 backdrop-blur-md cursor-pointer"
+                    >
+                      <Play className="h-7 w-7 text-white ml-1" />
+                    </motion.div>
                   </div>
-                  <div className="h-1 w-full rounded-full bg-white/20">
-                    <div className="h-full w-0 rounded-full bg-white" />
-                  </div>
-                </div>
 
-                {/* Decorative gradient shimmer */}
-                <div className="absolute inset-0 bg-gradient-to-br from-teal-500/10 via-transparent to-purple-500/10" />
-              </div>
+                  {/* Title overlay */}
+                  <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/60 to-transparent p-4">
+                    <div className="text-sm font-semibold text-white">{videoGenResult.title}</div>
+                    <div className="mt-0.5 text-[10px] text-white/70">
+                      {videoGenResult.status === 'generating'
+                        ? t('studio.step3.generating', '生成中...')
+                        : 'AI Generated'}
+                    </div>
+                  </div>
+
+                  {/* Duration bar */}
+                  <div className="absolute inset-x-0 bottom-0 p-4 space-y-2">
+                    <div className="flex items-center justify-between text-[10px] text-white/70">
+                      <span>00:00</span>
+                      <span>{videoGenResult.duration}</span>
+                    </div>
+                    <div className="h-1 w-full rounded-full bg-white/20">
+                      <div className="h-full w-0 rounded-full bg-white" />
+                    </div>
+                  </div>
+
+                  {/* Decorative gradient shimmer */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-teal-500/10 via-transparent to-purple-500/10" />
+                </div>
+              )}
             </div>
 
-            {/* Seedance prompt */}
-            <div className="space-y-2">
-              <div className="text-xs font-medium text-muted-foreground">
-                {t('studio.step3.promptLabel')}
+            {/* Prompt */}
+            {videoGenResult.prompt && (
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-muted-foreground">
+                  {t('studio.step3.promptLabel')}
+                </div>
+                <div className="rounded-xl bg-muted/40 p-4">
+                  <p className="text-sm leading-relaxed text-foreground/80 italic">
+                    &ldquo;{videoGenResult.prompt}&rdquo;
+                  </p>
+                </div>
               </div>
-              <div className="rounded-xl bg-muted/40 p-4">
-                <p className="text-sm leading-relaxed text-foreground/80 italic">
-                  &ldquo;{videoGenResult.prompt}&rdquo;
-                </p>
-              </div>
-            </div>
+            )}
 
             {/* Params grid */}
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
