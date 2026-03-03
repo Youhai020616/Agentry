@@ -98,7 +98,6 @@ export function Sidebar() {
     { to: '/tasks', icon: <ClipboardList className="h-5 w-5" />, label: t('nav.tasks') },
     { to: '/dashboard', icon: <Activity className="h-5 w-5" />, label: t('nav.dashboard') },
     { to: '/channels', icon: <Radio className="h-5 w-5" />, label: t('nav.channels') },
-
     { to: '/skills', icon: <Wrench className="h-5 w-5" />, label: t('nav.skills') },
     { to: '/cron', icon: <Clock className="h-5 w-5" />, label: t('nav.cron') },
     { to: '/settings', icon: <Settings className="h-5 w-5" />, label: t('nav.settings') },
