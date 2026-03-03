@@ -1,17 +1,23 @@
 #!/usr/bin/env python3
+# pyright: basic
 """
 Image Generator Script
 使用 DeerAPI 的 Gemini 3 Pro 模型生成图片
 """
 
-import os
-import sys
-import json
-import base64
+from __future__ import annotations
+
 import argparse
-import requests
+import base64
+import json
+import os
+import re
+import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Any
+
+import requests
 
 # 配置
 DEERAPI_BASE_URL = "https://api.deerapi.com/v1"
@@ -19,7 +25,7 @@ MODEL_NAME = "gemini-3-pro-image"
 DEFAULT_OUTPUT_DIR = os.path.expanduser("~/Desktop/image-generator/image")
 
 
-def get_api_key():
+def get_api_key() -> str | None:
     """获取 API Key，优先从环境变量获取，其次从 .env 文件"""
     api_key = os.environ.get("DEERAPI_KEY")
     if api_key:
@@ -37,7 +43,99 @@ def get_api_key():
     return None
 
 
-def generate_image(prompt: str, output_dir: str = DEFAULT_OUTPUT_DIR, filename: str = None) -> dict:
+def _extract_image_from_content(content: str) -> tuple[str | None, str]:
+    """
+    从字符串 content 中提取图片数据。
+
+    Returns:
+        (image_data, image_format) — image_data 为 base64 字符串或 URL，
+        image_format 为文件扩展名（png/jpeg/webp 等）。
+    """
+    image_format = "png"
+
+    # 1. Markdown 格式: ![image](data:image/jpeg;base64,xxxxx)
+    md_match = re.search(
+        r"!\[.*?\]\(data:image/(\w+);base64,([A-Za-z0-9+/=]+)\)", content
+    )
+    if md_match:
+        return md_match.group(2), md_match.group(1)
+
+    # 2. 纯 data URL 格式: data:image/png;base64,xxxxx
+    if content.startswith("data:image"):
+        format_match = re.search(r"data:image/(\w+);base64,", content)
+        if format_match:
+            image_format = format_match.group(1)
+        if "," in content:
+            return content.split(",", 1)[1], image_format
+        return None, image_format
+
+    # 3. 内嵌的 data URL（在文本中间）
+    if "data:image" in content:
+        data_match = re.search(r"data:image/(\w+);base64,([A-Za-z0-9+/=]+)", content)
+        if data_match:
+            return data_match.group(2), data_match.group(1)
+
+    # 4. 可能是纯 base64 数据（长字符串且不是 URL）
+    if len(content) > 1000 and not content.startswith("http"):
+        cleaned = content.strip()
+        if re.fullmatch(r"[A-Za-z0-9+/=]+", cleaned):
+            return cleaned, image_format
+
+    # 5. 纯 URL
+    if content.startswith("http"):
+        return content.strip(), image_format
+
+    return None, image_format
+
+
+def _extract_image_from_multimodal(content: list[Any]) -> str | None:
+    """从多模态列表格式的 content 中提取图片 base64 数据。"""
+    for item in content:
+        if not isinstance(item, dict):
+            continue
+        if item.get("type") == "image" or "image" in item:
+            img: Any = item.get("image", item)
+            if isinstance(img, dict):
+                data: str | None = img.get("data") or img.get("base64")
+                return data
+            if isinstance(img, str):
+                return img
+    return None
+
+
+def _extract_image_from_field(
+    obj: dict[str, Any], key: str
+) -> tuple[str | None, str | None]:
+    """
+    从 dict 的指定 key 中提取图片。
+
+    Returns:
+        (image_data, image_url) — 至多一个非 None。
+    """
+    if key not in obj:
+        return None, None
+
+    img: Any = obj[key]
+    if isinstance(img, dict):
+        data: str | None = img.get("data") or img.get("base64")
+        if data:
+            return data, None
+        url: str | None = img.get("url")
+        if isinstance(url, str):
+            return None, url
+    elif isinstance(img, str):
+        if img.startswith("http"):
+            return None, img
+        return img, None
+
+    return None, None
+
+
+def generate_image(
+    prompt: str,
+    output_dir: str = DEFAULT_OUTPUT_DIR,
+    filename: str | None = None,
+) -> dict[str, Any]:
     """
     调用 DeerAPI 生成图片
 
@@ -53,24 +151,20 @@ def generate_image(prompt: str, output_dir: str = DEFAULT_OUTPUT_DIR, filename: 
     if not api_key:
         return {
             "success": False,
-            "error": "API key not found. Please set DEERAPI_KEY environment variable or configure ~/.claude/skills/image-generator/.env"
+            "error": (
+                "API key not found. Please set DEERAPI_KEY environment variable "
+                "or configure ~/.claude/skills/image-generator/.env"
+            ),
         }
 
-    # 构建请求
-    headers = {
+    headers: dict[str, str] = {
         "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
     }
 
-    # Gemini 图片生成 API 请求格式
-    payload = {
+    payload: dict[str, Any] = {
         "model": MODEL_NAME,
-        "messages": [
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ]
+        "messages": [{"role": "user", "content": prompt}],
     }
 
     try:
@@ -80,116 +174,96 @@ def generate_image(prompt: str, output_dir: str = DEFAULT_OUTPUT_DIR, filename: 
             f"{DEERAPI_BASE_URL}/chat/completions",
             headers=headers,
             json=payload,
-            timeout=120  # 图片生成可能需要较长时间
+            timeout=120,
         )
 
         if response.status_code != 200:
             error_msg = f"API request failed with status {response.status_code}"
             try:
-                error_detail = response.json()
+                error_detail: dict[str, Any] = response.json()
                 error_msg += f": {json.dumps(error_detail, ensure_ascii=False)}"
-            except:
+            except (ValueError, json.JSONDecodeError):
                 error_msg += f": {response.text}"
             return {"success": False, "error": error_msg}
 
-        result = response.json()
+        result: dict[str, Any] = response.json()
 
-        # 解析响应，提取图片数据
-        # Gemini 图片生成通常返回 base64 编码的图片
-        choices = result.get("choices", [])
+        # ── 解析响应，提取图片数据 ──────────────────────────────
+        choices: list[dict[str, Any]] = result.get("choices", [])
         if not choices:
             return {"success": False, "error": "No image generated in response"}
 
-        message = choices[0].get("message", {})
-        content = message.get("content", "")
+        message: dict[str, Any] = choices[0].get("message", {})
+        content: Any = message.get("content", "")
 
-        # 检查是否有图片数据
-        # 可能在 content 中直接包含 base64，或在特定字段中
-        image_data = None
-        image_format = "png"  # 默认格式
+        image_data: str | None = None
+        image_format: str = "png"
 
-        # 尝试从 content 中提取 base64 图片
+        # ── 字符串 content ──────────────────────────────────────
         if isinstance(content, str):
-            # 1. 检查 Markdown 格式: ![image](data:image/jpeg;base64,xxxxx)
-            import re
-            md_match = re.search(r'!\[.*?\]\(data:image/(\w+);base64,([A-Za-z0-9+/=]+)\)', content)
-            if md_match:
-                image_format = md_match.group(1)  # jpeg, png, etc.
-                image_data = md_match.group(2)
-            # 2. 检查纯 data URL 格式: data:image/png;base64,xxxxx
-            elif content.startswith("data:image"):
-                format_match = re.search(r'data:image/(\w+);base64,', content)
-                if format_match:
-                    image_format = format_match.group(1)
-                image_data = content.split(",", 1)[1] if "," in content else None
-            # 3. 检查内嵌的 data URL (在文本中间)
-            elif "data:image" in content:
-                data_match = re.search(r'data:image/(\w+);base64,([A-Za-z0-9+/=]+)', content)
-                if data_match:
-                    image_format = data_match.group(1)
-                    image_data = data_match.group(2)
-            # 4. 可能是纯 base64 数据
-            elif len(content) > 1000 and not content.startswith("http"):
-                try:
-                    base64.b64decode(content)
-                    image_data = content
-                except:
-                    pass
+            image_data, image_format = _extract_image_from_content(content)
+            # 如果提取到的是 URL，直接返回
+            if image_data and image_data.startswith("http"):
+                print(f"图片已生成，URL: {image_data}")
+                return {
+                    "success": True,
+                    "message": "Image generated successfully",
+                    "image_url": image_data,
+                }
 
-        # 检查 content 是否为列表格式（多模态响应）
-        if isinstance(content, list):
-            for item in content:
+        # ── 列表 content（多模态响应）──────────────────────────
+        if not image_data and isinstance(content, list):
+            image_data = _extract_image_from_multimodal(content)
+
+        # ── message.image 字段 ─────────────────────────────────
+        if not image_data:
+            data, url = _extract_image_from_field(message, "image")
+            if url:
+                print(f"图片已生成，URL: {url}")
+                return {
+                    "success": True,
+                    "message": "Image generated successfully",
+                    "image_url": url,
+                }
+            image_data = data
+
+        # ── 顶层 result.image / result.data ────────────────────
+        if not image_data:
+            data, url = _extract_image_from_field(result, "image")
+            if url:
+                print(f"图片已生成，URL: {url}")
+                return {
+                    "success": True,
+                    "message": "Image generated successfully",
+                    "image_url": url,
+                }
+            image_data = data
+
+        if not image_data and "data" in result:
+            data_list: Any = result["data"]
+            if isinstance(data_list, list) and len(data_list) > 0:
+                item: Any = data_list[0]
                 if isinstance(item, dict):
-                    if item.get("type") == "image" or "image" in item:
-                        img = item.get("image", item)
-                        if isinstance(img, dict):
-                            image_data = img.get("data") or img.get("base64")
-                        elif isinstance(img, str):
-                            image_data = img
-                        break
+                    image_data = item.get("b64_json") or item.get("url")
 
-        # 检查是否有 image 字段
-        if not image_data and "image" in message:
-            img = message["image"]
-            if isinstance(img, dict):
-                image_data = img.get("data") or img.get("base64") or img.get("url")
-            else:
-                image_data = img
-
-        # 如果还是没有图片，检查其他可能的位置
+        # ── 无法提取 ──────────────────────────────────────────
         if not image_data:
-            # 有些 API 会在顶层返回
-            if "image" in result:
-                img = result["image"]
-                if isinstance(img, dict):
-                    image_data = img.get("data") or img.get("base64")
-                else:
-                    image_data = img
-            elif "data" in result:
-                data = result["data"]
-                if isinstance(data, list) and len(data) > 0:
-                    item = data[0]
-                    if isinstance(item, dict):
-                        image_data = item.get("b64_json") or item.get("url")
-
-        if not image_data:
-            # 如果仍然没有找到图片，返回原始响应供调试
             return {
                 "success": False,
                 "error": "Could not extract image from response",
-                "raw_response": result
+                "raw_response": result,
             }
 
-        # 处理 URL 类型的图片
+        # ── URL 类型的图片 ─────────────────────────────────────
         if isinstance(image_data, str) and image_data.startswith("http"):
             print(f"图片已生成，URL: {image_data}")
             return {
                 "success": True,
                 "message": "Image generated successfully",
-                "image_url": image_data
+                "image_url": image_data,
             }
 
-        # 保存 base64 图片到文件
+        # ── 保存 base64 图片到文件 ─────────────────────────────
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
 
@@ -204,7 +278,6 @@ def generate_image(prompt: str, output_dir: str = DEFAULT_OUTPUT_DIR, filename: 
 
         file_path = output_path / filename
 
-        # 解码并保存图片
         try:
             image_bytes = base64.b64decode(image_data)
             with open(file_path, "wb") as f:
@@ -216,13 +289,10 @@ def generate_image(prompt: str, output_dir: str = DEFAULT_OUTPUT_DIR, filename: 
             return {
                 "success": True,
                 "message": "Image generated and saved successfully",
-                "file_path": abs_path
+                "file_path": abs_path,
             }
         except Exception as e:
-            return {
-                "success": False,
-                "error": f"Failed to save image: {str(e)}"
-            }
+            return {"success": False, "error": f"Failed to save image: {str(e)}"}
 
     except requests.exceptions.Timeout:
         return {"success": False, "error": "Request timeout. Please try again."}
@@ -232,10 +302,14 @@ def generate_image(prompt: str, output_dir: str = DEFAULT_OUTPUT_DIR, filename: 
         return {"success": False, "error": f"Unexpected error: {str(e)}"}
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Generate images using DeerAPI Gemini 3 Pro")
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Generate images using DeerAPI Gemini 3 Pro"
+    )
     parser.add_argument("prompt", help="Image description prompt")
-    parser.add_argument("--output", "-o", default=DEFAULT_OUTPUT_DIR, help="Output directory")
+    parser.add_argument(
+        "--output", "-o", default=DEFAULT_OUTPUT_DIR, help="Output directory"
+    )
     parser.add_argument("--filename", "-f", help="Output filename")
 
     args = parser.parse_args()
@@ -243,13 +317,10 @@ def main():
     result = generate_image(
         prompt=args.prompt,
         output_dir=args.output,
-        filename=args.filename
+        filename=args.filename,
     )
 
-    # 输出 JSON 结果
     print(json.dumps(result, ensure_ascii=False, indent=2))
-
-    # 根据结果设置退出码
     sys.exit(0 if result.get("success") else 1)
 
 
