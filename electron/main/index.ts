@@ -2,8 +2,9 @@
  * Electron Main Process Entry
  * Manages window creation, system tray, and IPC handlers
  */
-import { app, BrowserWindow, nativeImage, session, shell } from 'electron';
-import { join } from 'path';
+import { app, BrowserWindow, nativeImage, net, protocol, session, shell } from 'electron';
+import { join, resolve } from 'path';
+import { pathToFileURL } from 'url';
 import { GatewayManager } from '../gateway/manager';
 import { getPort } from '../utils/config';
 import { registerIpcHandlers } from './ipc-handlers';
@@ -23,6 +24,20 @@ import { ClawHubService } from '../gateway/clawhub';
 
 // Disable GPU acceleration for better compatibility
 app.disableHardwareAcceleration();
+
+// Register custom protocol scheme for serving local files to the renderer.
+// Must be called before app.whenReady(). The actual handler is set up in initialize().
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'local-resource',
+    privileges: {
+      standard: false,
+      secure: true,
+      supportFetchAPI: true,
+      bypassCSP: true,
+    },
+  },
+]);
 
 // Global references
 let mainWindow: BrowserWindow | null = null;
@@ -128,6 +143,45 @@ async function initialize(): Promise<void> {
       }
     })
     .catch((err) => logger.warn('API key migration failed (non-fatal):', err));
+
+  // Register local-resource:// protocol to serve local files (images, etc.)
+  // to the renderer process. Only files under the app's resources directory are allowed.
+  const appResourcesDir = resolve(
+    app.isPackaged
+      ? join(process.resourcesPath, 'resources')
+      : join(__dirname, '../../resources')
+  );
+  const userDataDir = app.getPath('userData');
+
+  protocol.handle('local-resource', (request) => {
+    // URL format: local-resource://file/C:/Users/.../image.jpg
+    // Decode the pathname to get the file path
+    let filePath: string;
+    try {
+      const url = new URL(request.url);
+      // Remove leading slash on Windows paths (e.g., /C:/Users → C:/Users)
+      filePath = decodeURIComponent(url.pathname);
+      if (process.platform === 'win32' && filePath.startsWith('/')) {
+        filePath = filePath.slice(1);
+      }
+    } catch {
+      return new Response('Invalid URL', { status: 400 });
+    }
+
+    // Security: Only serve files under resources/ or userData/
+    const normalizedPath = filePath.replace(/\\/g, '/').toLowerCase();
+    const normalizedResources = appResourcesDir.replace(/\\/g, '/').toLowerCase();
+    const normalizedUserData = userDataDir.replace(/\\/g, '/').toLowerCase();
+    if (
+      !normalizedPath.startsWith(normalizedResources) &&
+      !normalizedPath.startsWith(normalizedUserData)
+    ) {
+      logger.warn(`local-resource: blocked access to ${filePath}`);
+      return new Response('Forbidden', { status: 403 });
+    }
+
+    return net.fetch(pathToFileURL(filePath).href);
+  });
 
   // Set application menu
   createMenu();

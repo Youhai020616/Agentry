@@ -169,20 +169,34 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
           const runId = p.runId ?? data.runId;
           const sessionKey = p.sessionKey ?? data.sessionKey;
           console.info(
-            `[gateway] lifecycle:end received — runId="${String(runId ?? '').slice(0, 12)}" → synthesizing final event`
+            `[gateway] lifecycle:end received — runId="${String(runId ?? '').slice(0, 12)}" → scheduling final event (150ms delay)`
           );
-          import('./chat')
-            .then(({ useChatStore }) => {
-              useChatStore.getState().handleChatEvent({
-                state: 'final',
-                runId,
-                sessionKey,
-                // No message body — handleChatEvent will promote streamingMessage
+          // ── RACE CONDITION FIX ──────────────────────────────────
+          // lifecycle:end arrives on the 'gateway:notification' IPC channel,
+          // while streaming deltas arrive on the separate 'gateway:chat-message'
+          // channel. Both use async import('./chat').then(...) to dispatch.
+          // Without a delay, lifecycle:end can be processed BEFORE the last
+          // streaming delta, causing handleChatEvent to promote a PARTIAL
+          // streamingMessage as the final message. Once the run is marked
+          // completed, the real final delta is dropped by the completed-run
+          // guard — resulting in truncated messages in the UI.
+          //
+          // A 150ms delay ensures the last delta has time to arrive and update
+          // streamingMessage with complete content before we promote it.
+          setTimeout(() => {
+            import('./chat')
+              .then(({ useChatStore }) => {
+                useChatStore.getState().handleChatEvent({
+                  state: 'final',
+                  runId,
+                  sessionKey,
+                  // No message body — handleChatEvent will promote streamingMessage
+                });
+              })
+              .catch((err) => {
+                console.warn('Failed to forward lifecycle:end as final event:', err);
               });
-            })
-            .catch((err) => {
-              console.warn('Failed to forward lifecycle:end as final event:', err);
-            });
+          }, 150);
           return;
         }
 

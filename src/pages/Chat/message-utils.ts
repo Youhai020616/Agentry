@@ -191,6 +191,54 @@ export function extractToolUse(message: RawMessage | unknown): Array<{ id: strin
 }
 
 /**
+ * Image file extensions we recognize in assistant message text.
+ */
+const IMAGE_EXTENSIONS = /\.(jpe?g|png|gif|webp|bmp|svg|avif|tiff?)$/i;
+
+/**
+ * Regex to detect absolute file paths (Windows or Unix) pointing to image files.
+ * Matches paths like C:\Users\...\image.jpg or /home/user/.../image.png
+ */
+const LOCAL_IMAGE_PATH_RE =
+  /(?:[A-Za-z]:[/\\]|\/)[^\s<>"'`*?|]+?\.(jpe?g|png|gif|webp|bmp|svg|avif|tiff?)\b/gi;
+
+/**
+ * Extract local image file paths from assistant message text.
+ * Returns array of { path, url } where url is the local-resource:// URL.
+ */
+export function extractLocalImages(
+  message: RawMessage | unknown
+): Array<{ path: string; url: string }> {
+  if (!message || typeof message !== 'object') return [];
+  const msg = message as Record<string, unknown>;
+  // Only process assistant messages
+  if (msg.role === 'user') return [];
+
+  const text = extractText(message);
+  if (!text) return [];
+
+  const results: Array<{ path: string; url: string }> = [];
+  const seen = new Set<string>();
+
+  let match: RegExpExecArray | null;
+  LOCAL_IMAGE_PATH_RE.lastIndex = 0;
+  while ((match = LOCAL_IMAGE_PATH_RE.exec(text)) !== null) {
+    const filePath = match[0];
+    if (seen.has(filePath)) continue;
+    seen.add(filePath);
+
+    if (IMAGE_EXTENSIONS.test(filePath)) {
+      // Normalize to forward slashes for URL
+      const normalized = filePath.replace(/\\/g, '/');
+      const url = `local-resource://file/${encodeURI(normalized)}`;
+      results.push({ path: filePath, url });
+    }
+  }
+
+  return results;
+}
+
+/**
  * Format a Unix timestamp (seconds) to relative time string.
  */
 export function formatTimestamp(timestamp: unknown): string {

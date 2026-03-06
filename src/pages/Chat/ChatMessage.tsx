@@ -10,7 +10,7 @@ import remarkGfm from 'remark-gfm';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { RawMessage, AttachedFileMeta } from '@/stores/chat';
-import { extractText, extractThinking, extractImages, extractToolUse, formatTimestamp } from './message-utils';
+import { extractText, extractThinking, extractImages, extractToolUse, extractLocalImages, formatTimestamp } from './message-utils';
 
 interface ChatMessageProps {
   message: RawMessage;
@@ -40,6 +40,7 @@ export const ChatMessage = memo(function ChatMessage({
   const thinking = extractThinking(message);
   const images = extractImages(message);
   const tools = extractToolUse(message);
+  const localImages = extractLocalImages(message);
   const visibleThinking = showThinking ? thinking : null;
   const visibleTools = showThinking ? tools : [];
 
@@ -180,6 +181,23 @@ export const ChatMessage = memo(function ChatMessage({
                 src={`data:${img.mimeType};base64,${img.data}`}
                 alt="attachment"
                 className="max-w-xs rounded-lg border"
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Local image files referenced in assistant text */}
+        {!isUser && localImages.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {localImages.map((img) => (
+              <img
+                key={img.path}
+                src={img.url}
+                alt={img.path.split(/[/\\]/).pop() || 'generated image'}
+                className="max-w-xs rounded-lg border cursor-pointer"
+                onClick={() => {
+                  window.electron?.ipcRenderer?.invoke('shell:openPath', img.path);
+                }}
               />
             ))}
           </div>

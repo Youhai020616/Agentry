@@ -1,5 +1,21 @@
 # Lessons Learned
 
+## 2026-03-03 — PR #12 Re-added Removed Sidebar Entry
+
+### 35. Review merged PRs for reverted/re-added code that was intentionally removed
+
+**What happened:** The Media Studio sidebar entry (`/media-studio` with `Clapperboard` icon) had been intentionally removed from `src/components/layout/Sidebar.tsx` in a prior session. PR #12 (`feat/media-studio-pipeline`) re-added it as part of its "update Media Studio UI" commit, because that branch was created before the removal.
+
+**Root cause:** Feature branches that diverge from `develop` before a removal happens will naturally re-introduce the removed code when merged. The PR description even listed "Add Media Studio entry to global Sidebar" as a change, but it wasn't flagged during review because the PR was auto-merged based on passing tests/typecheck alone.
+
+**Rule:** After merging any large feature PR, **grep for known intentional removals** (sidebar entries, deprecated features, reverted code) to catch re-introductions. Especially when the PR touches layout/navigation files like `Sidebar.tsx`, `App.tsx`, or route configs.
+
+**Pattern:**
+```
+# After merging a PR that touches navigation/layout:
+grep -n "media-studio\|Clapperboard" src/components/layout/Sidebar.tsx
+```
+
 ## 2026-03-02 — Post-Migration Cleanup (Phase 4)
 
 ### 34. Compiler `langRule` prefix breaks tests that assert exact output
@@ -633,4 +649,49 @@ review. The reference implementation is `stores/employees.ts`.
 [ ] 3. First line of init(): `if (get().initialized) return;`
 [ ] 4. Second line: `set({ initialized: true });`
 [ ] 5. Then register listeners
+```
+
+## 2026-03-05 — lifecycle:end Race Condition Truncates Streaming Messages
+
+### 36. IPC channel ordering is NOT guaranteed — delay completion signals that promote partial state
+
+**Bug:** Assistant messages were truncated mid-sentence (e.g., ending at "请" instead of the full response). The user saw incomplete messages in the chat UI with no error.
+
+**Root cause:** A race condition between two separate IPC channels:
+- `gateway:chat-message` carries streaming deltas (cumulative content)
+- `gateway:notification` carries `lifecycle:end` (run completion signal)
+
+Both handlers use `import('./chat').then(...)` which schedules microtasks. When the Gateway sends the last delta and `lifecycle:end` in quick succession, the notification handler can execute **before** the chat-message handler, because they travel on different IPC channels with no ordering guarantee.
+
+**The deadly sequence:**
+```
+1. Delta event arrives (partial content: "...请")     → queued on gateway:chat-message
+2. lifecycle:end arrives                               → queued on gateway:notification
+3. notification handler fires FIRST (no guaranteed order between IPC channels)
+4. handleChatEvent(state:'final', no message body) → promotes partial streamingMessage as final
+5. markRunCompleted(runId) → adds to recentCompletedRunIds
+6. chat-message handler fires with the REAL final delta (complete content + stopReason)
+7. completed-run guard DROPS it → "if (runId && recentCompletedRunIds.has(runId)) return"
+8. User sees truncated message forever
+```
+
+**Fix (two-part):**
+
+1. **Delay lifecycle:end processing by 150ms** (`gateway.ts`): Wraps the `handleChatEvent` dispatch in `setTimeout(() => { ... }, 150)`. This gives the last streaming delta time to arrive and update `streamingMessage` with complete content before promotion.
+
+2. **Allow late finals with content to correct promoted messages** (`chat.ts`): The completed-run guard now has an exception: if a late event is `state:'final'` AND carries actual content with `stopReason`, it passes through and updates the previously promoted (possibly truncated) message — but only if the new content is longer (more complete).
+
+**Pattern to remember:**
+- When two events are semantically ordered (delta before completion) but travel on separate IPC/event channels, the receiver MUST enforce ordering
+- Never assume IPC `send()` calls from the main process arrive in the same order at the renderer when they use different channel names
+- Completion signals that promote mutable state (like `streamingMessage`) should always be delayed to allow the last data event to land
+- Guards that drop events (like `recentCompletedRunIds`) need escape hatches for legitimate late corrections
+
+**Checklist for IPC event ordering issues:**
+```
+[ ] 1. Identify all IPC channels that carry related events
+[ ] 2. Check if ordering is guaranteed (same channel = yes, different channels = NO)
+[ ] 3. If completion signal is on a different channel than data, add a delay
+[ ] 4. If a guard drops late events, add an exception for events carrying authoritative content
+[ ] 5. Add console.info logs for the delayed path so it's visible in debugging
 ```

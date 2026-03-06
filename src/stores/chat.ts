@@ -1052,8 +1052,35 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { activeRunId } = get();
 
     // ── Completed-run guard: drop late events for already-resolved runs ──
+    // EXCEPTION: If the late event is a 'final' with actual message content
+    // (i.e., it carries stopReason + full text), allow it through so it can
+    // UPDATE the previously promoted (possibly truncated) message. This fixes
+    // a race condition where lifecycle:end promotes a partial streamingMessage,
+    // and the real final delta (with complete content) arrives moments later.
     if (runId && recentCompletedRunIds.has(runId)) {
-      return;
+      const lateMsg = event.message as Record<string, unknown> | undefined;
+      const lateState = String(event.state || '');
+      const hasContent =
+        lateMsg &&
+        typeof lateMsg === 'object' &&
+        (typeof lateMsg.content === 'string'
+          ? lateMsg.content.length > 0
+          : Array.isArray(lateMsg.content));
+      const hasStopReason =
+        lateMsg &&
+        typeof lateMsg === 'object' &&
+        !!(lateMsg.stopReason ?? (lateMsg as Record<string, unknown>).stop_reason);
+
+      if (lateState === 'final' && hasContent && hasStopReason) {
+        // Allow through — this is a real final event that may carry more
+        // complete content than the promoted streamingMessage. It will be
+        // handled below in the 'final' case as a content update.
+        console.info(
+          `[handleChatEvent] Allowing late final with content for completed run ${runId.slice(0, 12)} (content correction)`
+        );
+      } else {
+        return;
+      }
     }
 
     // Only process events for the active run (or if no active run set).
@@ -1104,6 +1131,49 @@ export const useChatStore = create<ChatState>((set, get) => ({
       case 'final': {
         // Message complete - add to history and clear streaming
         const finalMsg = event.message as RawMessage | undefined;
+        // ── Content correction for completed runs ──────────────────
+        // If this final event passed through the completed-run guard (because
+        // it carries real content + stopReason), it means lifecycle:end already
+        // promoted a possibly-truncated streamingMessage. Replace the last
+        // assistant message for this run with the corrected content.
+        const isContentCorrection = runId && recentCompletedRunIds.has(runId);
+        if (isContentCorrection && finalMsg) {
+          const correctedContent =
+            typeof finalMsg.content === 'string'
+              ? finalMsg.content
+              : Array.isArray(finalMsg.content)
+                ? (finalMsg.content as Array<Record<string, unknown>>)
+                    .filter((b) => b.type === 'text')
+                    .map((b) => String(b.text ?? ''))
+                    .join('')
+                : '';
+
+          if (correctedContent) {
+            set((s) => {
+              // Find the last assistant message for this run (the promoted one)
+              const lastIdx = [...s.messages]
+                .reverse()
+                .findIndex((m) => m.role === 'assistant' || m.role === undefined);
+              if (lastIdx === -1) return s;
+              const realIdx = s.messages.length - 1 - lastIdx;
+              const existing = s.messages[realIdx];
+              const existingText = typeof existing.content === 'string' ? existing.content : '';
+
+              // Only update if the corrected content is longer (more complete)
+              if (correctedContent.length > existingText.length) {
+                console.info(
+                  `[handleChatEvent] Content correction: ${existingText.length} → ${correctedContent.length} chars`
+                );
+                const updated = [...s.messages];
+                updated[realIdx] = { ...existing, ...finalMsg, id: existing.id };
+                return { messages: updated };
+              }
+              return s;
+            });
+          }
+          break;
+        }
+
         if (finalMsg) {
           const updates = collectToolUpdates(finalMsg, resolvedState);
           if (isToolResultRole(finalMsg.role)) {
