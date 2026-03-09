@@ -39,6 +39,8 @@ interface ChatProps {
   employeeId?: string;
   /** Hide the conversation history sidebar */
   hideHistory?: boolean;
+  /** Hide the toolbar row (when toolbar is rendered externally, e.g. Supervisor top bar) */
+  hideToolbar?: boolean;
 }
 
 export function Chat({
@@ -47,6 +49,7 @@ export function Chat({
   employeeAvatar,
   employeeId,
   hideHistory = false,
+  hideToolbar = false,
 }: ChatProps = {}) {
   const { t } = useTranslation('chat');
   const gatewayStatus = useGatewayStore((s) => s.status);
@@ -104,7 +107,7 @@ export function Chat({
       if (showHistory) {
         await loadConversations({
           employeeId,
-          participantType: employeeId ? 'employee' : undefined,
+          participantType: employeeId ? 'employee' : 'supervisor',
         });
       }
     })();
@@ -139,7 +142,7 @@ export function Chat({
       try {
         if (employeeId && employeeName) {
           await getOrCreateForEmployee(employeeId, employeeName, employeeAvatar, currentSessionKey);
-        } else if (!externalSession) {
+        } else {
           await getOrCreateForSupervisor(currentSessionKey);
         }
       } catch (err) {
@@ -152,7 +155,6 @@ export function Chat({
     employeeId,
     employeeName,
     employeeAvatar,
-    externalSession,
     findBySessionKey,
     getOrCreateForEmployee,
     getOrCreateForSupervisor,
@@ -161,7 +163,10 @@ export function Chat({
 
   // Auto-scroll on new messages or streaming
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Use rAF to ensure DOM has painted new messages before scrolling
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    });
   }, [messages, streamingMessage, sending]);
 
   // Update timestamp when sending starts
@@ -311,7 +316,7 @@ export function Chat({
       {showHistory && (
         <ConversationList
           employeeId={employeeId}
-          supervisorOnly={!employeeId && !externalSession}
+          supervisorOnly={!employeeId}
           onSelect={handleSelectConversation}
           onNewConversation={handleNewConversation}
           activeSessionKey={currentSessionKey}
@@ -322,10 +327,12 @@ export function Chat({
 
       {/* Main Chat Area */}
       <div className="flex flex-1 flex-col min-w-0">
-        {/* Toolbar */}
-        <div className="flex shrink-0 items-center justify-end px-4 py-2 border-b border-border/40">
-          <ChatToolbar hideSessionSelector={externalSession || showHistory} />
-        </div>
+        {/* Toolbar — hidden when rendered externally (e.g. Supervisor top bar) */}
+        {!hideToolbar && (
+          <div className="flex shrink-0 items-center justify-end px-4 py-2 border-b border-border/40">
+            <ChatToolbar hideSessionSelector={externalSession || showHistory} />
+          </div>
+        )}
 
         {/* Messages Area */}
         <div className="relative flex-1 overflow-y-auto px-4 py-4">

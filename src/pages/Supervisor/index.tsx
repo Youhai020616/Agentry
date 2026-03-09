@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/lib/utils';
 import { Chat } from '@/pages/Chat';
+import { ChatToolbar } from '@/pages/Chat/ChatToolbar';
 import { useEmployeesStore } from '@/stores/employees';
 import { useChatStore } from '@/stores/chat';
 import { useGatewayStore } from '@/stores/gateway';
@@ -41,6 +42,7 @@ export function Supervisor() {
   const employees = useEmployeesStore((s) => s.employees);
   const fetchEmployees = useEmployeesStore((s) => s.fetchEmployees);
   const activateEmployee = useEmployeesStore((s) => s.activateEmployee);
+  const deactivateEmployee = useEmployeesStore((s) => s.deactivateEmployee);
   const init = useEmployeesStore((s) => s.init);
 
   const switchSession = useChatStore((s) => s.switchSession);
@@ -65,6 +67,48 @@ export function Supervisor() {
     fetchEmployees();
   }, [init, fetchEmployees]);
 
+  /**
+   * After supervisor is ready, find the most recent supervisor conversation
+   * and switch to it. Falls back to the default session key if none exist.
+   *
+   * Queries electron-store directly via IPC to avoid store timing issues.
+   */
+  const restoreOrCreateSession = useCallback(
+    async (fallbackKey: string) => {
+      try {
+        // Read all conversations directly from electron-store via IPC
+        const result = (await window.electron.ipcRenderer.invoke('conversation:listAll')) as {
+          success: boolean;
+          result?: Array<{
+            sessionKey: string;
+            participantType: string;
+            archived: boolean;
+            updatedAt: number;
+            messageCount: number;
+            lastMessagePreview?: string;
+          }>;
+        };
+
+        if (result.success && Array.isArray(result.result)) {
+          // Filter to supervisor conversations, sort by updatedAt desc
+          const supervisorConvs = result.result
+            .filter((c) => c.participantType === 'supervisor' && !c.archived)
+            .sort((a, b) => b.updatedAt - a.updatedAt);
+
+          if (supervisorConvs.length > 0) {
+            // Always pick the most recent conversation by time
+            switchSession(supervisorConvs[0].sessionKey);
+            return;
+          }
+        }
+      } catch {
+        // Non-fatal — fall through to default
+      }
+      switchSession(fallbackKey);
+    },
+    [switchSession]
+  );
+
   // Auto-activate supervisor when gateway is ready
   useEffect(() => {
     if (!isGatewayRunning) return;
@@ -77,13 +121,12 @@ export function Supervisor() {
       supervisorActivating.current = true;
       activateEmployee(SUPERVISOR_SLUG)
         .then(() => {
-          // After activation, switch to the supervisor session if still selected
           const updated = useEmployeesStore
             .getState()
             .employees.find((e) => e.id === SUPERVISOR_SLUG || e.slug === SUPERVISOR_SLUG);
           const key = updated?.gatewaySessionKey ?? SUPERVISOR_SESSION_FALLBACK;
           if (selectedId === SUPERVISOR_ID) {
-            switchSession(key);
+            restoreOrCreateSession(key);
           }
         })
         .catch((err) => {
@@ -93,8 +136,8 @@ export function Supervisor() {
           supervisorActivating.current = false;
         });
     } else if (selectedId === SUPERVISOR_ID) {
-      // Supervisor is already active — bind session
-      switchSession(sup.gatewaySessionKey ?? SUPERVISOR_SESSION_FALLBACK);
+      // Supervisor is already active — restore most recent conversation
+      restoreOrCreateSession(sup.gatewaySessionKey ?? SUPERVISOR_SESSION_FALLBACK);
     }
   }, [isGatewayRunning]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -139,8 +182,8 @@ export function Supervisor() {
       setSelectedId(id);
 
       if (id === SUPERVISOR_ID) {
-        // Switch to supervisor session (dynamic key)
-        switchSession(supervisorSessionKey);
+        // Restore most recent supervisor conversation or fall back to default key
+        restoreOrCreateSession(supervisorSessionKey);
         return;
       }
 
@@ -170,7 +213,32 @@ export function Supervisor() {
         switchSession(employee.gatewaySessionKey);
       }
     },
-    [selectedId, employees, switchSession, activateEmployee, supervisorSessionKey]
+    [
+      selectedId,
+      employees,
+      switchSession,
+      activateEmployee,
+      supervisorSessionKey,
+      restoreOrCreateSession,
+    ]
+  );
+
+  // Handle deactivation from dock context menu (excludes supervisor)
+  const handleDeactivate = useCallback(
+    async (id: string) => {
+      if (id === SUPERVISOR_ID) return;
+      try {
+        await deactivateEmployee(id);
+        // If the deactivated employee was selected, switch back to supervisor
+        if (selectedId === id) {
+          setSelectedId(SUPERVISOR_ID);
+          restoreOrCreateSession(supervisorSessionKey);
+        }
+      } catch (err) {
+        console.error('Failed to deactivate employee:', err);
+      }
+    },
+    [deactivateEmployee, selectedId, restoreOrCreateSession, supervisorSessionKey]
   );
 
   // Gateway not running
@@ -187,35 +255,40 @@ export function Supervisor() {
   return (
     <div className="-mx-4 -my-3 flex h-[calc(100%+1.5rem)] flex-col">
       {/* Top bar: character indicator + panel toggle */}
-      <div className="flex shrink-0 items-center justify-between gap-2 px-4 py-2 border-b border-border/40">
+      <div className="flex shrink-0 items-center justify-between gap-2 px-4 py-3 border-b border-border/40">
         <div className="flex items-center gap-2">
           {selectedId === SUPERVISOR_ID ? (
             <>
-              <Crown className="h-4 w-4 text-primary" />
-              <span className="text-sm font-semibold">{t('supervisor.title')}</span>
+              <Crown className="h-5 w-5 text-primary" />
+              <h1 className="text-xl font-bold tracking-wide">{t('supervisor.title')}</h1>
             </>
           ) : selectedEmployee ? (
             <>
-              <span className="text-base">{selectedEmployee.avatar || '\uD83E\uDD16'}</span>
-              <span className="text-sm font-semibold">{selectedEmployee.name}</span>
+              <span className="text-xl">{selectedEmployee.avatar || '\uD83E\uDD16'}</span>
+              <h1 className="text-xl font-bold tracking-wide">{selectedEmployee.name}</h1>
               <span className="text-xs text-muted-foreground">{selectedEmployee.role}</span>
             </>
           ) : null}
         </div>
 
-        {/* Panel toggle (visible on md+) */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="hidden md:flex h-7 w-7 rounded-lg"
-          onClick={() => setPanelOpen(!panelOpen)}
-        >
-          {panelOpen ? (
-            <PanelRightClose className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <PanelRightOpen className="h-4 w-4 text-muted-foreground" />
-          )}
-        </Button>
+        <div className="flex items-center gap-1">
+          {/* Chat toolbar buttons (new session, refresh, thinking toggle) */}
+          <ChatToolbar hideSessionSelector />
+
+          {/* Panel toggle (visible on md+) */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="hidden md:flex h-7 w-7 rounded-lg"
+            onClick={() => setPanelOpen(!panelOpen)}
+          >
+            {panelOpen ? (
+              <PanelRightClose className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <PanelRightOpen className="h-4 w-4 text-muted-foreground" />
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Main area: Chat + Orchestration Panel */}
@@ -224,6 +297,7 @@ export function Supervisor() {
         <div className={cn('flex-1 min-w-0', activating && 'opacity-50 pointer-events-none')}>
           <Chat
             externalSession
+            hideToolbar
             employeeName={
               selectedId === SUPERVISOR_ID ? t('supervisor.title') : selectedEmployee?.name
             }
@@ -258,7 +332,12 @@ export function Supervisor() {
 
       {/* MessageDock */}
       <div className="shrink-0 flex justify-center py-2 border-t border-border/40">
-        <MessageDock characters={dockCharacters} selectedId={selectedId} onSelect={handleSelect} />
+        <MessageDock
+          characters={dockCharacters}
+          selectedId={selectedId}
+          onSelect={handleSelect}
+          onDeactivate={handleDeactivate}
+        />
       </div>
     </div>
   );

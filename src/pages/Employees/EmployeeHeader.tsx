@@ -6,7 +6,7 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, RotateCcw, Settings, Loader2, Globe } from 'lucide-react';
+import { ArrowLeft, RotateCcw, Settings, Loader2, Globe, Power } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PixelAvatar } from '@/components/employees/PixelAvatar';
@@ -28,9 +28,10 @@ const statusVariant: Record<
 interface EmployeeHeaderProps {
   employee: Employee;
   onRestart?: () => Promise<void>;
+  onDeactivate?: () => Promise<void>;
 }
 
-export function EmployeeHeader({ employee, onRestart }: EmployeeHeaderProps) {
+export function EmployeeHeader({ employee, onRestart, onDeactivate }: EmployeeHeaderProps) {
   const navigate = useNavigate();
   const { t } = useTranslation('employees');
 
@@ -38,6 +39,7 @@ export function EmployeeHeader({ employee, onRestart }: EmployeeHeaderProps) {
   const activateEmployee = useEmployeesStore((s) => s.activateEmployee);
 
   const [restarting, setRestarting] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
   const [showSecrets, setShowSecrets] = useState(false);
 
   // Restart = deactivate then re-activate (recompiles system prompt from SKILL.md)
@@ -61,6 +63,23 @@ export function EmployeeHeader({ employee, onRestart }: EmployeeHeaderProps) {
       setRestarting(false);
     }
   }, [employee.id, deactivateEmployee, activateEmployee, restarting, onRestart]);
+
+  const handleDeactivate = useCallback(async () => {
+    if (deactivating) return;
+    setDeactivating(true);
+    try {
+      if (onDeactivate) {
+        await onDeactivate();
+      } else {
+        await deactivateEmployee(employee.id);
+        navigate('/employees');
+      }
+    } catch {
+      // errors are set in the store
+    } finally {
+      setDeactivating(false);
+    }
+  }, [employee.id, deactivateEmployee, deactivating, onDeactivate, navigate]);
 
   // Parse manifest secrets for the settings dialog
   const [manifestSecrets, setManifestSecrets] = useState<
@@ -165,6 +184,24 @@ export function EmployeeHeader({ employee, onRestart }: EmployeeHeaderProps) {
         >
           <Settings className="h-4 w-4" />
         </Button>
+
+        {/* Deactivate button — stop employee */}
+        {employee.status !== 'offline' && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 hover:bg-destructive/10 text-destructive"
+            onClick={handleDeactivate}
+            disabled={deactivating || employee.status === 'working'}
+            title={t('card.deactivate')}
+          >
+            {deactivating ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Power className="h-4 w-4" />
+            )}
+          </Button>
+        )}
 
         {/* Restart button — deactivate + reactivate to refresh system prompt */}
         <Button
