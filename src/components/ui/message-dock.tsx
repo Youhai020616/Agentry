@@ -7,6 +7,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Power } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
 export interface DockCharacter {
@@ -44,6 +45,7 @@ export function MessageDock({
   position = 'inline',
   className,
 }: MessageDockProps) {
+  const { t } = useTranslation('employees');
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [contextMenuId, setContextMenuId] = useState<string | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
@@ -138,7 +140,7 @@ export function MessageDock({
                         }}
                       >
                         <Power className="h-3 w-3" />
-                        Deactivate
+                        {t('card.deactivate')}
                       </button>
                     </div>
                   </motion.div>
