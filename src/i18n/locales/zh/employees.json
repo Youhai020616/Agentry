@@ -212,6 +212,18 @@
     "enter": "进入工作台",
     "online": "{{count}}人在线"
   },
+  "costTier": {
+    "free": "免费",
+    "low": "低价",
+    "medium": "中等",
+    "high": "较贵",
+    "premium": "高端"
+  },
+  "modelBadges": {
+    "recommended": "推荐",
+    "tools": "工具",
+    "context": "上下文"
+  },
   "teams": {
     "marketing": "市场营销",
     "development": "开发",

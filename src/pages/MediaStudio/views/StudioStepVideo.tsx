@@ -124,14 +124,10 @@ export function StudioStepVideo() {
               </div>
               <div className="flex-1 space-y-1">
                 <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-                  {t('studio.step3.failedTitle', '视频生成暂不可用')}
+                  {t('studio.step3.failedTitle')}
                 </h3>
                 <p className="text-xs text-amber-700/80 dark:text-amber-400/70 leading-relaxed">
-                  {videoGenResult.error ||
-                    t(
-                      'studio.step3.failedDesc',
-                      '当前 API 不支持视频生成。你可以跳过此步骤直接发布，或在设置中配置其他视频生成 API。'
-                    )}
+                  {videoGenResult.error || t('studio.step3.failedDesc')}
                 </p>
               </div>
             </div>
@@ -163,7 +159,7 @@ export function StudioStepVideo() {
             </Button>
             <Button onClick={handleAccept} className="gap-2">
               <SkipForward className="h-4 w-4" />
-              {t('studio.step3.skipToPublish', '跳过，直接发布')}
+              {t('studio.step3.skipToPublish')}
             </Button>
           </div>
         </motion.div>
@@ -215,7 +211,7 @@ export function StudioStepVideo() {
                     <div className="text-sm font-semibold text-white">{videoGenResult.title}</div>
                     <div className="mt-0.5 text-[10px] text-white/70">
                       {videoGenResult.status === 'generating'
-                        ? t('studio.step3.generating', '生成中...')
+                        ? t('studio.step3.generating')
                         : 'AI Generated'}
                     </div>
                   </div>

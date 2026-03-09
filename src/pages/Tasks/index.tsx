@@ -397,8 +397,8 @@ export function Tasks() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t('board.title')}</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <h1 className="font-pixel text-xl font-bold tracking-wide">{t('board.title')}</h1>
+          <p className="text-xs text-muted-foreground mt-1">
             {t('board.subtitle', { taskCount: tasks.length, projectCount: projects.length })}
           </p>
         </div>

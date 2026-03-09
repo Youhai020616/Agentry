@@ -23,6 +23,7 @@ import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { ChatToolbar } from './ChatToolbar';
 import { ConversationList } from '@/components/chat/ConversationList';
+import { LightRays } from '@/components/chat/LightRays';
 import { extractImages, extractText, extractThinking, extractToolUse } from './message-utils';
 import { useTranslation } from 'react-i18next';
 import type { Conversation } from '@/types/conversation';
@@ -78,7 +79,7 @@ export function Chat({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [streamingTimestamp, setStreamingTimestamp] = useState<number>(0);
-  const [historyCollapsed, setHistoryCollapsed] = useState(false);
+  const [historyCollapsed, setHistoryCollapsed] = useState(true);
 
   // Track whether we've initialized the conversation for this session
   const initializedSessionRef = useRef<string | null>(null);
@@ -255,7 +256,14 @@ export function Chat({
   // Gateway not running
   if (!isGatewayRunning) {
     return (
-      <div className="flex h-full flex-col items-center justify-center text-center p-8">
+      <div
+        className="flex h-full flex-col items-center justify-center text-center p-8"
+        style={{
+          fontFamily:
+            '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+          WebkitFontSmoothing: 'auto',
+        }}
+      >
         <AlertCircle className="h-12 w-12 text-yellow-500 mb-4" />
         <h2 className="text-xl font-semibold mb-2">{t('gatewayNotRunning')}</h2>
         <p className="text-muted-foreground max-w-md">{t('gatewayRequired')}</p>
@@ -290,7 +298,15 @@ export function Chat({
       hasStreamToolStatus);
 
   return (
-    <div className={cn('flex', externalSession ? 'h-full' : '-m-6 h-[calc(100%+3rem)]')}>
+    <div
+      className={cn('flex', externalSession ? 'h-full' : '-m-4 h-[calc(100%+2rem)]')}
+      style={{
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+        WebkitFontSmoothing: 'auto',
+        MozOsxFontSmoothing: 'grayscale',
+      }}
+    >
       {/* Conversation History Sidebar */}
       {showHistory && (
         <ConversationList
@@ -307,13 +323,17 @@ export function Chat({
       {/* Main Chat Area */}
       <div className="flex flex-1 flex-col min-w-0">
         {/* Toolbar */}
-        <div className="flex shrink-0 items-center justify-end px-4 py-2">
+        <div className="flex shrink-0 items-center justify-end px-4 py-2 border-b border-border/40">
           <ChatToolbar hideSessionSelector={externalSession || showHistory} />
         </div>
 
         {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto px-4 py-4">
-          <div className="max-w-4xl mx-auto space-y-4">
+        <div className="relative flex-1 overflow-y-auto px-4 py-4">
+          {/* WebGL animated light rays background */}
+          <LightRays />
+          {/* Bottom fade overlay */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 z-[1] bg-gradient-to-t from-background to-transparent" />
+          <div className="relative z-[2] max-w-4xl mx-auto space-y-4">
             {loading ? (
               <div className="flex h-full items-center justify-center py-20">
                 <LoadingSpinner size="lg" />
@@ -425,9 +445,7 @@ function WelcomeScreen({
       )}
       <h2 className="text-2xl font-bold mb-2">{isEmployee ? employeeName : t('welcome.title')}</h2>
       <p className="text-muted-foreground mb-8 max-w-md">
-        {isEmployee
-          ? t('welcome.employeeSubtitle', '随时向我提问，我会用专业技能为你服务。')
-          : t('welcome.subtitle')}
+        {isEmployee ? t('welcome.employeeSubtitle') : t('welcome.subtitle')}
       </p>
 
       {!isEmployee && (

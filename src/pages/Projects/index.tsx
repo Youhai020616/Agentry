@@ -5,16 +5,9 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  FolderKanban,
-  CheckCircle2,
-  Circle,
-  Loader2,
-  Lock,
-  Inbox,
-  Clock,
-} from 'lucide-react';
+import { FolderKanban, CheckCircle2, Circle, Loader2, Lock, Inbox, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -38,19 +31,13 @@ function formatElapsed(createdAt: number | null | undefined): string | null {
 
 type FilterKey = 'all' | ProjectStatus;
 
-const FILTERS: { key: FilterKey; label: string }[] = [
-  { key: 'all', label: '全部' },
-  { key: 'executing', label: '执行中' },
-  { key: 'planning', label: '规划中' },
-  { key: 'reviewing', label: '审核中' },
-  { key: 'completed', label: '已完成' },
-];
+const FILTER_KEYS: FilterKey[] = ['all', 'executing', 'planning', 'reviewing', 'completed'];
 
-const statusStyle: Record<ProjectStatus, { dot: string; label: string }> = {
-  planning: { dot: 'bg-zinc-400', label: '规划中' },
-  executing: { dot: 'bg-sky-500', label: '执行中' },
-  reviewing: { dot: 'bg-amber-500', label: '审核中' },
-  completed: { dot: 'bg-emerald-500', label: '已完成' },
+const statusDot: Record<ProjectStatus, string> = {
+  planning: 'bg-zinc-400',
+  executing: 'bg-sky-500',
+  reviewing: 'bg-amber-500',
+  completed: 'bg-emerald-500',
 };
 
 // ── Animation variants ─────────────────────────────────────────────
@@ -119,15 +106,9 @@ function WavePipeline({ tasks }: { tasks: Task[] }) {
             )}
             <div className="flex flex-col items-center gap-0.5">
               <Icon
-                className={cn(
-                  'h-3.5 w-3.5',
-                  color,
-                  anyRunning && !allDone && 'animate-spin'
-                )}
+                className={cn('h-3.5 w-3.5', color, anyRunning && !allDone && 'animate-spin')}
               />
-              <span className="text-[9px] font-medium text-muted-foreground">
-                W{wave}
-              </span>
+              <span className="text-[9px] font-medium text-muted-foreground">W{wave}</span>
             </div>
           </div>
         );
@@ -148,6 +129,7 @@ function ProjectCard({
   span: 'wide' | 'normal';
 }) {
   const navigate = useNavigate();
+  const { t } = useTranslation('projects');
   const employees = useEmployeesStore((s) => s.employees);
 
   const completedCount = tasks.filter((t) => t.status === 'completed').length;
@@ -160,7 +142,7 @@ function ProjectCard({
 
   const elapsed = formatElapsed(project.createdAt);
 
-  const cfg = statusStyle[project.status] ?? statusStyle.planning;
+  const dot = statusDot[project.status] ?? statusDot.planning;
 
   return (
     <motion.div
@@ -180,8 +162,10 @@ function ProjectCard({
       {/* Status + time */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-1.5">
-          <span className={cn('h-2 w-2 rounded-full', cfg.dot)} />
-          <span className="text-[11px] font-medium text-muted-foreground">{cfg.label}</span>
+          <span className={cn('h-2 w-2 rounded-full', dot)} />
+          <span className="text-[11px] font-medium text-muted-foreground">
+            {t(`status.${project.status}`)}
+          </span>
         </div>
         {elapsed && (
           <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
@@ -205,7 +189,7 @@ function ProjectCard({
       <div className="mb-3">
         <div className="flex items-center justify-between mb-1">
           <span className="text-[10px] text-muted-foreground">
-            {completedCount}/{tasks.length} 任务
+            {completedCount}/{tasks.length} {t('card.tasks')}
           </span>
           <span className="text-[10px] font-mono text-muted-foreground tabular-nums">
             {progress}%
@@ -234,9 +218,7 @@ function ProjectCard({
             </span>
           ))}
           {teamMembers.length > 5 && (
-            <span className="text-[10px] text-muted-foreground">
-              +{teamMembers.length - 5}
-            </span>
+            <span className="text-[10px] text-muted-foreground">+{teamMembers.length - 5}</span>
           )}
         </div>
       )}
@@ -248,6 +230,7 @@ function ProjectCard({
 
 function EmptyState() {
   const navigate = useNavigate();
+  const { t } = useTranslation('projects');
 
   return (
     <motion.div
@@ -259,17 +242,13 @@ function EmptyState() {
       <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-zinc-800/60">
         <Inbox className="h-6 w-6 text-muted-foreground" />
       </div>
-      <p className="text-base font-semibold mb-1">还没有项目</p>
+      <p className="text-base font-semibold mb-1">{t('empty.title')}</p>
       <p className="text-sm text-muted-foreground mb-5 max-w-xs leading-relaxed">
-        去和主管聊聊你的目标，主管会自动创建项目、拆解任务并分配给团队
+        {t('empty.description')}
       </p>
-      <Button
-        variant="outline"
-        className="rounded-xl"
-        onClick={() => navigate('/')}
-      >
+      <Button variant="outline" className="rounded-xl" onClick={() => navigate('/')}>
         <FolderKanban className="h-4 w-4 mr-2" />
-        和主管对话
+        {t('empty.action')}
       </Button>
     </motion.div>
   );
@@ -278,6 +257,7 @@ function EmptyState() {
 // ── Main Page ──────────────────────────────────────────────────────
 
 export function Projects() {
+  const { t } = useTranslation('projects');
   const projects = useTasksStore((s) => s.projects);
   const tasks = useTasksStore((s) => s.tasks);
   const fetchProjects = useTasksStore((s) => s.fetchProjects);
@@ -318,9 +298,7 @@ export function Projects() {
       reviewing: 2,
       completed: 3,
     };
-    return [...filtered].sort(
-      (a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9)
-    );
+    return [...filtered].sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9));
   }, [filtered]);
 
   return (
@@ -328,32 +306,25 @@ export function Projects() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">项目</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            主管编排的所有团队协作项目
-          </p>
+          <h1 className="font-pixel text-xl font-bold tracking-wide">{t('title')}</h1>
+          <p className="text-xs text-muted-foreground mt-1">{t('subtitle')}</p>
         </div>
       </div>
 
       {/* Filters */}
       <div className="flex items-center gap-1.5 flex-wrap">
-        {FILTERS.map((f) => {
+        {FILTER_KEYS.map((key) => {
           const count =
-            f.key === 'all'
-              ? projects.length
-              : projects.filter((p) => p.status === f.key).length;
+            key === 'all' ? projects.length : projects.filter((p) => p.status === key).length;
           return (
             <Button
-              key={f.key}
-              variant={filter === f.key ? 'default' : 'ghost'}
+              key={key}
+              variant={filter === key ? 'default' : 'ghost'}
               size="sm"
-              className={cn(
-                'rounded-lg text-xs h-7 px-2.5',
-                filter === f.key && 'shadow-sm'
-              )}
-              onClick={() => setFilter(f.key)}
+              className={cn('rounded-lg text-xs h-7 px-2.5', filter === key && 'shadow-sm')}
+              onClick={() => setFilter(key)}
             >
-              {f.label}
+              {t(`filters.${key}`)}
               {count > 0 && (
                 <Badge
                   variant="outline"

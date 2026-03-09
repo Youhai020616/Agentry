@@ -61,7 +61,13 @@ const schedulePresets: { label: string; value: string; type: ScheduleType }[] = 
 function parseCronSchedule(schedule: unknown): string {
   // Handle Gateway CronSchedule object format
   if (schedule && typeof schedule === 'object') {
-    const s = schedule as { kind?: string; expr?: string; tz?: string; everyMs?: number; at?: string };
+    const s = schedule as {
+      kind?: string;
+      expr?: string;
+      tz?: string;
+      everyMs?: number;
+      at?: string;
+    };
     if (s.kind === 'cron' && typeof s.expr === 'string') {
       return parseCronExpr(s.expr);
     }
@@ -186,22 +192,20 @@ function TaskDialog({ job, onClose, onSave }: TaskDialogProps) {
     setSaving(true);
     try {
       // For Discord, use the manually entered channel ID; for others, use empty
-      const actualChannelId = selectedChannel!.type === 'discord'
-        ? discordChannelId.trim()
-        : '';
+      const actualChannelId = selectedChannel!.type === 'discord' ? discordChannelId.trim() : '';
 
       await onSave({
-          name: name.trim(),
-          message: message.trim(),
-          schedule: finalSchedule,
-          target: {
-            channelType: selectedChannel!.type,
-            channelId: actualChannelId,
-            channelName: selectedChannel!.name,
-          },
-          enabled,
-          assignedEmployeeId: assignedEmployeeId || undefined,
-        });
+        name: name.trim(),
+        message: message.trim(),
+        schedule: finalSchedule,
+        target: {
+          channelType: selectedChannel!.type,
+          channelId: actualChannelId,
+          channelName: selectedChannel!.name,
+        },
+        enabled,
+        assignedEmployeeId: assignedEmployeeId || undefined,
+      });
       onClose();
       toast.success(job ? t('toast.updated') : t('toast.created'));
     } catch (err) {
@@ -212,8 +216,14 @@ function TaskDialog({ job, onClose, onSave }: TaskDialogProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
-      <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <Card
+        className="w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         <CardHeader className="flex flex-row items-start justify-between">
           <div>
             <CardTitle>{job ? t('dialog.editTitle') : t('dialog.createTitle')}</CardTitle>
@@ -262,15 +272,23 @@ function TaskDialog({ job, onClose, onSave }: TaskDialogProps) {
                     className="justify-start"
                   >
                     <Timer className="h-4 w-4 mr-2" />
-                    {preset.label === 'Every minute' ? t('presets.everyMinute') :
-                      preset.label === 'Every 5 minutes' ? t('presets.every5Min') :
-                        preset.label === 'Every 15 minutes' ? t('presets.every15Min') :
-                          preset.label === 'Every hour' ? t('presets.everyHour') :
-                            preset.label === 'Daily at 9am' ? t('presets.daily9am') :
-                              preset.label === 'Daily at 6pm' ? t('presets.daily6pm') :
-                                preset.label === 'Weekly (Mon 9am)' ? t('presets.weeklyMon') :
-                                  preset.label === 'Monthly (1st at 9am)' ? t('presets.monthly1st') :
-                                    preset.label}
+                    {preset.label === 'Every minute'
+                      ? t('presets.everyMinute')
+                      : preset.label === 'Every 5 minutes'
+                        ? t('presets.every5Min')
+                        : preset.label === 'Every 15 minutes'
+                          ? t('presets.every15Min')
+                          : preset.label === 'Every hour'
+                            ? t('presets.everyHour')
+                            : preset.label === 'Daily at 9am'
+                              ? t('presets.daily9am')
+                              : preset.label === 'Daily at 6pm'
+                                ? t('presets.daily6pm')
+                                : preset.label === 'Weekly (Mon 9am)'
+                                  ? t('presets.weeklyMon')
+                                  : preset.label === 'Monthly (1st at 9am)'
+                                    ? t('presets.monthly1st')
+                                    : preset.label}
                   </Button>
                 ))}
               </div>
@@ -296,9 +314,7 @@ function TaskDialog({ job, onClose, onSave }: TaskDialogProps) {
           <div className="space-y-2">
             <Label>{t('dialog.targetChannel')}</Label>
             {channels.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                {t('dialog.noChannels')}
-              </p>
+              <p className="text-sm text-muted-foreground">{t('dialog.noChannels')}</p>
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 {channels.map((channel) => (
@@ -327,9 +343,7 @@ function TaskDialog({ job, onClose, onSave }: TaskDialogProps) {
                 onChange={(e) => setDiscordChannelId(e.target.value)}
                 placeholder={t('dialog.discordChannelIdPlaceholder')}
               />
-              <p className="text-xs text-muted-foreground">
-                {t('dialog.discordChannelIdDesc')}
-              </p>
+              <p className="text-xs text-muted-foreground">{t('dialog.discordChannelIdDesc')}</p>
             </div>
           )}
           {/* Assign Employee */}
@@ -346,18 +360,14 @@ function TaskDialog({ job, onClose, onSave }: TaskDialogProps) {
                 </option>
               ))}
             </Select>
-            <p className="text-xs text-muted-foreground">
-              {t('dialog.assignEmployeePlaceholder')}
-            </p>
+            <p className="text-xs text-muted-foreground">{t('dialog.assignEmployeePlaceholder')}</p>
           </div>
 
           {/* Enabled */}
           <div className="flex items-center justify-between">
             <div>
               <Label>{t('dialog.enableImmediately')}</Label>
-              <p className="text-sm text-muted-foreground">
-                {t('dialog.enableImmediatelyDesc')}
-              </p>
+              <p className="text-sm text-muted-foreground">{t('dialog.enableImmediatelyDesc')}</p>
             </div>
             <Switch checked={enabled} onCheckedChange={setEnabled} />
           </div>
@@ -411,7 +421,9 @@ function CronJobCard({ job, onToggle, onEdit, onDelete, onTrigger }: CronJobCard
       toast.success(t('toast.triggered'));
     } catch (error) {
       console.error('Failed to trigger cron job:', error);
-      toast.error(`Failed to trigger task: ${error instanceof Error ? error.message : String(error)}`);
+      toast.error(
+        `Failed to trigger task: ${error instanceof Error ? error.message : String(error)}`
+      );
     } finally {
       setTriggering(false);
     }
@@ -424,23 +436,19 @@ function CronJobCard({ job, onToggle, onEdit, onDelete, onTrigger }: CronJobCard
   };
 
   return (
-    <Card className={cn(
-      'transition-colors',
-      job.enabled && 'border-primary/30'
-    )}>
+    <Card className={cn('transition-colors', job.enabled && 'border-primary/30')}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className={cn(
-              'rounded-full p-2',
-              job.enabled
-                ? 'bg-green-100 dark:bg-green-900/30'
-                : 'bg-muted'
-            )}>
-              <Clock className={cn(
-                'h-5 w-5',
-                job.enabled ? 'text-green-600' : 'text-muted-foreground'
-              )} />
+            <div
+              className={cn(
+                'rounded-full p-2',
+                job.enabled ? 'bg-green-100 dark:bg-green-900/30' : 'bg-muted'
+              )}
+            >
+              <Clock
+                className={cn('h-5 w-5', job.enabled ? 'text-green-600' : 'text-muted-foreground')}
+              />
             </div>
             <div>
               <CardTitle className="text-lg">{job.name}</CardTitle>
@@ -454,10 +462,7 @@ function CronJobCard({ job, onToggle, onEdit, onDelete, onTrigger }: CronJobCard
             <Badge variant={job.enabled ? 'success' : 'secondary'}>
               {job.enabled ? t('stats.active') : t('stats.paused')}
             </Badge>
-            <Switch
-              checked={job.enabled}
-              onCheckedChange={onToggle}
-            />
+            <Switch checked={job.enabled} onCheckedChange={onToggle} />
           </div>
         </div>
       </CardHeader>
@@ -465,9 +470,7 @@ function CronJobCard({ job, onToggle, onEdit, onDelete, onTrigger }: CronJobCard
         {/* Message Preview */}
         <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50">
           <MessageSquare className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-          <p className="text-sm text-muted-foreground line-clamp-2">
-            {job.message}
-          </p>
+          <p className="text-sm text-muted-foreground line-clamp-2">{job.message}</p>
         </div>
 
         {/* Metadata */}
@@ -480,7 +483,9 @@ function CronJobCard({ job, onToggle, onEdit, onDelete, onTrigger }: CronJobCard
           {assignedEmployee && (
             <span className="flex items-center gap-1">
               <UserCheck className="h-4 w-4" />
-              {t('card.assignedTo', { name: `${assignedEmployee.avatar} ${assignedEmployee.name}` })}
+              {t('card.assignedTo', {
+                name: `${assignedEmployee.avatar} ${assignedEmployee.name}`,
+              })}
             </span>
           )}
 
@@ -514,12 +519,7 @@ function CronJobCard({ job, onToggle, onEdit, onDelete, onTrigger }: CronJobCard
 
         {/* Actions */}
         <div className="flex justify-end gap-1 pt-2 border-t">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleTrigger}
-            disabled={triggering}
-          >
+          <Button variant="ghost" size="sm" onClick={handleTrigger} disabled={triggering}>
             {triggering ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
@@ -543,7 +543,17 @@ function CronJobCard({ job, onToggle, onEdit, onDelete, onTrigger }: CronJobCard
 
 export function Cron() {
   const { t } = useTranslation('cron');
-  const { jobs, loading, error, fetchJobs, createJob, updateJob, toggleJob, deleteJob, triggerJob } = useCronStore();
+  const {
+    jobs,
+    loading,
+    error,
+    fetchJobs,
+    createJob,
+    updateJob,
+    toggleJob,
+    deleteJob,
+    triggerJob,
+  } = useCronStore();
   const { fetchChannels } = useChannelsStore();
   const { fetchEmployees } = useEmployeesStore();
   const gatewayStatus = useGatewayStore((state) => state.status);
@@ -566,31 +576,40 @@ export function Cron() {
   const pausedJobs = jobs.filter((j) => !j.enabled);
   const failedJobs = jobs.filter((j) => j.lastRun && !j.lastRun.success);
 
-  const handleSave = useCallback(async (input: CronJobCreateInput) => {
-    if (editingJob) {
-      await updateJob(editingJob.id, input);
-    } else {
-      await createJob(input);
-    }
-  }, [editingJob, createJob, updateJob]);
+  const handleSave = useCallback(
+    async (input: CronJobCreateInput) => {
+      if (editingJob) {
+        await updateJob(editingJob.id, input);
+      } else {
+        await createJob(input);
+      }
+    },
+    [editingJob, createJob, updateJob]
+  );
 
-  const handleToggle = useCallback(async (id: string, enabled: boolean) => {
-    try {
-      await toggleJob(id, enabled);
-      toast.success(enabled ? t('toast.enabled') : t('toast.paused'));
-    } catch {
-      toast.error(t('toast.failedUpdate'));
-    }
-  }, [toggleJob, t]);
+  const handleToggle = useCallback(
+    async (id: string, enabled: boolean) => {
+      try {
+        await toggleJob(id, enabled);
+        toast.success(enabled ? t('toast.enabled') : t('toast.paused'));
+      } catch {
+        toast.error(t('toast.failedUpdate'));
+      }
+    },
+    [toggleJob, t]
+  );
 
-  const handleDelete = useCallback(async (id: string) => {
-    try {
-      await deleteJob(id);
-      toast.success(t('toast.deleted'));
-    } catch {
-      toast.error(t('toast.failedDelete'));
-    }
-  }, [deleteJob, t]);
+  const handleDelete = useCallback(
+    async (id: string) => {
+      try {
+        await deleteJob(id);
+        toast.success(t('toast.deleted'));
+      } catch {
+        toast.error(t('toast.failedDelete'));
+      }
+    },
+    [deleteJob, t]
+  );
 
   if (loading) {
     return (
@@ -605,10 +624,8 @@ export function Cron() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{t('title')}</h1>
-          <p className="text-muted-foreground">
-            {t('subtitle')}
-          </p>
+          <h1 className="font-pixel text-xl font-bold tracking-wide">{t('title')}</h1>
+          <p className="text-xs text-muted-foreground mt-1">{t('subtitle')}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={fetchJobs} disabled={!isGatewayRunning}>
@@ -633,9 +650,7 @@ export function Cron() {
         <Card className="border-yellow-500 bg-yellow-50 dark:bg-yellow-900/10">
           <CardContent className="py-4 flex items-center gap-3">
             <AlertCircle className="h-5 w-5 text-yellow-600" />
-            <span className="text-yellow-700 dark:text-yellow-400">
-              {t('gatewayWarning')}
-            </span>
+            <span className="text-yellow-700 dark:text-yellow-400">{t('gatewayWarning')}</span>
           </CardContent>
         </Card>
       )}

@@ -64,6 +64,7 @@
   },
   "supervisor": {
     "title": "主管模式",
+    "subtitle": "编排你的 AI 团队",
     "description": "将所有飞书消息路由给 AI 主管，由主管委派任务给专业员工。",
     "feishuMode": "飞书委派",
     "feishuModeDesc": "启用后，主管将自动管理飞书对话并委派任务给团队成员。",

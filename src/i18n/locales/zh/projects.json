@@ -1,0 +1,56 @@
+{
+  "title": "项目",
+  "subtitle": "主管编排的所有团队协作项目",
+  "filters": {
+    "all": "全部",
+    "executing": "执行中",
+    "planning": "规划中",
+    "reviewing": "审核中",
+    "completed": "已完成"
+  },
+  "status": {
+    "planning": "规划中",
+    "executing": "执行中",
+    "reviewing": "审核中",
+    "completed": "已完成"
+  },
+  "card": {
+    "tasks": "任务"
+  },
+  "empty": {
+    "title": "还没有项目",
+    "description": "去和主管聊聊你的目标，主管会自动创建项目、拆解任务并分配给团队",
+    "action": "和主管对话"
+  },
+  "detail": {
+    "backToList": "项目列表",
+    "notFound": "项目不存在",
+    "backToProjects": "返回项目列表",
+    "running": "已运行",
+    "taskPipeline": "任务流水线",
+    "planningTasks": "主管正在规划任务...",
+    "collaborationLog": "协作日志",
+    "noRecords": "暂无协作记录",
+    "refresh": "刷新",
+    "records": "条记录",
+    "dependencies": "个依赖"
+  },
+  "time": {
+    "minutes": "分钟",
+    "hours": "小时",
+    "days": "天"
+  },
+  "messageType": {
+    "message": "消息",
+    "broadcast": "广播",
+    "planApproval": "方案审批",
+    "shutdownRequest": "停止请求",
+    "shutdownResponse": "停止响应"
+  },
+  "orchestration": {
+    "noActiveProjects": "还没有活跃项目",
+    "noActiveProjectsDesc": "在左侧告诉主管你的目标，主管会自动拆解任务并分配给团队成员",
+    "inProgress": "进行中",
+    "working": "执行中"
+  }
+}

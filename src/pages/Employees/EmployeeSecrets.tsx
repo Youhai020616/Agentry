@@ -45,19 +45,13 @@ interface EmployeeSecretsProps {
 /* ── Cost Tier Badge ────────────────────────────────────────── */
 
 function CostBadge({ tier }: { tier: AIModel['costTier'] }) {
+  const { t } = useTranslation('employees');
   const colors: Record<string, string> = {
     free: 'bg-green-500/10 text-green-600',
     low: 'bg-blue-500/10 text-blue-600',
     medium: 'bg-yellow-500/10 text-yellow-700',
     high: 'bg-orange-500/10 text-orange-600',
     premium: 'bg-red-500/10 text-red-600',
-  };
-  const labels: Record<string, string> = {
-    free: '免费',
-    low: '低价',
-    medium: '中等',
-    high: '较贵',
-    premium: '高端',
   };
   return (
     <span
@@ -66,7 +60,7 @@ function CostBadge({ tier }: { tier: AIModel['costTier'] }) {
         colors[tier]
       )}
     >
-      {labels[tier]}
+      {t(`costTier.${tier}`)}
     </span>
   );
 }
@@ -82,6 +76,7 @@ function ModelOption({
   selected: boolean;
   onSelect: (id: string) => void;
 }) {
+  const { t } = useTranslation('employees');
   return (
     <button
       type="button"
@@ -116,20 +111,22 @@ function ModelOption({
               className="gap-0.5 rounded-full px-1.5 py-0 text-[10px] border-primary/30 text-primary"
             >
               <Sparkles className="h-2.5 w-2.5" />
-              推荐
+              {t('modelBadges.recommended')}
             </Badge>
           )}
           <CostBadge tier={model.costTier} />
           {model.supportsToolUse && (
             <span className="inline-flex items-center gap-0.5 text-[10px] text-green-600">
               <Zap className="h-2.5 w-2.5" />
-              工具
+              {t('modelBadges.tools')}
             </span>
           )}
         </div>
         <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{model.description}</p>
         <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground/70">
-          <span>{formatContextWindow(model.contextWindow)} 上下文</span>
+          <span>
+            {formatContextWindow(model.contextWindow)} {t('modelBadges.context')}
+          </span>
         </div>
       </div>
     </button>
@@ -273,9 +270,7 @@ export function EmployeeSecrets({
         {/* Header */}
         <div className="flex items-center justify-between border-b px-5 py-4">
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold">
-              {t('settings.title', { name: employeeName, defaultValue: `${employeeName} 设置` })}
-            </h2>
+            <h2 className="text-lg font-semibold">{t('settings.title', { name: employeeName })}</h2>
           </div>
           <Button
             variant="ghost"
@@ -300,7 +295,7 @@ export function EmployeeSecrets({
             )}
           >
             <Cpu className="h-3.5 w-3.5" />
-            {t('settings.modelTab', { defaultValue: 'AI 模型' })}
+            {t('settings.modelTab')}
           </button>
           {hasSecrets && (
             <button
@@ -327,12 +322,7 @@ export function EmployeeSecrets({
               {/* Description */}
               <div className="flex items-start gap-2 rounded-lg bg-muted/50 p-3">
                 <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                <p className="text-xs text-muted-foreground">
-                  {t('settings.modelDescription', {
-                    defaultValue:
-                      '选择驱动该员工的 AI 模型。需要工具调用能力的员工（如自动化操作）请选择支持「工具」标记的模型。不选择则使用全局默认模型。',
-                  })}
-                </p>
+                <p className="text-xs text-muted-foreground">{t('settings.modelDescription')}</p>
               </div>
 
               {/* Current selection display */}
@@ -340,7 +330,7 @@ export function EmployeeSecrets({
                 <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
                   <Check className="h-4 w-4 text-primary shrink-0" />
                   <span className="text-sm">
-                    {t('settings.currentModel', { defaultValue: '当前模型：' })}
+                    {t('settings.currentModel')}
                     <span className="font-medium">{currentModelInfo.name}</span>
                   </span>
                 </div>
@@ -348,7 +338,7 @@ export function EmployeeSecrets({
               {!selectedModel && !loadingModel && (
                 <div className="flex items-center gap-2 rounded-lg border border-muted bg-muted/30 px-3 py-2">
                   <span className="text-sm text-muted-foreground">
-                    {t('settings.usingDefault', { defaultValue: '使用全局默认模型' })}
+                    {t('settings.usingDefault')}
                   </span>
                 </div>
               )}
@@ -361,7 +351,7 @@ export function EmployeeSecrets({
                   className="text-xs text-muted-foreground"
                   onClick={() => setSelectedModel('')}
                 >
-                  {t('settings.useDefault', { defaultValue: '清除选择（使用默认模型）' })}
+                  {t('settings.useDefault')}
                 </Button>
               )}
 
@@ -393,8 +383,7 @@ export function EmployeeSecrets({
                           <div className="flex items-center gap-2">
                             <span>{displayName}</span>
                             <span className="text-[10px] text-muted-foreground font-normal">
-                              {models.length}{' '}
-                              {t('settings.modelsCount', { defaultValue: '个模型' })}
+                              {models.length} {t('settings.modelsCount')}
                             </span>
                             {hasSelected && <Check className="h-3.5 w-3.5 text-primary" />}
                           </div>
@@ -519,7 +508,7 @@ export function EmployeeSecrets({
             {activeTab === 'model' && modelSaved && (
               <p className="text-xs text-green-600 flex items-center gap-1">
                 <Check className="h-3 w-3" />
-                {t('settings.modelSaved', { defaultValue: '模型已保存' })}
+                {t('settings.modelSaved')}
               </p>
             )}
             {activeTab === 'secrets' && saved && (
@@ -533,7 +522,7 @@ export function EmployeeSecrets({
           {/* Save button */}
           {activeTab === 'model' ? (
             <Button onClick={handleSaveModel} disabled={savingModel} className="gap-1.5">
-              {t('settings.saveModel', { defaultValue: '保存模型' })}
+              {t('settings.saveModel')}
             </Button>
           ) : (
             <Button onClick={handleSaveSecrets} disabled={saving} className="gap-1.5">

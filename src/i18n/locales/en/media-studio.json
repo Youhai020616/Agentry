@@ -120,7 +120,11 @@
       "startBtn": "Generate Video",
       "logTitle": "Seedance 2.0 API Log",
       "resultTitle": "Video Result",
-      "promptLabel": "Seedance Prompt"
+      "promptLabel": "Seedance Prompt",
+      "failedTitle": "Video generation is currently unavailable",
+      "failedDesc": "The current API does not support video generation. You can skip this step and publish directly, or configure a different video generation API in settings.",
+      "skipToPublish": "Skip to publish",
+      "generating": "Generating..."
     },
     "step4": {
       "title": "Auto Publish",

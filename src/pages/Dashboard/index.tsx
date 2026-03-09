@@ -46,10 +46,7 @@ function timeAgo(
   return t('timeAgo.daysAgo', { count: diffDay });
 }
 
-function getDateGroup(
-  timestamp: number,
-  t: (key: string) => string
-): string {
+function getDateGroup(timestamp: number, t: (key: string) => string): string {
   const now = new Date();
   const date = new Date(timestamp);
 
@@ -80,9 +77,7 @@ function StatusBar() {
   const tasks = useTasksStore((s) => s.tasks);
   const balance = useCreditsStore((s) => s.balance);
 
-  const onlineCount = employees.filter(
-    (e) => e.status === 'idle' || e.status === 'working'
-  ).length;
+  const onlineCount = employees.filter((e) => e.status === 'idle' || e.status === 'working').length;
   const activeTaskCount = tasks.filter(
     (t) => t.status === 'pending' || t.status === 'in_progress'
   ).length;
@@ -110,18 +105,15 @@ function StatusBar() {
 function getEventIcon(event: ActivityEvent) {
   switch (event.type) {
     case 'task':
-      if (event.action === 'completed')
-        return <CheckCircle2 className="h-4 w-4 text-green-500" />;
-      if (event.action === 'claimed')
-        return <PlayCircle className="h-4 w-4 text-blue-500" />;
+      if (event.action === 'completed') return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+      if (event.action === 'claimed') return <PlayCircle className="h-4 w-4 text-blue-500" />;
       return <PlusCircle className="h-4 w-4 text-muted-foreground" />;
     case 'credits':
       return <Coins className="h-4 w-4 text-amber-500" />;
     case 'employee':
       if (event.action === 'idle' || event.action === 'activated')
         return <Wifi className="h-4 w-4 text-green-500" />;
-      if (event.action === 'error')
-        return <AlertCircle className="h-4 w-4 text-red-500" />;
+      if (event.action === 'error') return <AlertCircle className="h-4 w-4 text-red-500" />;
       if (event.action === 'deactivated' || event.action === 'offline')
         return <WifiOff className="h-4 w-4 text-muted-foreground" />;
       return <Wifi className="h-4 w-4 text-blue-500" />;
@@ -168,9 +160,7 @@ function ActivityItem({ event }: { event: ActivityEvent }) {
   const { t } = useTranslation('dashboard');
   const employees = useEmployeesStore((s) => s.employees);
 
-  const employee = event.employeeId
-    ? employees.find((e) => e.id === event.employeeId)
-    : null;
+  const employee = event.employeeId ? employees.find((e) => e.id === event.employeeId) : null;
 
   return (
     <div className="flex items-start gap-3 py-3">
@@ -194,9 +184,7 @@ function ActivityItem({ event }: { event: ActivityEvent }) {
       <div className="min-w-0 flex-1">
         <p className="text-sm">{getEventText(event, t)}</p>
         <div className="mt-0.5 flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">
-            {timeAgo(event.timestamp, t)}
-          </span>
+          <span className="text-xs text-muted-foreground">{timeAgo(event.timestamp, t)}</span>
           {event.amount !== undefined && event.type === 'credits' && (
             <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
               -{event.amount}
@@ -206,9 +194,7 @@ function ActivityItem({ event }: { event: ActivityEvent }) {
       </div>
 
       {/* Right icon */}
-      {employee && (
-        <div className="mt-1 shrink-0">{getEventIcon(event)}</div>
-      )}
+      {employee && <div className="mt-1 shrink-0">{getEventIcon(event)}</div>}
     </div>
   );
 }
@@ -277,9 +263,7 @@ function ActivityTimeline() {
             onClick={loadMore}
             disabled={loading}
           >
-            {loading ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : null}
+            {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
             {t('loadMore')}
           </Button>
         </div>
@@ -305,21 +289,33 @@ export function Dashboard() {
     fetchTasks();
     fetchBalance();
     fetchEvents();
-  }, [initEmployees, initTasks, initActivity, fetchEmployees, fetchTasks, fetchBalance, fetchEvents]);
+  }, [
+    initEmployees,
+    initTasks,
+    initActivity,
+    fetchEmployees,
+    fetchTasks,
+    fetchBalance,
+    fetchEvents,
+  ]);
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-auto">
       {/* Page header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <h1 className="font-pixel text-xl font-bold tracking-wide">{t('title')}</h1>
+        <p className="text-xs text-muted-foreground mt-1">{t('subtitle')}</p>
       </div>
 
       {/* Compact status bar */}
       <StatusBar />
 
       {/* Activity timeline */}
-      <div className={cn('bg-card rounded-2xl glass-border shadow-island p-6 flex-1 min-h-0 overflow-auto')}>
+      <div
+        className={cn(
+          'bg-card rounded-2xl glass-border shadow-island p-6 flex-1 min-h-0 overflow-auto'
+        )}
+      >
         <ActivityTimeline />
       </div>
     </div>

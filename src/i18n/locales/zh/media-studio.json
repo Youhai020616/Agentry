@@ -120,7 +120,11 @@
       "startBtn": "生成视频内容",
       "logTitle": "Seedance 2.0 API 调用日志",
       "resultTitle": "视频生成结果",
-      "promptLabel": "Seedance 提示词"
+      "promptLabel": "Seedance 提示词",
+      "failedTitle": "视频生成暂不可用",
+      "failedDesc": "当前 API 不支持视频生成。你可以跳过此步骤直接发布，或在设置中配置其他视频生成 API。",
+      "skipToPublish": "跳过，直接发布",
+      "generating": "生成中..."
     },
     "step4": {
       "title": "自动化发布",

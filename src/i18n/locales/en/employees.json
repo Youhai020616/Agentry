@@ -212,6 +212,18 @@
     "enter": "Open Workspace",
     "online": "{{count}} online"
   },
+  "costTier": {
+    "free": "Free",
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High",
+    "premium": "Premium"
+  },
+  "modelBadges": {
+    "recommended": "Recommended",
+    "tools": "Tools",
+    "context": "context"
+  },
   "teams": {
     "marketing": "Marketing",
     "development": "Development",

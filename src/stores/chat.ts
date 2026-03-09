@@ -746,7 +746,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   // ── Load chat history ──
 
   loadHistory: async () => {
-    const { currentSessionKey } = get();
+    const sessionKeyAtStart = get().currentSessionKey;
+    // Guard: if session changed while awaiting, discard stale results
+    const isStale = () => get().currentSessionKey !== sessionKeyAtStart;
     set({ loading: true, error: null });
 
     // ── Step 1: Try loading from local SQLite store first (survives Gateway restarts) ──
@@ -754,7 +756,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     let usedLocalFallback = false;
     try {
       const localResult = (await window.electron.ipcRenderer.invoke('chatMessage:list', {
-        sessionKey: currentSessionKey,
+        sessionKey: sessionKeyAtStart,
         limit: 200,
       })) as { success: boolean; result?: Array<Record<string, unknown>>; error?: string };
 
@@ -789,11 +791,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // ── Step 2: Try loading from Gateway (live source of truth when available) ──
     try {
       const result = (await window.electron.ipcRenderer.invoke('gateway:rpc', 'chat.history', {
-        sessionKey: currentSessionKey,
+        sessionKey: sessionKeyAtStart,
         limit: 200,
       })) as { success: boolean; result?: Record<string, unknown>; error?: string };
 
       if (result.success && result.result) {
+        // Discard if session switched while we were fetching
+        if (isStale()) return;
         const data = result.result;
         const rawMessages = Array.isArray(data.messages) ? (data.messages as RawMessage[]) : [];
         const filteredMessages = rawMessages.filter((msg) => !isToolResultRole(msg.role));
@@ -817,7 +821,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
         // Async: sync Gateway messages to local store for persistence
         window.electron.ipcRenderer
-          .invoke('chatMessage:sync', { sessionKey: currentSessionKey })
+          .invoke('chatMessage:sync', { sessionKey: sessionKeyAtStart })
           .catch((err: unknown) =>
             console.debug('[loadHistory] Background sync to local store failed:', err)
           );
@@ -861,7 +865,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             }
           }
         }
-      } else if (localMessages.length > 0) {
+      } else if (!isStale() && localMessages.length > 0) {
         // Gateway returned no data — fall back to local store
         usedLocalFallback = true;
         const filteredLocal = localMessages.filter((msg) => !isToolResultRole(msg.role));
@@ -870,10 +874,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
         console.info(
           `[loadHistory] Using ${enrichedLocal.length} messages from local store (Gateway returned empty)`
         );
-      } else {
+      } else if (!isStale()) {
         set({ messages: [], loading: false });
       }
     } catch (err) {
+      if (isStale()) return;
       // Gateway unreachable — fall back to local store if we have data
       if (localMessages.length > 0) {
         usedLocalFallback = true;

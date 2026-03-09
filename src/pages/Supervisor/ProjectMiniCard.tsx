@@ -5,6 +5,7 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { CheckCircle2, Circle, Loader2, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -20,11 +21,11 @@ interface ProjectMiniCardProps {
 
 // ── Status styling ─────────────────────────────────────────────────
 
-const statusConfig: Record<ProjectStatus, { label: string; variant: 'default' | 'secondary' | 'warning' | 'success' }> = {
-  planning: { label: '规划中', variant: 'secondary' },
-  executing: { label: '执行中', variant: 'default' },
-  reviewing: { label: '审核中', variant: 'warning' },
-  completed: { label: '已完成', variant: 'success' },
+const statusVariant: Record<ProjectStatus, 'default' | 'secondary' | 'warning' | 'success'> = {
+  planning: 'secondary',
+  executing: 'default',
+  reviewing: 'warning',
+  completed: 'success',
 };
 
 // ── Wave Node ──────────────────────────────────────────────────────
@@ -78,6 +79,7 @@ function WaveConnector({ done }: { done: boolean }) {
 
 export function ProjectMiniCard({ project, tasks, className }: ProjectMiniCardProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation('projects');
 
   // Group tasks by wave
   const waves = useMemo(() => {
@@ -103,7 +105,7 @@ export function ProjectMiniCard({ project, tasks, className }: ProjectMiniCardPr
     return Array.from(ids);
   }, [tasks]);
 
-  const cfg = statusConfig[project.status] ?? statusConfig.planning;
+  const variant = statusVariant[project.status] ?? statusVariant.planning;
 
   return (
     <motion.div
@@ -125,8 +127,8 @@ export function ProjectMiniCard({ project, tasks, className }: ProjectMiniCardPr
       {/* Header: goal + status */}
       <div className="flex items-start justify-between gap-2 mb-3">
         <p className="text-sm font-medium leading-snug line-clamp-2 flex-1">{project.goal}</p>
-        <Badge variant={cfg.variant} className="shrink-0 text-[10px]">
-          {cfg.label}
+        <Badge variant={variant} className="shrink-0 text-[10px]">
+          {t(`status.${project.status}`)}
         </Badge>
       </div>
 
@@ -153,9 +155,7 @@ export function ProjectMiniCard({ project, tasks, className }: ProjectMiniCardPr
         <div className="flex items-start gap-0 mb-3 overflow-x-auto">
           {waves.map(([wave, waveTasks], i) => (
             <div key={wave} className="flex items-start">
-              {i > 0 && (
-                <WaveConnector done={waveTasks.every((t) => t.status === 'completed')} />
-              )}
+              {i > 0 && <WaveConnector done={waveTasks.every((t) => t.status === 'completed')} />}
               <WaveNode wave={wave} tasks={waveTasks} />
             </div>
           ))}
@@ -174,9 +174,7 @@ export function ProjectMiniCard({ project, tasks, className }: ProjectMiniCardPr
             </span>
           ))}
           {employeeIds.length > 4 && (
-            <span className="text-[10px] text-muted-foreground">
-              +{employeeIds.length - 4}
-            </span>
+            <span className="text-[10px] text-muted-foreground">+{employeeIds.length - 4}</span>
           )}
         </div>
       )}

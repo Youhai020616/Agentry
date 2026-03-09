@@ -185,19 +185,19 @@ export function Supervisor() {
   }
 
   return (
-    <div className="-m-6 flex h-[calc(100%+3rem)] flex-col">
+    <div className="-mx-4 -my-3 flex h-[calc(100%+1.5rem)] flex-col">
       {/* Top bar: character indicator + panel toggle */}
       <div className="flex shrink-0 items-center justify-between gap-2 px-4 py-2 border-b border-border/40">
         <div className="flex items-center gap-2">
           {selectedId === SUPERVISOR_ID ? (
             <>
               <Crown className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium">{t('supervisor.title')}</span>
+              <span className="text-sm font-semibold">{t('supervisor.title')}</span>
             </>
           ) : selectedEmployee ? (
             <>
               <span className="text-base">{selectedEmployee.avatar || '\uD83E\uDD16'}</span>
-              <span className="text-sm font-medium">{selectedEmployee.name}</span>
+              <span className="text-sm font-semibold">{selectedEmployee.name}</span>
               <span className="text-xs text-muted-foreground">{selectedEmployee.role}</span>
             </>
           ) : null}

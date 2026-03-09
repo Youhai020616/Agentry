@@ -49,6 +49,7 @@ interface SettingsState {
 
   // UI State
   sidebarCollapsed: boolean;
+  sidebarWidth: number;
   devModeUnlocked: boolean;
 
   // Setup
@@ -71,6 +72,7 @@ interface SettingsState {
   setAutoCheckUpdate: (value: boolean) => void;
   setAutoDownloadUpdate: (value: boolean) => void;
   setSidebarCollapsed: (value: boolean) => void;
+  setSidebarWidth: (value: number) => void;
   setDevModeUnlocked: (value: boolean) => void;
   setByokEnabled: (value: boolean) => void;
   setMediaStudio: (config: Partial<MediaStudioConfig>) => void;
@@ -95,6 +97,7 @@ const defaultSettings = {
   autoCheckUpdate: true,
   autoDownloadUpdate: false,
   sidebarCollapsed: false,
+  sidebarWidth: 176,
   devModeUnlocked: false,
   setupComplete: false,
   byokEnabled: false,
@@ -119,6 +122,7 @@ export const useSettingsStore = create<SettingsState>()(
       setAutoCheckUpdate: (autoCheckUpdate) => set({ autoCheckUpdate }),
       setAutoDownloadUpdate: (autoDownloadUpdate) => set({ autoDownloadUpdate }),
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
+      setSidebarWidth: (sidebarWidth) => set({ sidebarWidth }),
       setDevModeUnlocked: (devModeUnlocked) => set({ devModeUnlocked }),
       setByokEnabled: (byokEnabled) => set({ byokEnabled }),
       setMediaStudio: (config) =>

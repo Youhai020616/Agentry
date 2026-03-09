@@ -271,10 +271,10 @@ export function Settings() {
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">{t('title')}</h1>
-        <p className="text-muted-foreground">{t('subtitle')}</p>
+        <h1 className="font-pixel text-xl font-bold tracking-wide">{t('title')}</h1>
+        <p className="text-xs text-muted-foreground mt-1">{t('subtitle')}</p>
       </div>
 
       {/* Appearance */}

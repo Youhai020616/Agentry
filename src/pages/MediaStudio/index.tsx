@@ -90,7 +90,7 @@ export function MediaStudio() {
   }, []);
 
   return (
-    <div className="-m-6 flex h-[calc(100%+48px)]">
+    <div className="absolute inset-0 flex overflow-hidden">
       {/* Internal sidebar */}
       <MediaSidebar />
 

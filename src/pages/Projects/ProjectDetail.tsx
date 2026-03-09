@@ -4,6 +4,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
@@ -31,24 +32,19 @@ import type { Task, TaskStatus, ProjectStatus, Message, MessageType } from '@/ty
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-function formatElapsed(createdAt: number | null | undefined): string | null {
-  if (!createdAt) return null;
-  const ms = Date.now() - createdAt;
-  const mins = Math.floor(ms / 60000);
-  if (mins < 60) return `${mins} 分钟`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} 小时`;
-  return `${Math.floor(hrs / 24)} 天`;
+function useFormatElapsed(t: (key: string) => string) {
+  return (createdAt: number | null | undefined): string | null => {
+    if (!createdAt) return null;
+    const ms = Date.now() - createdAt;
+    const mins = Math.floor(ms / 60000);
+    if (mins < 60) return `${mins} ${t('time.minutes')}`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs} ${t('time.hours')}`;
+    return `${Math.floor(hrs / 24)} ${t('time.days')}`;
+  };
 }
 
 // ── Status config ──────────────────────────────────────────────────
-
-const projectStatusLabel: Record<ProjectStatus, string> = {
-  planning: '规划中',
-  executing: '执行中',
-  reviewing: '审核中',
-  completed: '已完成',
-};
 
 const projectStatusVariant: Record<ProjectStatus, 'secondary' | 'default' | 'warning' | 'success'> = {
   planning: 'secondary',
@@ -84,6 +80,7 @@ const taskVariants = {
 // ── Task Node ──────────────────────────────────────────────────────
 
 function TaskNode({ task }: { task: Task }) {
+  const { t } = useTranslation('projects');
   const employees = useEmployeesStore((s) => s.employees);
   const emp = employees.find((e) => e.id === task.owner);
   const cfg = taskStatusIcon[task.status] ?? taskStatusIcon.pending;
@@ -131,7 +128,7 @@ function TaskNode({ task }: { task: Task }) {
           )}
           {task.blockedBy.length > 0 && (
             <span className="text-[10px] text-muted-foreground">
-              {task.blockedBy.length} 个依赖
+              {task.blockedBy.length} {t('detail.dependencies')}
             </span>
           )}
         </div>
@@ -199,19 +196,10 @@ function WaveConnector({ done }: { done: boolean }) {
   );
 }
 
-// ── Message type config ───────────────────────────────────────────
-
-const messageTypeConfig: Record<MessageType, { label: string; color: string }> = {
-  message: { label: '消息', color: 'text-foreground' },
-  broadcast: { label: '广播', color: 'text-sky-600 dark:text-sky-400' },
-  plan_approval: { label: '方案审批', color: 'text-amber-600 dark:text-amber-400' },
-  shutdown_request: { label: '停止请求', color: 'text-red-500' },
-  shutdown_response: { label: '停止响应', color: 'text-zinc-500' },
-};
-
 // ── Collaboration Log ─────────────────────────────────────────────
 
 function CollaborationLog({ employeeIds }: { employeeIds: string[] }) {
+  const { t } = useTranslation('projects');
   const employees = useEmployeesStore((s) => s.employees);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
@@ -224,6 +212,25 @@ function CollaborationLog({ employeeIds }: { employeeIds: string[] }) {
     }
     return m;
   }, [employees]);
+
+  const messageTypeLabel: Record<MessageType, string> = useMemo(
+    () => ({
+      message: t('messageType.message'),
+      broadcast: t('messageType.broadcast'),
+      plan_approval: t('messageType.planApproval'),
+      shutdown_request: t('messageType.shutdownRequest'),
+      shutdown_response: t('messageType.shutdownResponse'),
+    }),
+    [t]
+  );
+
+  const messageTypeColor: Record<MessageType, string> = {
+    message: 'text-foreground',
+    broadcast: 'text-sky-600 dark:text-sky-400',
+    plan_approval: 'text-amber-600 dark:text-amber-400',
+    shutdown_request: 'text-red-500',
+    shutdown_response: 'text-zinc-500',
+  };
 
   const fetchMessages = useCallback(async () => {
     if (employeeIds.length === 0) return;
@@ -268,11 +275,11 @@ function CollaborationLog({ employeeIds }: { employeeIds: string[] }) {
       <div className="flex flex-col items-center justify-center py-8 text-center gap-2">
         <MessageSquare className="h-5 w-5 text-muted-foreground/50" />
         <p className="text-xs text-muted-foreground">
-          暂无协作记录
+          {t('detail.noRecords')}
         </p>
         <Button variant="ghost" size="sm" onClick={fetchMessages} className="text-xs h-7">
           <RefreshCw className="h-3 w-3 mr-1" />
-          刷新
+          {t('detail.refresh')}
         </Button>
       </div>
     );
@@ -290,7 +297,7 @@ function CollaborationLog({ employeeIds }: { employeeIds: string[] }) {
           className="text-xs h-6 px-2 text-muted-foreground"
         >
           <RefreshCw className={cn('h-3 w-3 mr-1', loading && 'animate-spin')} />
-          {messages.length} 条记录
+          {messages.length} {t('detail.records')}
         </Button>
       </div>
 
@@ -302,7 +309,10 @@ function CollaborationLog({ employeeIds }: { employeeIds: string[] }) {
         {messages.map((msg, i) => {
           const sender = empMap.get(msg.from);
           const receiver = empMap.get(msg.recipient);
-          const typeCfg = messageTypeConfig[msg.type] ?? messageTypeConfig.message;
+          const typeCfg = {
+            label: messageTypeLabel[msg.type] ?? messageTypeLabel.message,
+            color: messageTypeColor[msg.type] ?? messageTypeColor.message,
+          };
           const prevMsg = i > 0 ? messages[i - 1] : null;
 
           // Insert time separator if gap > 5 minutes
@@ -391,6 +401,7 @@ function CollaborationLog({ employeeIds }: { employeeIds: string[] }) {
 // ── Main Component ─────────────────────────────────────────────────
 
 export function ProjectDetail() {
+  const { t } = useTranslation('projects');
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -402,6 +413,8 @@ export function ProjectDetail() {
   const fetchEmployees = useEmployeesStore((s) => s.fetchEmployees);
 
   const [messagesExpanded, setMessagesExpanded] = useState(false);
+
+  const formatElapsed = useFormatElapsed(t);
 
   useEffect(() => {
     initTasks();
@@ -443,10 +456,10 @@ export function ProjectDetail() {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4">
         <Inbox className="h-10 w-10 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">项目不存在</p>
+        <p className="text-sm text-muted-foreground">{t('detail.notFound')}</p>
         <Button variant="outline" size="sm" onClick={() => navigate('/projects')}>
           <ArrowLeft className="h-4 w-4 mr-1.5" />
-          返回项目列表
+          {t('detail.backToProjects')}
         </Button>
       </div>
     );
@@ -465,7 +478,7 @@ export function ProjectDetail() {
           onClick={() => navigate('/projects')}
         >
           <ArrowLeft className="h-4 w-4 mr-1" />
-          项目列表
+          {t('detail.backToList')}
         </Button>
 
         <div className="flex items-start justify-between gap-4">
@@ -475,16 +488,16 @@ export function ProjectDetail() {
             </h1>
             <div className="flex items-center gap-3 flex-wrap">
               <Badge variant={statusCfg}>
-                {projectStatusLabel[project.status]}
+                {t(`status.${project.status}`)}
               </Badge>
               {elapsed && (
                 <span className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" />
-                  已运行 {elapsed}
+                  {t('detail.running')} {elapsed}
                 </span>
               )}
               <span className="text-xs text-muted-foreground font-mono tabular-nums">
-                {completedCount}/{projectTasks.length} 任务 ({progress}%)
+                {completedCount}/{projectTasks.length} {t('card.tasks')} ({progress}%)
               </span>
             </div>
           </div>
@@ -505,7 +518,7 @@ export function ProjectDetail() {
       {waves.length > 0 ? (
         <div>
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
-            任务流水线
+            {t('detail.taskPipeline')}
           </h2>
           <div className="flex gap-2 overflow-x-auto pb-4">
             {waves.map(([wave, waveTasks], i) => (
@@ -524,7 +537,7 @@ export function ProjectDetail() {
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <Inbox className="h-8 w-8 text-muted-foreground mb-3" />
           <p className="text-sm text-muted-foreground">
-            主管正在规划任务...
+            {t('detail.planningTasks')}
           </p>
         </div>
       )}
@@ -536,7 +549,7 @@ export function ProjectDetail() {
           className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-full"
         >
           <MessageSquare className="h-4 w-4" />
-          协作日志
+          {t('detail.collaborationLog')}
           <ChevronDown
             className={cn(
               'h-3.5 w-3.5 ml-auto transition-transform duration-200',
