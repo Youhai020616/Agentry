@@ -1,0 +1,56 @@
+{
+  "title": "Projects",
+  "subtitle": "All team collaboration projects orchestrated by supervisor",
+  "filters": {
+    "all": "All",
+    "executing": "Executing",
+    "planning": "Planning",
+    "reviewing": "Reviewing",
+    "completed": "Completed"
+  },
+  "status": {
+    "planning": "Planning",
+    "executing": "Executing",
+    "reviewing": "Reviewing",
+    "completed": "Completed"
+  },
+  "card": {
+    "tasks": "tasks"
+  },
+  "empty": {
+    "title": "No projects yet",
+    "description": "Talk to the supervisor about your goals, and the supervisor will automatically create projects, break down tasks, and assign them to the team.",
+    "action": "Talk to Supervisor"
+  },
+  "detail": {
+    "backToList": "Project List",
+    "notFound": "Project not found",
+    "backToProjects": "Back to Projects",
+    "running": "Running for",
+    "taskPipeline": "Task Pipeline",
+    "planningTasks": "Supervisor is planning tasks...",
+    "collaborationLog": "Collaboration Log",
+    "noRecords": "No collaboration records",
+    "refresh": "Refresh",
+    "records": "records",
+    "dependencies": "dependencies"
+  },
+  "time": {
+    "minutes": "min",
+    "hours": "hours",
+    "days": "days"
+  },
+  "messageType": {
+    "message": "Message",
+    "broadcast": "Broadcast",
+    "planApproval": "Plan Approval",
+    "shutdownRequest": "Shutdown Request",
+    "shutdownResponse": "Shutdown Response"
+  },
+  "orchestration": {
+    "noActiveProjects": "No active projects",
+    "noActiveProjectsDesc": "Tell the supervisor your goals on the left, and the supervisor will automatically break down tasks and assign them to team members.",
+    "inProgress": "in progress",
+    "working": "working"
+  }
+}

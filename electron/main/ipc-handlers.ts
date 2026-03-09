@@ -2070,7 +2070,7 @@ function registerEmployeeHandlers(employeeManager: EmployeeManager): void {
 
   ipcMain.handle('employee:deactivate', async (_event, id: string) => {
     try {
-      const employee = employeeManager.deactivate(id);
+      const employee = await employeeManager.deactivate(id);
       return { success: true, result: employee };
     } catch (error) {
       logger.error('employee:deactivate failed:', error);

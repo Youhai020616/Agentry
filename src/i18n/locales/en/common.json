@@ -64,6 +64,7 @@
   },
   "supervisor": {
     "title": "Supervisor Mode",
+    "subtitle": "Orchestrate your AI team",
     "description": "Route all Feishu messages through the AI Supervisor, who delegates tasks to specialist employees.",
     "feishuMode": "Feishu Delegation",
     "feishuModeDesc": "Enable Supervisor to manage Feishu conversations and delegate to team members automatically.",

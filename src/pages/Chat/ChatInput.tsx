@@ -23,8 +23,6 @@ import {
   File,
   Loader2,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { GlassFilter } from '@/components/ui/liquid-glass';
 import { cn } from '@/lib/utils';
 
 // ── Types ────────────────────────────────────────────────────────
@@ -146,7 +144,7 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const isComposingRef = useRef(false);
-  const { textareaRef, adjustHeight } = useAutoResizeTextarea(48, 200);
+  const { textareaRef, adjustHeight } = useAutoResizeTextarea(36, 200);
 
   // ── File staging via native dialog ─────────────────────────────
 
@@ -351,22 +349,21 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
 
   return (
     <div
-      className="px-4 pt-3 pb-3"
+      className="px-4 pt-2 pb-3"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <GlassFilter />
-      <div className="chat-glass-wrapper max-w-4xl mx-auto">
+      <div className="chat-glass-wrapper max-w-3xl mx-auto">
         <div
           className={cn(
-            'chat-glass-input overflow-hidden rounded-2xl',
+            'chat-glass-input overflow-hidden rounded-3xl',
             dragOver && 'ring-2 ring-primary'
           )}
         >
           {/* Attachment Previews */}
           {attachments.length > 0 && (
-            <div className="flex gap-2 flex-wrap px-3 pt-3 pb-1">
+            <div className="flex gap-2 flex-wrap px-3 pt-3 pb-0">
               {attachments.map((att) => (
                 <AttachmentPreview
                   key={att.id}
@@ -377,69 +374,76 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
             </div>
           )}
 
-          {/* Textarea Area */}
-          <div className="relative">
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                adjustHeight();
-              }}
-              onKeyDown={handleKeyDown}
-              onCompositionStart={() => {
-                isComposingRef.current = true;
-              }}
-              onCompositionEnd={() => {
-                isComposingRef.current = false;
-              }}
-              onPaste={handlePaste}
-              placeholder={
-                disabled
-                  ? 'Gateway not connected...'
-                  : 'Message (Enter to send, Shift+Enter for new line)'
-              }
-              disabled={disabled}
-              className={cn(
-                'w-full resize-none bg-transparent px-4 py-3 text-sm outline-none',
-                'placeholder:text-muted-foreground/60',
-                'disabled:cursor-not-allowed disabled:opacity-50'
-              )}
-              rows={1}
-            />
-          </div>
+          {/* Textarea — compact, clean */}
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value);
+              adjustHeight();
+            }}
+            onKeyDown={handleKeyDown}
+            onCompositionStart={() => {
+              isComposingRef.current = true;
+            }}
+            onCompositionEnd={() => {
+              isComposingRef.current = false;
+            }}
+            onPaste={handlePaste}
+            placeholder={disabled ? 'Gateway not connected...' : 'Ask anything...'}
+            disabled={disabled}
+            className={cn(
+              'w-full resize-none border-0 bg-transparent px-4 pt-3 pb-1 text-[15px] leading-relaxed outline-none',
+              'text-foreground placeholder:text-muted-foreground/40',
+              'focus:ring-0 focus-visible:outline-none min-h-[36px]',
+              'disabled:cursor-not-allowed disabled:opacity-50'
+            )}
+            rows={1}
+          />
 
-          {/* Toolbar */}
-          <div className="flex items-center justify-between px-3 py-1.5">
-            {/* Left: Tools */}
-            <div className="flex items-center gap-0.5">
-              <Button
+          {/* Bottom toolbar — attach left, send right */}
+          <div className="flex items-center justify-between px-2.5 pb-2 pt-0.5">
+            <div className="flex items-center gap-1">
+              <button
                 type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground/60 hover:text-foreground"
                 onClick={pickFiles}
                 disabled={disabled || sending}
+                className={cn(
+                  'flex h-8 w-8 items-center justify-center rounded-lg',
+                  'text-muted-foreground/60 transition-colors',
+                  'hover:bg-foreground/5 hover:text-foreground/80',
+                  'focus-visible:outline-none',
+                  'disabled:pointer-events-none disabled:opacity-30'
+                )}
                 title="Attach files"
               >
                 <Paperclip className="h-4 w-4" />
-              </Button>
+              </button>
             </div>
 
-            {/* Right: Send / Stop */}
-            <Button
+            <button
+              type="button"
               onClick={sending ? handleStop : handleSend}
               disabled={sending ? !canStop : !canSend}
-              size="icon"
-              variant={sending ? 'destructive' : 'default'}
               className={cn(
-                'h-8 w-8 rounded-full transition-all',
-                !sending && canSend && 'bg-primary text-primary-foreground shadow-sm'
+                'flex h-8 w-8 items-center justify-center rounded-full transition-all duration-150',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                sending
+                  ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50'
+                  : cn(
+                      'bg-foreground text-background',
+                      'hover:opacity-85',
+                      'disabled:opacity-20 disabled:pointer-events-none'
+                    )
               )}
               title={sending ? 'Stop' : 'Send'}
             >
-              {sending ? <Square className="h-3.5 w-3.5" /> : <ArrowUp className="h-4 w-4" />}
-            </Button>
+              {sending ? (
+                <Square className="h-3 w-3" fill="currentColor" />
+              ) : (
+                <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
+              )}
+            </button>
           </div>
         </div>
       </div>

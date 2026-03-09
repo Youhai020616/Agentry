@@ -16,13 +16,15 @@ import { migrateKeysToEncryptedStorage } from '../utils/secure-storage';
 import type { EngineContext } from '../engine/bootstrap';
 
 import { appUpdater, registerUpdateHandlers } from './updater';
+import { getWindowState, trackWindowState } from './window';
 import { logger } from '../utils/logger';
 import { warmupNetworkOptimization } from '../utils/uv-env';
 
 import { ClawHubService } from '../gateway/clawhub';
 
-// Disable GPU acceleration for better compatibility
-app.disableHardwareAcceleration();
+// NOTE: Hardware acceleration is required for backdrop-filter (glass morphism).
+// Only disable if you encounter GPU rendering crashes on specific hardware.
+// app.disableHardwareAcceleration();
 
 // Global references
 let mainWindow: BrowserWindow | null = null;
@@ -59,12 +61,15 @@ function getAppIcon(): Electron.NativeImage | undefined {
 /**
  * Create the main application window
  */
-function createWindow(): BrowserWindow {
+async function createWindow(): Promise<BrowserWindow> {
   const isMac = process.platform === 'darwin';
+  const savedState = await getWindowState();
 
   const win = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    x: savedState.x,
+    y: savedState.y,
+    width: savedState.width,
+    height: savedState.height,
     minWidth: 960,
     minHeight: 600,
     icon: getAppIcon(),
@@ -80,6 +85,14 @@ function createWindow(): BrowserWindow {
     frame: isMac,
     show: false,
   });
+
+  // Restore maximized state
+  if (savedState.isMaximized) {
+    win.maximize();
+  }
+
+  // Track window position/size changes for persistence
+  trackWindowState(win);
 
   // Show window when ready to prevent visual flash
   win.once('ready-to-show', () => {
@@ -132,8 +145,8 @@ async function initialize(): Promise<void> {
   // Set application menu
   createMenu();
 
-  // Create the main window
-  mainWindow = createWindow();
+  // Create the main window (async: restores saved position/size)
+  mainWindow = await createWindow();
 
   // Create system tray
   createTray(mainWindow);
@@ -254,11 +267,11 @@ app.whenReady().then(async () => {
 
   // Register activate handler AFTER app is ready to prevent
   // "Cannot create BrowserWindow before app is ready" on macOS.
-  app.on('activate', () => {
+  app.on('activate', async () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.show();
     } else if (BrowserWindow.getAllWindows().length === 0) {
-      mainWindow = createWindow();
+      mainWindow = await createWindow();
     }
   });
 });

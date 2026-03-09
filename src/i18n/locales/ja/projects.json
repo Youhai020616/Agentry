@@ -1,0 +1,56 @@
+{
+  "title": "プロジェクト",
+  "subtitle": "スーパーバイザーが編成したすべてのチームコラボレーションプロジェクト",
+  "filters": {
+    "all": "すべて",
+    "executing": "実行中",
+    "planning": "計画中",
+    "reviewing": "レビュー中",
+    "completed": "完了"
+  },
+  "status": {
+    "planning": "計画中",
+    "executing": "実行中",
+    "reviewing": "レビュー中",
+    "completed": "完了"
+  },
+  "card": {
+    "tasks": "タスク"
+  },
+  "empty": {
+    "title": "プロジェクトがまだありません",
+    "description": "スーパーバイザーに目標を伝えると、自動的にプロジェクトを作成し、タスクを分解してチームに割り当てます。",
+    "action": "スーパーバイザーと話す"
+  },
+  "detail": {
+    "backToList": "プロジェクト一覧",
+    "notFound": "プロジェクトが存在しません",
+    "backToProjects": "プロジェクトに戻る",
+    "running": "実行時間",
+    "taskPipeline": "タスクパイプライン",
+    "planningTasks": "スーパーバイザーがタスクを計画中...",
+    "collaborationLog": "コラボレーションログ",
+    "noRecords": "コラボレーション記録がありません",
+    "refresh": "更新",
+    "records": "件のレコード",
+    "dependencies": "件の依存関係"
+  },
+  "time": {
+    "minutes": "分",
+    "hours": "時間",
+    "days": "日"
+  },
+  "messageType": {
+    "message": "メッセージ",
+    "broadcast": "ブロードキャスト",
+    "planApproval": "プラン承認",
+    "shutdownRequest": "停止リクエスト",
+    "shutdownResponse": "停止レスポンス"
+  },
+  "orchestration": {
+    "noActiveProjects": "アクティブなプロジェクトがありません",
+    "noActiveProjectsDesc": "左側でスーパーバイザーに目標を伝えると、自動的にタスクを分解してチームメンバーに割り当てます。",
+    "inProgress": "進行中",
+    "working": "実行中"
+  }
+}

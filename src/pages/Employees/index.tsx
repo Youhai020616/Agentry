@@ -4,18 +4,9 @@
  * Each card shows a pixel character at a desk matching the isometric office aesthetic.
  */
 import { useEffect, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import {
-  Users,
-  UserPlus,
-  Play,
-  Pause,
-  MessageSquare,
-  Settings,
-  Globe,
-  ArrowRight,
-} from 'lucide-react';
+import { Users, UserPlus, Play, Pause, MessageSquare, Settings, Globe } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { HireDialog } from './HireDialog';
 import { EmployeeSecrets } from './EmployeeSecrets';
@@ -618,44 +609,6 @@ function EmployeeCard({ employee }: { employee: Employee }) {
   );
 }
 
-/* ── Team Workspace Banner ─────────────────────────── */
-
-function WorkspaceBanner() {
-  const { t } = useTranslation('employees');
-  const navigate = useNavigate();
-
-  return (
-    <button
-      onClick={() => navigate('/media-studio')}
-      className={cn(
-        'group flex w-full items-center gap-4 rounded-xl p-4',
-        'bg-gradient-to-r from-violet-500/10 via-pink-500/10 to-orange-500/10',
-        'border border-violet-500/20 hover:border-violet-500/40',
-        'transition-all duration-300 hover:shadow-lg hover:shadow-violet-500/5',
-        'text-left'
-      )}
-    >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-500/15 text-xl">
-        {'\uD83D\uDCF1'}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold">{t('workspace.title')}</h3>
-          <span className="flex items-center gap-1 text-[10px] text-green-500">
-            <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-            {t('workspace.online', { count: 6 })}
-          </span>
-        </div>
-        <p className="mt-0.5 text-xs text-muted-foreground">{t('workspace.subtitle')}</p>
-      </div>
-      <div className="flex shrink-0 items-center gap-1 text-xs font-medium text-violet-500 opacity-0 transition-opacity group-hover:opacity-100">
-        {t('workspace.enter')}
-        <ArrowRight className="h-3.5 w-3.5" />
-      </div>
-    </button>
-  );
-}
-
 /* ── Page ──────────────────────────────────────────── */
 
 export function Employees() {
@@ -679,7 +632,7 @@ export function Employees() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-6 overflow-auto p-1">
+    <div className="flex h-full flex-col gap-6 overflow-auto">
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
@@ -730,9 +683,6 @@ export function Employees() {
           </Button>
         </div>
       )}
-
-      {/* Team workspace entry */}
-      <WorkspaceBanner />
 
       {/* Employee card grid */}
       {employees.length > 0 && (

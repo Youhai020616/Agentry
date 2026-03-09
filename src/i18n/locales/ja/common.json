@@ -64,6 +64,7 @@
   },
   "supervisor": {
     "title": "スーパーバイザーモード",
+    "subtitle": "AIチームをオーケストレーション",
     "description": "すべてのFeishuメッセージをAIスーパーバイザーに転送し、専門スタッフにタスクを委任します。",
     "feishuMode": "Feishu委任",
     "feishuModeDesc": "スーパーバイザーがFeishu会話を管理し、チームメンバーにタスクを自動委任します。",

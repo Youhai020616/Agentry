@@ -37,9 +37,9 @@ import type { Conversation, ConversationId } from '@/types/conversation';
 
 // ── Constants ──────────────────────────────────────────────────
 
-const MIN_WIDTH = 180;
-const MAX_WIDTH = 420;
-const DEFAULT_WIDTH = 240;
+const MIN_WIDTH = 160;
+const MAX_WIDTH = 320;
+const DEFAULT_WIDTH = 220;
 const COLLAPSE_THRESHOLD = 140;
 const STORAGE_KEY = 'clawx:history-panel-width';
 
@@ -288,7 +288,7 @@ function ConversationContextMenu({
       ref={menuRef}
       className={cn(
         'absolute right-0 top-full z-50 mt-1',
-        'min-w-[160px] rounded-lg border border-border bg-popover p-1 shadow-md'
+        'min-w-[160px] rounded-lg border border-border/60 bg-popover/80 backdrop-blur-xl p-1 shadow-lg'
       )}
     >
       <button
@@ -411,9 +411,9 @@ const ConversationItem = memo(function ConversationItem({
   return (
     <div
       className={cn(
-        'group relative flex cursor-pointer items-start gap-2 rounded-lg px-2.5 py-2',
-        'transition-colors duration-150',
-        isActive ? 'bg-primary/10 text-primary' : 'text-foreground/80 hover:bg-accent/50'
+        'group relative flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5',
+        'transition-all duration-150',
+        isActive ? 'bg-input text-foreground' : 'text-foreground/80 hover:bg-input'
       )}
       onClick={onSelect}
     >
@@ -464,23 +464,23 @@ const ConversationItem = memo(function ConversationItem({
           </div>
         ) : (
           <>
-            {/* Title */}
+            {/* Title + timestamp on same line */}
             <div className="flex items-center gap-1">
               {conversation.pinned && <Pin className="h-2.5 w-2.5 shrink-0 text-amber-500" />}
-              <p className="truncate text-xs font-medium leading-tight">{conversation.title}</p>
-            </div>
-
-            {/* Preview + timestamp */}
-            <div className="mt-0.5 flex items-center gap-1.5">
-              {conversation.lastMessagePreview && (
-                <p className="flex-1 truncate text-[10px] text-muted-foreground leading-tight">
-                  {conversation.lastMessagePreview}
-                </p>
-              )}
+              <p className="flex-1 truncate text-xs font-medium leading-tight">
+                {conversation.title}
+              </p>
               <span className="shrink-0 text-[10px] text-muted-foreground/60">
                 {formatRelativeTime(conversation.updatedAt)}
               </span>
             </div>
+
+            {/* Preview (if available) */}
+            {conversation.lastMessagePreview && (
+              <p className="mt-0.5 truncate text-[10px] text-muted-foreground leading-tight">
+                {conversation.lastMessagePreview}
+              </p>
+            )}
           </>
         )}
       </div>
@@ -490,7 +490,7 @@ const ConversationItem = memo(function ConversationItem({
         <div className="relative">
           <button
             className={cn(
-              'shrink-0 rounded p-0.5 opacity-0 transition-opacity',
+              'shrink-0 rounded p-0.5 opacity-0 transition-opacity duration-150',
               'group-hover:opacity-100 hover:bg-accent',
               showMenu && 'opacity-100'
             )}
@@ -608,7 +608,7 @@ export function ConversationList({
       <div
         className={cn(
           'flex flex-col items-center gap-2 py-2 px-1',
-          'border-r border-border/40 bg-card/50',
+          'border-r border-border/80 bg-background/50 backdrop-blur-md',
           className
         )}
       >
@@ -660,14 +660,14 @@ export function ConversationList({
     <div
       className={cn(
         'relative flex h-full flex-col shrink-0',
-        'border-r border-border/40 bg-card/50',
+        'border-r border-border/80 bg-background/50 backdrop-blur-md',
         isDragging && 'select-none',
         className
       )}
       style={{ width: `${width}px` }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border/30">
+      <div className="flex items-center justify-between px-3 py-3 border-b border-border/40">
         <div className="flex items-center gap-1.5">
           <Clock className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="text-xs font-medium text-foreground/80">
@@ -709,7 +709,7 @@ export function ConversationList({
 
       {/* Search */}
       {showSearch && (
-        <div className="px-2 py-1.5 border-b border-border/20">
+        <div className="px-1.5 py-1.5 border-b border-border/20">
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
             <input
@@ -764,15 +764,15 @@ export function ConversationList({
           </div>
         ) : (
           Array.from(grouped.entries()).map(([groupLabel, items]) => (
-            <div key={groupLabel} className="mb-1">
+            <div key={groupLabel} className="mb-1.5">
               {/* Group header */}
               <div className="px-2 py-1">
-                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
                   {groupLabel}
                 </span>
               </div>
               {/* Items */}
-              <div className="space-y-0.5">
+              <div className="space-y-px">
                 {items.map((conv) => (
                   <ConversationItem
                     key={conv.id}
@@ -793,7 +793,7 @@ export function ConversationList({
 
       {/* Footer stats */}
       {conversations.length > 0 && (
-        <div className="border-t border-border/20 px-3 py-1.5">
+        <div className="border-t border-border/40 px-3 py-1.5">
           <p className="text-[10px] text-muted-foreground/50 text-center">
             {conversations.length} {conversations.length === 1 ? 'conversation' : 'conversations'}
           </p>

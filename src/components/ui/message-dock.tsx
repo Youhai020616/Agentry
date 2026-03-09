@@ -2,9 +2,11 @@
  * MessageDock — Character selector dock for Supervisor Manager.
  * Displays a horizontal row of character avatars (Supervisor + employees).
  * Supports "inline" positioning (flows within page) or "fixed" (bottom-center overlay).
+ * Right-click on an active employee shows a context menu to deactivate.
  */
-import { useState } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Power } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface DockCharacter {
@@ -19,6 +21,8 @@ interface MessageDockProps {
   characters: DockCharacter[];
   selectedId: string;
   onSelect: (id: string) => void;
+  /** Called when user requests to deactivate an employee */
+  onDeactivate?: (id: string) => void;
   /** "inline" = flows in layout; "fixed" = fixed bottom-center overlay */
   position?: 'inline' | 'fixed';
   className?: string;
@@ -36,10 +40,44 @@ export function MessageDock({
   characters,
   selectedId,
   onSelect,
+  onDeactivate,
   position = 'inline',
   className,
 }: MessageDockProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [contextMenuId, setContextMenuId] = useState<string | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close context menu on click outside
+  useEffect(() => {
+    if (!contextMenuId) return;
+    const handleClick = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenuId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [contextMenuId]);
+
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent, char: DockCharacter) => {
+      // Only show context menu for non-offline, non-supervisor employees
+      if (!onDeactivate) return;
+      if (char.status === 'offline') return;
+      e.preventDefault();
+      setContextMenuId(char.id);
+    },
+    [onDeactivate]
+  );
+
+  const handleDeactivate = useCallback(
+    (id: string) => {
+      setContextMenuId(null);
+      onDeactivate?.(id);
+    },
+    [onDeactivate]
+  );
 
   return (
     <div
@@ -52,18 +90,20 @@ export function MessageDock({
         layout
         className={cn(
           'flex items-center gap-1 rounded-2xl px-2 py-1.5',
-          'bg-card/80 backdrop-blur-xl glass-border shadow-island'
+          'bg-background/50 backdrop-blur-2xl border border-border/10 shadow-sm',
+          'dark:bg-background/30 dark:border-white/[0.06]'
         )}
       >
         {characters.map((char) => {
           const isSelected = char.id === selectedId;
           const isHovered = char.id === hoveredId;
+          const showContextMenu = char.id === contextMenuId;
 
           return (
             <div key={char.id} className="relative">
               {/* Tooltip */}
               <AnimatePresence>
-                {isHovered && (
+                {isHovered && !showContextMenu && (
                   <motion.div
                     initial={{ opacity: 0, y: 4, scale: 0.95 }}
                     animate={{ opacity: 1, y: -4, scale: 1 }}
@@ -78,11 +118,42 @@ export function MessageDock({
                 )}
               </AnimatePresence>
 
+              {/* Context menu */}
+              <AnimatePresence>
+                {showContextMenu && (
+                  <motion.div
+                    ref={contextMenuRef}
+                    initial={{ opacity: 0, y: 4, scale: 0.95 }}
+                    animate={{ opacity: 1, y: -4, scale: 1 }}
+                    exit={{ opacity: 0, y: 4, scale: 0.95 }}
+                    transition={{ duration: 0.12 }}
+                    className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-20"
+                  >
+                    <div className="rounded-lg border border-border/60 bg-popover/90 backdrop-blur-xl shadow-lg p-1 min-w-[120px]">
+                      <button
+                        className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-destructive hover:bg-destructive/10 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeactivate(char.id);
+                        }}
+                      >
+                        <Power className="h-3 w-3" />
+                        Deactivate
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* Avatar button */}
               <motion.button
                 whileHover={{ scale: 1.15 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => onSelect(char.id)}
+                onClick={() => {
+                  setContextMenuId(null);
+                  onSelect(char.id);
+                }}
+                onContextMenu={(e) => handleContextMenu(e, char)}
                 onMouseEnter={() => setHoveredId(char.id)}
                 onMouseLeave={() => setHoveredId(null)}
                 onFocus={() => setHoveredId(char.id)}
@@ -99,7 +170,7 @@ export function MessageDock({
                 {char.status && (
                   <span
                     className={cn(
-                      'absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card',
+                      'absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background/60',
                       statusColors[char.status] ?? statusColors.offline
                     )}
                   />

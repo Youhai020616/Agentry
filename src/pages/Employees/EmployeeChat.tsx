@@ -292,7 +292,7 @@ export function EmployeeChat() {
   }
 
   return (
-    <div className="flex h-full flex-col -m-6">
+    <div className="flex h-full flex-col -m-4">
       <EmployeeHeader employee={employee} onRestart={handleRestart} />
       <div className="flex-1 min-h-0">
         <Chat

@@ -36,6 +36,7 @@ const itemVariants = {
 function TeamStatusBar() {
   const employees = useEmployeesStore((s) => s.employees);
   const { t } = useTranslation('common');
+  const { t: tp } = useTranslation('projects');
 
   const online = employees.filter((e) => e.status !== 'offline').length;
   const working = employees.filter((e) => e.status === 'working').length;
@@ -44,12 +45,12 @@ function TeamStatusBar() {
     <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
       <span className="inline-flex items-center gap-1">
         <Users className="h-3 w-3" />
-        {online} {t('status.active', '在线')}
+        {online} {t('status.active')}
       </span>
       {working > 0 && (
         <span className="inline-flex items-center gap-1">
           <Zap className="h-3 w-3 text-amber-500" />
-          {working} 执行中
+          {working} {tp('orchestration.working')}
         </span>
       )}
     </div>
@@ -59,6 +60,7 @@ function TeamStatusBar() {
 // ── Empty state ────────────────────────────────────────────────────
 
 function EmptyState() {
+  const { t } = useTranslation('projects');
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.96 }}
@@ -70,10 +72,10 @@ function EmptyState() {
         <Inbox className="h-5 w-5 text-muted-foreground" />
       </div>
       <p className="text-sm font-medium text-foreground mb-1">
-        还没有活跃项目
+        {t('orchestration.noActiveProjects')}
       </p>
       <p className="text-xs text-muted-foreground leading-relaxed max-w-[220px]">
-        在左侧告诉主管你的目标，主管会自动拆解任务并分配给团队成员
+        {t('orchestration.noActiveProjectsDesc')}
       </p>
     </motion.div>
   );
@@ -95,6 +97,7 @@ interface OrchestrationPanelProps {
 
 export function OrchestrationPanel({ className }: OrchestrationPanelProps) {
   const { t } = useTranslation('common');
+  const { t: tp } = useTranslation('projects');
   const projects = useTasksStore((s) => s.projects);
   const tasks = useTasksStore((s) => s.tasks);
   const fetchProjects = useTasksStore((s) => s.fetchProjects);
@@ -138,7 +141,7 @@ export function OrchestrationPanel({ className }: OrchestrationPanelProps) {
     <div
       className={cn(
         'flex flex-col h-full overflow-hidden',
-        'border-l border-border/40 bg-card/30 backdrop-blur-sm',
+        'border-l border-border/40 bg-background/50 backdrop-blur-xl',
         className
       )}
     >
@@ -147,13 +150,11 @@ export function OrchestrationPanel({ className }: OrchestrationPanelProps) {
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <FolderKanban className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-semibold tracking-tight">
-              {t('nav.tasks', '项目')}
-            </span>
+            <span className="text-sm font-semibold tracking-tight">{t('nav.projects')}</span>
           </div>
           {activeProjects.length > 0 && (
             <span className="text-[10px] font-mono text-muted-foreground tabular-nums">
-              {activeProjects.length} 进行中
+              {activeProjects.length} {tp('orchestration.inProgress')}
             </span>
           )}
         </div>
@@ -191,7 +192,7 @@ export function OrchestrationPanel({ className }: OrchestrationPanelProps) {
             {completedProjects.length > 0 && (
               <div>
                 <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2 px-1">
-                  已完成 ({completedProjects.length})
+                  {tp('status.completed')} ({completedProjects.length})
                 </p>
                 <motion.div
                   variants={containerVariants}

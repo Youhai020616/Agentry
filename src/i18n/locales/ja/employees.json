@@ -212,6 +212,18 @@
     "enter": "ワークスペースを開く",
     "online": "{{count}}人オンライン"
   },
+  "costTier": {
+    "free": "無料",
+    "low": "低価格",
+    "medium": "中価格",
+    "high": "高価格",
+    "premium": "プレミアム"
+  },
+  "modelBadges": {
+    "recommended": "おすすめ",
+    "tools": "ツール",
+    "context": "コンテキスト"
+  },
   "teams": {
     "marketing": "マーケティング",
     "development": "開発",

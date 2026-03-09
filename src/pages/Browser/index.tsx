@@ -900,13 +900,13 @@ export function Browser() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b">
+      <div className="flex items-center justify-between border-b">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-100 dark:bg-violet-500/15">
             <Globe className="h-5 w-5 text-violet-500" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold leading-none">{t('title')}</h1>
+            <h1 className="font-pixel text-xl font-bold tracking-wide">{t('title')}</h1>
             <p className="text-xs text-muted-foreground mt-1">{t('description')}</p>
           </div>
         </div>

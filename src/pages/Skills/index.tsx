@@ -660,9 +660,7 @@ export function Skills() {
         // Text search
         const q = searchQuery.toLowerCase();
         const matchesSearch =
-          !q ||
-          skill.name.toLowerCase().includes(q) ||
-          skill.description.toLowerCase().includes(q);
+          !q || skill.name.toLowerCase().includes(q) || skill.description.toLowerCase().includes(q);
 
         // Source filter
         let matchesSource = true;
@@ -808,8 +806,7 @@ export function Skills() {
   );
 
   // Check if any filters are active
-  const hasActiveFilters =
-    typeFilter !== 'all' || pricingFilter !== 'all' || teamFilter !== 'all';
+  const hasActiveFilters = typeFilter !== 'all' || pricingFilter !== 'all' || teamFilter !== 'all';
 
   const clearFilters = () => {
     setTypeFilter('all');
@@ -831,8 +828,8 @@ export function Skills() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{tm('title')}</h1>
-          <p className="text-muted-foreground">{tm('subtitle')}</p>
+          <h1 className="font-pixel text-xl font-bold tracking-wide">{tm('title')}</h1>
+          <p className="text-xs text-muted-foreground mt-1">{tm('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={fetchSkills} disabled={!isGatewayRunning}>
@@ -997,7 +994,9 @@ export function Skills() {
                 <Package className="h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-medium mb-2">{tm('empty.title')}</h3>
                 <p className="text-muted-foreground text-center max-w-sm">
-                  {searchQuery || hasActiveFilters ? tm('empty.description') : t('noSkillsAvailable')}
+                  {searchQuery || hasActiveFilters
+                    ? tm('empty.description')
+                    : t('noSkillsAvailable')}
                 </p>
                 {hasActiveFilters && (
                   <Button variant="outline" size="sm" className="mt-4" onClick={clearFilters}>

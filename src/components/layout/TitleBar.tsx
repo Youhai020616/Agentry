@@ -12,7 +12,7 @@ const isMac = window.electron?.platform === 'darwin';
 export function TitleBar() {
   if (isMac) {
     // macOS: just a drag region, traffic lights are native
-    return <div className="drag-region h-10 shrink-0 border-b bg-background" />;
+    return <div className="drag-region h-8 shrink-0" />;
   }
 
   return <WindowsTitleBar />;
@@ -45,7 +45,7 @@ function WindowsTitleBar() {
   };
 
   return (
-    <div className="drag-region flex h-10 shrink-0 items-center justify-between border-b bg-background">
+    <div className="drag-region flex h-10 shrink-0 items-center justify-between glass-header">
       {/* Left: Icon + App Name */}
       <div className="no-drag flex items-center gap-2 pl-3">
         <img src={logoSvg} alt="PocketCrow" className="h-5 w-auto" />
