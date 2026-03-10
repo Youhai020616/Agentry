@@ -334,66 +334,68 @@ export function Chat({
           </div>
         )}
 
-        {/* Messages Area */}
-        <div className="relative flex-1 overflow-y-auto px-4 py-4">
-          {/* WebGL animated light rays background */}
-          <LightRays />
-          {/* Bottom fade overlay */}
+        {/* Messages Area — LightRays is outside the scroll container so it stays fixed */}
+        <div className="relative flex-1 min-h-0">
+          {/* WebGL animated light rays background — fixed behind scrollable content */}
+          <LightRays className="z-0" />
+          {/* Bottom fade overlay — above LightRays, below messages */}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 z-[1] bg-gradient-to-t from-background to-transparent" />
-          <div className="relative z-[2] max-w-4xl mx-auto space-y-4">
-            {loading ? (
-              <div className="flex h-full items-center justify-center py-20">
-                <LoadingSpinner size="lg" />
-              </div>
-            ) : messages.length === 0 && !sending ? (
-              <WelcomeScreen employeeName={employeeName} employeeAvatar={employeeAvatar} />
-            ) : (
-              <>
-                {messages.map((msg, idx) => (
-                  <ChatMessage
-                    key={msg.id || `msg-${idx}`}
-                    message={msg}
-                    showThinking={showThinking}
-                  />
-                ))}
+          <div className="absolute inset-0 overflow-y-auto px-4 py-4 z-[2]">
+            <div className="relative max-w-4xl mx-auto space-y-4">
+              {loading ? (
+                <div className="flex h-full items-center justify-center py-20">
+                  <LoadingSpinner size="lg" />
+                </div>
+              ) : messages.length === 0 && !sending ? (
+                <WelcomeScreen employeeName={employeeName} employeeAvatar={employeeAvatar} />
+              ) : (
+                <>
+                  {messages.map((msg, idx) => (
+                    <ChatMessage
+                      key={msg.id || `msg-${idx}`}
+                      message={msg}
+                      showThinking={showThinking}
+                    />
+                  ))}
 
-                {/* Streaming message */}
-                {shouldRenderStreaming && (
-                  <ChatMessage
-                    message={
-                      (streamMsg
-                        ? {
-                            ...(streamMsg as Record<string, unknown>),
-                            role: (typeof streamMsg.role === 'string'
-                              ? streamMsg.role
-                              : 'assistant') as RawMessage['role'],
-                            content: streamMsg.content ?? streamText,
-                            timestamp: streamMsg.timestamp ?? streamingTimestamp,
-                          }
-                        : {
-                            role: 'assistant',
-                            content: streamText,
-                            timestamp: streamingTimestamp,
-                          }) as RawMessage
-                    }
-                    showThinking={showThinking}
-                    isStreaming
-                    streamingTools={streamingTools}
-                  />
-                )}
+                  {/* Streaming message */}
+                  {shouldRenderStreaming && (
+                    <ChatMessage
+                      message={
+                        (streamMsg
+                          ? {
+                              ...(streamMsg as Record<string, unknown>),
+                              role: (typeof streamMsg.role === 'string'
+                                ? streamMsg.role
+                                : 'assistant') as RawMessage['role'],
+                              content: streamMsg.content ?? streamText,
+                              timestamp: streamMsg.timestamp ?? streamingTimestamp,
+                            }
+                          : {
+                              role: 'assistant',
+                              content: streamText,
+                              timestamp: streamingTimestamp,
+                            }) as RawMessage
+                      }
+                      showThinking={showThinking}
+                      isStreaming
+                      streamingTools={streamingTools}
+                    />
+                  )}
 
-                {/* Typing indicator when sending but no stream yet */}
-                {sending &&
-                  !hasStreamText &&
-                  !hasStreamThinking &&
-                  !hasStreamTools &&
-                  !hasStreamImages &&
-                  !hasStreamToolStatus && <TypingIndicator />}
-              </>
-            )}
+                  {/* Typing indicator when sending but no stream yet */}
+                  {sending &&
+                    !hasStreamText &&
+                    !hasStreamThinking &&
+                    !hasStreamTools &&
+                    !hasStreamImages &&
+                    !hasStreamToolStatus && <TypingIndicator />}
+                </>
+              )}
 
-            {/* Scroll anchor */}
-            <div ref={messagesEndRef} />
+              {/* Scroll anchor */}
+              <div ref={messagesEndRef} />
+            </div>
           </div>
         </div>
 
@@ -488,10 +490,10 @@ function WelcomeScreen({
 function TypingIndicator() {
   return (
     <div className="flex gap-3">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-600/20 text-primary backdrop-blur-sm">
         <Sparkles className="h-4 w-4" />
       </div>
-      <div className="bg-muted rounded-2xl px-4 py-3">
+      <div className="glass-typing rounded-2xl px-4 py-3">
         <div className="flex gap-1">
           <span
             className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce"
