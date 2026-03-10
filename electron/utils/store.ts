@@ -21,7 +21,7 @@ function generateToken(): string {
  */
 export interface AppSettings {
   // General
-  theme: 'light' | 'dark' | 'system';
+  theme: 'light' | 'dark' | 'system' | 'illustration';
   language: string;
   startMinimized: boolean;
   launchAtStartup: boolean;

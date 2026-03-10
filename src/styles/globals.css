@@ -59,6 +59,34 @@
     --ring: 222 91% 65%; /* #548af7 */
     --radius: 0.75rem; /* 12px */
   }
+
+  /* ── Illustration Theme ─────────────────────────────────────
+   * Warm storybook / watercolor aesthetic
+   * Cream paper canvas, coral-orange primary, soft warm shadows
+   * Inspired by children's book illustrations & Notion-style softness
+   * ──────────────────────────────────────────────────────────── */
+  .illustration {
+    --background: 33 45% 95%; /* #f8f2ea - warm cream paper canvas */
+    --foreground: 25 35% 16%; /* #37291d - deep warm brown text */
+    --card: 38 55% 98%; /* #fefbf6 - soft ivory card surface */
+    --card-foreground: 25 35% 16%;
+    --popover: 38 55% 98%;
+    --popover-foreground: 25 35% 16%;
+    --primary: 16 72% 58%; /* #d87a4a - warm coral orange */
+    --primary-foreground: 40 60% 98%; /* cream white on primary */
+    --secondary: 32 30% 91%; /* #ede5da - warm linen */
+    --secondary-foreground: 25 25% 28%; /* warm dark brown */
+    --muted: 33 25% 92%; /* #ede8e0 - muted warm gray */
+    --muted-foreground: 25 12% 48%; /* #7d7068 - soft brown-gray */
+    --accent: 155 32% 88%; /* #d2ece2 - soft mint green accent */
+    --accent-foreground: 155 35% 22%; /* deep mint */
+    --destructive: 0 65% 55%; /* #c94a4a - muted warm red */
+    --destructive-foreground: 0 0% 100%;
+    --border: 30 22% 86%; /* #ded6cb - warm parchment border */
+    --input: 30 22% 86%;
+    --ring: 16 72% 58%; /* matches primary coral */
+    --radius: 1rem; /* 16px - extra rounded for soft feel */
+  }
 }
 
 @layer base {
@@ -76,16 +104,27 @@
     background-image:
       radial-gradient(ellipse at 10% 20%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
       radial-gradient(ellipse at 80% 10%, rgba(59, 130, 246, 0.12) 0%, transparent 50%),
-      radial-gradient(ellipse at 70% 80%, rgba(236, 72, 153, 0.10) 0%, transparent 50%),
+      radial-gradient(ellipse at 70% 80%, rgba(236, 72, 153, 0.1) 0%, transparent 50%),
       radial-gradient(ellipse at 20% 70%, rgba(34, 197, 94, 0.08) 0%, transparent 40%);
   }
 
   .dark body {
     background-image:
       radial-gradient(ellipse at 10% 20%, rgba(139, 92, 246, 0.12) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 10%, rgba(59, 130, 246, 0.10) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 10%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
       radial-gradient(ellipse at 70% 80%, rgba(236, 72, 153, 0.08) 0%, transparent 50%),
       radial-gradient(ellipse at 20% 70%, rgba(34, 197, 94, 0.06) 0%, transparent 40%);
+  }
+
+  /* Illustration theme: watercolor blob background — warm, dreamy, hand-painted feel */
+  .illustration body {
+    background-image:
+      radial-gradient(ellipse at 12% 18%, rgba(216, 122, 74, 0.18) 0%, transparent 55%),
+      radial-gradient(ellipse at 82% 12%, rgba(186, 146, 210, 0.16) 0%, transparent 50%),
+      radial-gradient(ellipse at 75% 78%, rgba(210, 236, 226, 0.22) 0%, transparent 55%),
+      radial-gradient(ellipse at 22% 72%, rgba(238, 198, 114, 0.14) 0%, transparent 48%),
+      radial-gradient(ellipse at 50% 40%, rgba(232, 170, 150, 0.08) 0%, transparent 65%);
+    background-attachment: fixed;
   }
 }
 
@@ -121,6 +160,20 @@
   background: transparent;
 }
 
+/* Illustration theme scrollbar — warm tones */
+.illustration ::-webkit-scrollbar-thumb {
+  background: rgba(190, 160, 120, 0.3);
+  border-radius: 9999px;
+}
+
+.illustration ::-webkit-scrollbar-thumb:hover {
+  background: rgba(190, 160, 120, 0.5);
+}
+
+.illustration ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 /* Glass border — directional light effect */
 .glass-border {
   border: 1px solid rgba(255, 255, 255, 0.5);
@@ -141,6 +194,17 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
+/* Illustration theme — warm parchment borders with soft pastel glow */
+.illustration .glass-border {
+  border: 1px solid rgba(190, 160, 120, 0.25);
+  border-top-color: rgba(255, 250, 240, 0.7);
+  border-left-color: rgba(255, 250, 240, 0.5);
+  box-shadow:
+    0 2px 8px 0 rgba(180, 130, 80, 0.06),
+    0 6px 20px 0 rgba(180, 130, 80, 0.04),
+    inset 0 1px 0 rgba(255, 255, 245, 0.7);
+}
+
 /* Dark mode needs stronger shadows */
 .dark .shadow-island {
   box-shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.3);
@@ -148,6 +212,19 @@
 
 .dark .shadow-island-lg {
   box-shadow: 0 8px 24px 0 rgba(0, 0, 0, 0.5);
+}
+
+/* Illustration theme — warm, soft shadows like paper on paper */
+.illustration .shadow-island {
+  box-shadow:
+    0 2px 6px 0 rgba(180, 140, 100, 0.08),
+    0 6px 16px 0 rgba(180, 140, 100, 0.05);
+}
+
+.illustration .shadow-island-lg {
+  box-shadow:
+    0 4px 12px 0 rgba(180, 140, 100, 0.1),
+    0 12px 36px 0 rgba(180, 140, 100, 0.07);
 }
 
 /* macOS traffic light spacing */
@@ -172,6 +249,13 @@
   -webkit-backdrop-filter: blur(16px) saturate(1.3);
 }
 
+/* Illustration theme — frosted parchment surface with warm tint */
+.illustration .glass-surface {
+  background: hsla(var(--card), 0.6);
+  backdrop-filter: blur(16px) saturate(1.3);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+}
+
 /* Glass header — frosted top bar */
 .glass-header {
   background: hsla(var(--background), 0.6);
@@ -185,6 +269,14 @@
   backdrop-filter: blur(16px) saturate(1.3);
   -webkit-backdrop-filter: blur(16px) saturate(1.3);
   border-bottom: 1px solid hsla(var(--border), 0.3);
+}
+
+/* Illustration theme — warm frosted header */
+.illustration .glass-header {
+  background: hsla(var(--background), 0.65);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border-bottom: 1px solid rgba(190, 160, 120, 0.2);
 }
 
 /* No scrollbar utility */
@@ -418,92 +510,218 @@
 /* Isometric tile pattern */
 .iso-tile-pattern {
   background-image:
-    linear-gradient(45deg, transparent 48%, rgba(255, 255, 255, 0.03) 48%, rgba(255, 255, 255, 0.03) 52%, transparent 52%),
-    linear-gradient(-45deg, transparent 48%, rgba(255, 255, 255, 0.03) 48%, rgba(255, 255, 255, 0.03) 52%, transparent 52%);
+    linear-gradient(
+      45deg,
+      transparent 48%,
+      rgba(255, 255, 255, 0.03) 48%,
+      rgba(255, 255, 255, 0.03) 52%,
+      transparent 52%
+    ),
+    linear-gradient(
+      -45deg,
+      transparent 48%,
+      rgba(255, 255, 255, 0.03) 48%,
+      rgba(255, 255, 255, 0.03) 52%,
+      transparent 52%
+    );
   background-size: 60px 60px;
 }
 
 .dark .iso-tile-pattern {
   background-image:
-    linear-gradient(45deg, transparent 48%, rgba(255, 255, 255, 0.04) 48%, rgba(255, 255, 255, 0.04) 52%, transparent 52%),
-    linear-gradient(-45deg, transparent 48%, rgba(255, 255, 255, 0.04) 48%, rgba(255, 255, 255, 0.04) 52%, transparent 52%);
+    linear-gradient(
+      45deg,
+      transparent 48%,
+      rgba(255, 255, 255, 0.04) 48%,
+      rgba(255, 255, 255, 0.04) 52%,
+      transparent 52%
+    ),
+    linear-gradient(
+      -45deg,
+      transparent 48%,
+      rgba(255, 255, 255, 0.04) 48%,
+      rgba(255, 255, 255, 0.04) 52%,
+      transparent 52%
+    );
+  background-size: 60px 60px;
+}
+
+/* Illustration theme — warm parchment tile pattern */
+.illustration .iso-tile-pattern {
+  background-image:
+    linear-gradient(
+      45deg,
+      transparent 48%,
+      rgba(190, 160, 120, 0.05) 48%,
+      rgba(190, 160, 120, 0.05) 52%,
+      transparent 52%
+    ),
+    linear-gradient(
+      -45deg,
+      transparent 48%,
+      rgba(190, 160, 120, 0.05) 48%,
+      rgba(190, 160, 120, 0.05) 52%,
+      transparent 52%
+    );
   background-size: 60px 60px;
 }
 
 /* Desk glow animations */
 @keyframes iso-working-glow {
-  0%, 100% { box-shadow: 0 0 8px 2px rgba(34, 197, 94, 0.3); }
-  50% { box-shadow: 0 0 18px 6px rgba(34, 197, 94, 0.5); }
+  0%,
+  100% {
+    box-shadow: 0 0 8px 2px rgba(34, 197, 94, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 18px 6px rgba(34, 197, 94, 0.5);
+  }
 }
 
 @keyframes iso-blocked-glow {
-  0%, 100% { box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.3); }
-  50% { box-shadow: 0 0 14px 4px rgba(239, 68, 68, 0.5); }
+  0%,
+  100% {
+    box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 14px 4px rgba(239, 68, 68, 0.5);
+  }
 }
 
 @keyframes iso-error-glow {
-  0%, 100% { box-shadow: 0 0 6px 2px rgba(234, 179, 8, 0.3); }
-  50% { box-shadow: 0 0 12px 4px rgba(234, 179, 8, 0.5); }
+  0%,
+  100% {
+    box-shadow: 0 0 6px 2px rgba(234, 179, 8, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 12px 4px rgba(234, 179, 8, 0.5);
+  }
 }
 
 /* Character idle bob */
 @keyframes iso-char-bob {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-3px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
 }
 
 /* Character typing motion */
 @keyframes iso-char-type {
-  0%, 100% { transform: translateX(0) translateY(0); }
-  25% { transform: translateX(-1px) translateY(-1px); }
-  75% { transform: translateX(1px) translateY(0); }
+  0%,
+  100% {
+    transform: translateX(0) translateY(0);
+  }
+  25% {
+    transform: translateX(-1px) translateY(-1px);
+  }
+  75% {
+    transform: translateX(1px) translateY(0);
+  }
 }
 
 /* Typing dots for speech bubble */
 @keyframes iso-typing-dot {
-  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
-  30% { opacity: 1; transform: translateY(-2px); }
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
 }
 
-.iso-working-desk { animation: iso-working-glow 2s ease-in-out infinite; }
-.iso-blocked-desk { animation: iso-blocked-glow 1.5s ease-in-out infinite; }
-.iso-error-desk { animation: iso-error-glow 1.8s ease-in-out infinite; }
-.iso-char-idle { animation: iso-char-bob 3s ease-in-out infinite; }
-.iso-char-working { animation: iso-char-type 0.8s ease-in-out infinite; }
+.iso-working-desk {
+  animation: iso-working-glow 2s ease-in-out infinite;
+}
+.iso-blocked-desk {
+  animation: iso-blocked-glow 1.5s ease-in-out infinite;
+}
+.iso-error-desk {
+  animation: iso-error-glow 1.8s ease-in-out infinite;
+}
+.iso-char-idle {
+  animation: iso-char-bob 3s ease-in-out infinite;
+}
+.iso-char-working {
+  animation: iso-char-type 0.8s ease-in-out infinite;
+}
 
-.iso-typing-dot:nth-child(1) { animation: iso-typing-dot 1.4s ease-in-out infinite; }
-.iso-typing-dot:nth-child(2) { animation: iso-typing-dot 1.4s ease-in-out 0.2s infinite; }
-.iso-typing-dot:nth-child(3) { animation: iso-typing-dot 1.4s ease-in-out 0.4s infinite; }
+.iso-typing-dot:nth-child(1) {
+  animation: iso-typing-dot 1.4s ease-in-out infinite;
+}
+.iso-typing-dot:nth-child(2) {
+  animation: iso-typing-dot 1.4s ease-in-out 0.2s infinite;
+}
+.iso-typing-dot:nth-child(3) {
+  animation: iso-typing-dot 1.4s ease-in-out 0.4s infinite;
+}
 
 /* Arm typing animations — left and right arms alternate */
 @keyframes iso-arm-type-left {
-  0%, 100% { transform: rotate(0deg) translateY(0); }
-  30% { transform: rotate(-4deg) translateY(-2px); }
-  70% { transform: rotate(2deg) translateY(0); }
+  0%,
+  100% {
+    transform: rotate(0deg) translateY(0);
+  }
+  30% {
+    transform: rotate(-4deg) translateY(-2px);
+  }
+  70% {
+    transform: rotate(2deg) translateY(0);
+  }
 }
 
 @keyframes iso-arm-type-right {
-  0%, 100% { transform: rotate(0deg) translateY(0); }
-  20% { transform: rotate(2deg) translateY(0); }
-  50% { transform: rotate(-4deg) translateY(-2px); }
-  80% { transform: rotate(1deg) translateY(0); }
+  0%,
+  100% {
+    transform: rotate(0deg) translateY(0);
+  }
+  20% {
+    transform: rotate(2deg) translateY(0);
+  }
+  50% {
+    transform: rotate(-4deg) translateY(-2px);
+  }
+  80% {
+    transform: rotate(1deg) translateY(0);
+  }
 }
 
-.iso-arm-type-left { animation: iso-arm-type-left 0.6s ease-in-out infinite; }
-.iso-arm-type-right { animation: iso-arm-type-right 0.6s ease-in-out 0.15s infinite; }
+.iso-arm-type-left {
+  animation: iso-arm-type-left 0.6s ease-in-out infinite;
+}
+.iso-arm-type-right {
+  animation: iso-arm-type-right 0.6s ease-in-out 0.15s infinite;
+}
 
 /* Monitor screen glow pulse when working */
 @keyframes iso-monitor-glow {
-  0%, 100% { box-shadow: 0 0 12px 2px rgba(59, 130, 246, 0.15); }
-  50% { box-shadow: 0 0 24px 6px rgba(59, 130, 246, 0.25); }
+  0%,
+  100% {
+    box-shadow: 0 0 12px 2px rgba(59, 130, 246, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 24px 6px rgba(59, 130, 246, 0.25);
+  }
 }
 
-.iso-monitor-glow { animation: iso-monitor-glow 3s ease-in-out infinite; }
+.iso-monitor-glow {
+  animation: iso-monitor-glow 3s ease-in-out infinite;
+}
 
 /* Screen code lines scroll up */
 @keyframes iso-screen-scroll {
-  0% { transform: translateY(0); }
-  100% { transform: translateY(-8px); }
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-8px);
+  }
 }
 
 .iso-screen-scroll {
@@ -512,8 +730,13 @@
 
 /* Cursor blink */
 @keyframes iso-cursor-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 .iso-cursor-blink {
@@ -529,26 +752,64 @@
   filter: drop-shadow(0 20px 50px rgba(0, 0, 0, 0.6));
 }
 
+/* Illustration theme — warm-toned floor shadow */
+.illustration .iso-floor-shadow {
+  filter: drop-shadow(0 20px 40px rgba(160, 120, 80, 0.25));
+}
+
 /* ── Employee Card Status Effects ──────────────────── */
 
 @keyframes emp-working-border {
-  0%, 100% { box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1); }
-  50% { box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.3), 0 0 12px 2px rgba(34, 197, 94, 0.1); }
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(34, 197, 94, 0.15),
+      0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(34, 197, 94, 0.3),
+      0 0 12px 2px rgba(34, 197, 94, 0.1);
+  }
 }
 
 @keyframes emp-blocked-border {
-  0%, 100% { box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1); }
-  50% { box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.3), 0 0 10px 2px rgba(239, 68, 68, 0.08); }
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(239, 68, 68, 0.15),
+      0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(239, 68, 68, 0.3),
+      0 0 10px 2px rgba(239, 68, 68, 0.08);
+  }
 }
 
 @keyframes emp-error-border {
-  0%, 100% { box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1); }
-  50% { box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.3), 0 0 10px 2px rgba(234, 179, 8, 0.08); }
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(234, 179, 8, 0.15),
+      0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(234, 179, 8, 0.3),
+      0 0 10px 2px rgba(234, 179, 8, 0.08);
+  }
 }
 
-.emp-card-working { animation: emp-working-border 2.5s ease-in-out infinite; }
-.emp-card-blocked { animation: emp-blocked-border 2s ease-in-out infinite; }
-.emp-card-error { animation: emp-error-border 2s ease-in-out infinite; }
+.emp-card-working {
+  animation: emp-working-border 2.5s ease-in-out infinite;
+}
+.emp-card-blocked {
+  animation: emp-blocked-border 2s ease-in-out infinite;
+}
+.emp-card-error {
+  animation: emp-error-border 2s ease-in-out infinite;
+}
 
 /* ── Liquid Glass Chat Input ──────────────────────────── */
 
@@ -567,7 +828,7 @@
   background:
     radial-gradient(ellipse at 15% 50%, rgba(139, 92, 246, 0.18) 0%, transparent 45%),
     radial-gradient(ellipse at 85% 50%, rgba(59, 130, 246, 0.14) 0%, transparent 45%),
-    radial-gradient(ellipse at 50% 90%, rgba(236, 72, 153, 0.10) 0%, transparent 45%);
+    radial-gradient(ellipse at 50% 90%, rgba(236, 72, 153, 0.1) 0%, transparent 45%);
   border-radius: 1rem;
   pointer-events: none;
   z-index: 0;
@@ -580,6 +841,14 @@
     radial-gradient(ellipse at 50% 90%, rgba(236, 72, 153, 0.08) 0%, transparent 50%);
 }
 
+/* Illustration theme — warm watercolor gradient wrapper */
+.illustration .chat-glass-wrapper::before {
+  background:
+    radial-gradient(ellipse at 15% 50%, rgba(216, 122, 74, 0.16) 0%, transparent 48%),
+    radial-gradient(ellipse at 85% 50%, rgba(186, 146, 210, 0.14) 0%, transparent 48%),
+    radial-gradient(ellipse at 50% 90%, rgba(210, 236, 226, 0.12) 0%, transparent 48%);
+}
+
 /* The frosted glass panel */
 .chat-glass-input {
   position: relative;
@@ -589,7 +858,9 @@
   -webkit-backdrop-filter: blur(40px) saturate(1.8);
   border: 1px solid rgba(255, 255, 255, 0.5);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
-  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  transition:
+    box-shadow 0.3s ease,
+    border-color 0.3s ease;
 }
 
 .chat-glass-input:focus-within {
@@ -616,6 +887,24 @@
     0 2px 8px rgba(0, 0, 0, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
     inset 0 -1px 0 rgba(255, 255, 255, 0.02);
+}
+
+/* Illustration theme — warm frosted parchment input */
+.illustration .chat-glass-input {
+  background: rgba(254, 251, 246, 0.55);
+  backdrop-filter: blur(36px) saturate(1.4);
+  -webkit-backdrop-filter: blur(36px) saturate(1.4);
+  border: 1px solid rgba(190, 160, 120, 0.25);
+  box-shadow:
+    0 4px 20px rgba(180, 140, 100, 0.08),
+    inset 0 1px 0 rgba(255, 250, 240, 0.6);
+}
+
+.illustration .chat-glass-input:focus-within {
+  border-color: rgba(216, 122, 74, 0.35);
+  box-shadow:
+    0 4px 24px rgba(216, 122, 74, 0.12),
+    inset 0 1px 0 rgba(255, 250, 240, 0.6);
 }
 
 /* ── Chat area background (WebGL LightRays handles the animated effect) ── */
