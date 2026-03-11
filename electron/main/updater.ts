@@ -9,6 +9,7 @@
 import { autoUpdater, UpdateInfo, ProgressInfo, UpdateDownloadedEvent } from 'electron-updater';
 import { BrowserWindow, app, ipcMain } from 'electron';
 import { EventEmitter } from 'events';
+import { logger } from '../utils/logger';
 
 export interface UpdateStatus {
   status:
@@ -54,12 +55,13 @@ export class AppUpdater extends EventEmitter {
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = true;
 
-    // Use logger
+    // Use centralized logger (avoid raw console.* which can throw EPIPE
+    // in packaged apps when stdout/stderr pipes are closed)
     autoUpdater.logger = {
-      info: (msg: string) => console.log('[Updater]', msg),
-      warn: (msg: string) => console.warn('[Updater]', msg),
-      error: (msg: string) => console.error('[Updater]', msg),
-      debug: (msg: string) => console.debug('[Updater]', msg),
+      info: (msg: string) => logger.info(`[Updater] ${msg}`),
+      warn: (msg: string) => logger.warn(`[Updater] ${msg}`),
+      error: (msg: string) => logger.error(`[Updater] ${msg}`),
+      debug: (msg: string) => logger.debug(`[Updater] ${msg}`),
     };
 
     // Detect channel from version string and set it so electron-updater
@@ -68,7 +70,7 @@ export class AppUpdater extends EventEmitter {
     const version = app.getVersion();
     const channel = detectChannel(version);
 
-    console.log(`[Updater] Version: ${version}, channel: ${channel}, provider: github`);
+    logger.info(`[Updater] Version: ${version}, channel: ${channel}, provider: github`);
 
     autoUpdater.channel = channel;
 
