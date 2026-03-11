@@ -119,7 +119,7 @@ const DEFAULT_SESSION_KEY = `${DEFAULT_CANONICAL_PREFIX}:main`;
 // [media attached: <path> ...] reference in the Gateway's user message text).
 // Keying by path avoids the race condition of keying by runId (which is only
 // available after the RPC returns, but history may load before that).
-const IMAGE_CACHE_KEY = 'clawx:image-cache';
+const IMAGE_CACHE_KEY = 'agentry:image-cache';
 const IMAGE_CACHE_MAX = 100; // max entries to prevent unbounded growth
 
 function loadImageCache(): Map<string, AttachedFileMeta> {

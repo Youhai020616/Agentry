@@ -1,5 +1,5 @@
 {
-  "name": "pocketcrow",
+  "name": "agentry",
   "version": "0.1.13",
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -12,9 +12,9 @@
       "sharp"
     ]
   },
-  "description": "PocketCrow - Graphical AI Assistant based on OpenClaw",
+  "description": "Agentry - AI Employee Platform based on OpenClaw",
   "main": "dist-electron/main/index.js",
-  "author": "PocketCrow Team",
+  "author": "Agentry Team",
   "license": "MIT",
   "private": true,
   "scripts": {

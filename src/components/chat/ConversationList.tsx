@@ -41,7 +41,7 @@ const MIN_WIDTH = 160;
 const MAX_WIDTH = 320;
 const DEFAULT_WIDTH = 220;
 const COLLAPSE_THRESHOLD = 140;
-const STORAGE_KEY = 'clawx:history-panel-width';
+const STORAGE_KEY = 'agentry:history-panel-width';
 
 // ── Types ──────────────────────────────────────────────────────
 

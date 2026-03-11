@@ -7,11 +7,11 @@
  * Port configuration
  */
 export const PORTS = {
-  /** PocketCrow GUI development server port */
-  POCKETCROW_DEV: 5173,
+  /** Agentry GUI development server port */
+  AGENTRY_DEV: 5173,
 
-  /** PocketCrow GUI production port (for reference) */
-  POCKETCROW_GUI: 23333,
+  /** Agentry GUI production port (for reference) */
+  AGENTRY_GUI: 23333,
 
   /** OpenClaw Gateway port (18790 to avoid conflict with standalone OpenClaw on 18789) */
   OPENCLAW_GATEWAY: 18790,
@@ -19,25 +19,25 @@ export const PORTS = {
 
 /**
  * Legacy environment variable mapping.
- * Supports both the new `POCKETCROW_PORT_*` convention and the legacy
+ * Supports both the new `AGENTRY_PORT_*` convention and the legacy
  * `OPENCLAW_GATEWAY_PORT` / `VITE_DEV_SERVER_PORT` names from `.env.example`.
  */
 const LEGACY_ENV_KEYS: Partial<Record<keyof typeof PORTS, string>> = {
   OPENCLAW_GATEWAY: 'OPENCLAW_GATEWAY_PORT',
-  POCKETCROW_DEV: 'VITE_DEV_SERVER_PORT',
+  AGENTRY_DEV: 'VITE_DEV_SERVER_PORT',
 };
 
 /**
  * Get port from environment or default.
  *
  * Resolution order:
- *  1. `POCKETCROW_PORT_<key>` (new convention)
+ *  1. `AGENTRY_PORT_<key>` (new convention)
  *  2. Legacy env var (e.g. `OPENCLAW_GATEWAY_PORT`, `VITE_DEV_SERVER_PORT`)
  *  3. Built-in default from `PORTS`
  */
 export function getPort(key: keyof typeof PORTS): number {
   // 1. New convention
-  const envKey = `POCKETCROW_PORT_${key}`;
+  const envKey = `AGENTRY_PORT_${key}`;
   const envValue = process.env[envKey];
   if (envValue) return parseInt(envValue, 10);
 
@@ -57,11 +57,11 @@ export const APP_PATHS = {
   /** OpenClaw configuration directory */
   OPENCLAW_CONFIG: '~/.openclaw',
 
-  /** PocketCrow configuration directory (kept as .clawx for backward compat) */
-  POCKETCROW_CONFIG: '~/.clawx',
+  /** Agentry configuration directory */
+  AGENTRY_CONFIG: '~/.agentry',
 
   /** Log files directory */
-  LOGS: '~/.clawx/logs',
+  LOGS: '~/.agentry/logs',
 } as const;
 
 /**

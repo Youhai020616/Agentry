@@ -5,7 +5,7 @@
  * Manually simulates what EmployeeManager.activate() does for the "researcher" employee:
  *   1. Reads SKILL.md from resources/employees/researcher/
  *   2. Replaces template variables ({{ROLE}}, {{ROLE_ZH}}, etc.)
- *   3. Creates workspace at ~/.clawx/employees/researcher/
+ *   3. Creates workspace at ~/.agentry/employees/researcher/
  *   4. Writes AGENTS.md + CLAUDE.md with compiled system prompt
  *   5. Registers the agent in ~/.openclaw/openclaw.json agents.list
  *
@@ -33,7 +33,7 @@ const __dirname = dirname(__filename);
 const PROJECT_ROOT = join(__dirname, '..');
 const BUILTIN_EMPLOYEES_DIR = join(PROJECT_ROOT, 'resources', 'employees');
 const HOME = homedir();
-const CLAWX_EMPLOYEES_DIR = join(HOME, '.clawx', 'employees');
+const AGENTRY_EMPLOYEES_DIR = join(HOME, '.agentry', 'employees');
 const OPENCLAW_CONFIG_PATH = join(HOME, '.openclaw', 'openclaw.json');
 
 // ── ANSI ─────────────────────────────────────────────────────────────────
@@ -48,9 +48,15 @@ const C = {
   cyan: '\x1b[36m',
 };
 
-function ok(msg) { console.log(`  ${C.green}✓${C.reset} ${msg}`); }
-function fail(msg) { console.log(`  ${C.red}✗${C.reset} ${msg}`); }
-function info(msg) { console.log(`  ${C.dim}ℹ ${msg}${C.reset}`); }
+function ok(msg) {
+  console.log(`  ${C.green}✓${C.reset} ${msg}`);
+}
+function fail(msg) {
+  console.log(`  ${C.red}✗${C.reset} ${msg}`);
+}
+function info(msg) {
+  console.log(`  ${C.dim}ℹ ${msg}${C.reset}`);
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -70,8 +76,8 @@ function writeConfig(config) {
 function listBuiltinEmployees() {
   if (!existsSync(BUILTIN_EMPLOYEES_DIR)) return [];
   return readdirSync(BUILTIN_EMPLOYEES_DIR, { withFileTypes: true })
-    .filter(e => e.isDirectory())
-    .map(e => e.name);
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name);
 }
 
 // ── Setup one employee ───────────────────────────────────────────────────
@@ -126,7 +132,7 @@ function setupEmployee(slug) {
   }
 
   // 3. Create workspace
-  const wsDir = join(CLAWX_EMPLOYEES_DIR, slug);
+  const wsDir = join(AGENTRY_EMPLOYEES_DIR, slug);
   mkdirSync(wsDir, { recursive: true });
   writeFileSync(join(wsDir, 'AGENTS.md'), systemPrompt, 'utf-8');
   writeFileSync(join(wsDir, 'CLAUDE.md'), systemPrompt, 'utf-8');
@@ -139,7 +145,7 @@ function setupEmployee(slug) {
   if (!Array.isArray(config.agents.list)) config.agents.list = [];
 
   // Remove existing entry
-  config.agents.list = config.agents.list.filter(a => a.id !== slug);
+  config.agents.list = config.agents.list.filter((a) => a.id !== slug);
 
   // Build entry
   const agentEntry = {
@@ -151,7 +157,7 @@ function setupEmployee(slug) {
   // Map built-in tools
   if (manifest.tools && manifest.tools.length > 0) {
     const BUILTIN = new Set(['web_search', 'web_fetch', 'read', 'write', 'exec', 'browser', 'mcp']);
-    const allow = manifest.tools.filter(t => BUILTIN.has(t.name)).map(t => t.name);
+    const allow = manifest.tools.filter((t) => BUILTIN.has(t.name)).map((t) => t.name);
     if (allow.length > 0) {
       agentEntry.tools = { allow };
       ok(`Tool policy: allow=[${allow.join(', ')}]`);
@@ -172,11 +178,12 @@ function cleanupAll() {
   console.log(`\n${C.bold}${C.cyan}Cleaning up all test agents...${C.reset}`);
 
   // Remove all workspaces
-  if (existsSync(CLAWX_EMPLOYEES_DIR)) {
-    const entries = readdirSync(CLAWX_EMPLOYEES_DIR, { withFileTypes: true })
-      .filter(e => e.isDirectory());
+  if (existsSync(AGENTRY_EMPLOYEES_DIR)) {
+    const entries = readdirSync(AGENTRY_EMPLOYEES_DIR, { withFileTypes: true }).filter((e) =>
+      e.isDirectory()
+    );
     for (const e of entries) {
-      const wsDir = join(CLAWX_EMPLOYEES_DIR, e.name);
+      const wsDir = join(AGENTRY_EMPLOYEES_DIR, e.name);
       try {
         rmSync(wsDir, { recursive: true, force: true });
         ok(`Removed workspace: ${e.name}`);
@@ -225,9 +232,7 @@ if (available.length === 0) {
 
 info(`Available employees: ${available.join(', ')}`);
 
-const slugsToSetup = doAll
-  ? available
-  : [targetSlug || 'researcher'];
+const slugsToSetup = doAll ? available : [targetSlug || 'researcher'];
 
 let successCount = 0;
 
@@ -238,7 +243,9 @@ for (const slug of slugsToSetup) {
   }
 }
 
-console.log(`\n${C.bold}${successCount === slugsToSetup.length ? C.green : C.yellow}${successCount}/${slugsToSetup.length} employee(s) set up.${C.reset}`);
+console.log(
+  `\n${C.bold}${successCount === slugsToSetup.length ? C.green : C.yellow}${successCount}/${slugsToSetup.length} employee(s) set up.${C.reset}`
+);
 console.log(`${C.dim}Wait ~3s for Gateway hot-reload, then run:${C.reset}`);
 console.log(`  node scripts/verify-phase1.mjs`);
 console.log(`  node scripts/verify-phase1.mjs --employee ${slugsToSetup[0]}`);

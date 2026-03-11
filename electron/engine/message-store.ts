@@ -7,7 +7,7 @@
  *
  * Design decisions:
  * - Uses the same SQLite pattern as TaskQueue (better-sqlite3, WAL mode)
- * - Separate DB file (clawx-messages.db) to avoid coupling with task data
+ * - Separate DB file (agentry-messages.db) to avoid coupling with task data
  * - Supports upsert to handle re-syncs from Gateway without duplicates
  * - Provides efficient pagination for history loading
  * - Stores raw message JSON to preserve all provider-specific fields
@@ -151,7 +151,7 @@ export class MessageStore extends EventEmitter {
 
   constructor(dbPath?: string) {
     super();
-    this.dbPath = dbPath ?? join(app.getPath('userData'), 'clawx-messages.db');
+    this.dbPath = dbPath ?? join(app.getPath('userData'), 'agentry-messages.db');
   }
 
   // ── Lifecycle ────────────────────────────────────────────────────

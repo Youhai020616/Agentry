@@ -2,7 +2,7 @@
   "gatewayNotRunning": "Gateway Not Running",
   "gatewayRequired": "The OpenClaw Gateway needs to be running to use chat. It will start automatically, or you can start it from Settings.",
   "welcome": {
-    "title": "PocketCrow Chat",
+    "title": "Agentry Chat",
     "subtitle": "Your AI assistant is ready. Start a conversation below.",
     "employeeSubtitle": "Feel free to ask me anything, I'll serve you with my professional skills.",
     "askQuestions": "Ask Questions",

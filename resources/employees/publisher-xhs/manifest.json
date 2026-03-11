@@ -2,7 +2,7 @@
   "name": "publisher-xhs",
   "version": "1.0.0",
   "description": "Xiaohongshu (小红书) automated publisher - publishes image/video notes via xiaohongshu-mcp service (Go + go-rod + stealth anti-detection)",
-  "author": "PocketCrow Team",
+  "author": "Agentry Team",
   "type": "execution",
   "employee": {
     "role": "Xiaohongshu Publisher",

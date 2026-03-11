@@ -7,16 +7,16 @@ description: Automated Reddit account nurturing via Camofox browser. Use when as
 
 Automate daily Reddit account activity (upvotes + comments) via Camofox headless browser to build karma and account history organically.
 
-## ClawX Integration
+## Agentry Integration
 
-This skill is managed by ClawX. Cookies are **automatically imported** during employee activation.
-You do NOT need to manually run `camofox-cookies.sh import` — ClawX handles cookie management.
+This skill is managed by Agentry. Cookies are **automatically imported** during employee activation.
+You do NOT need to manually run `camofox-cookies.sh import` — Agentry handles cookie management.
 If cookies expire during a session, fall back to the Login Recovery flow below.
 
 ## Prerequisites
 
 - **Camofox browser** running on localhost (default port 9377)
-- **Account cookies** automatically loaded by ClawX on activation (or imported via `scripts/camofox-cookies.sh`)
+- **Account cookies** automatically loaded by Agentry on activation (or imported via `scripts/camofox-cookies.sh`)
 
 ## Configuration
 

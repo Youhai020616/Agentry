@@ -23,16 +23,16 @@ interface LicenseInfo {
 type LicenseStatus = 'valid' | 'expired' | 'invalid' | 'none';
 
 /**
- * Auto-format a license key input as CLAWX-XXXX-XXXX-XXXX
+ * Auto-format a license key input as AGENTRY-XXXX-XXXX-XXXX
  */
 function formatLicenseKey(raw: string): string {
   // Strip everything except alphanumeric
   const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
 
-  // If the user typed starting with CLAWX, strip it for the segments
+  // If the user typed starting with AGENTRY, strip it for the segments
   let digits = cleaned;
-  if (digits.startsWith('CLAWX')) {
-    digits = digits.slice(6);
+  if (digits.startsWith('AGENTRY')) {
+    digits = digits.slice(7);
   }
 
   // Build formatted key
@@ -41,8 +41,8 @@ function formatLicenseKey(raw: string): string {
     parts.push(digits.slice(i, i + 4));
   }
 
-  if (parts.length === 0) return cleaned.startsWith('P') ? cleaned : '';
-  return `CLAWX-${parts.join('-')}`;
+  if (parts.length === 0) return cleaned.startsWith('A') ? cleaned : '';
+  return `AGENTRY-${parts.join('-')}`;
 }
 
 export function LicenseSettings() {
@@ -74,12 +74,12 @@ export function LicenseSettings() {
 
   const handleKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatLicenseKey(e.target.value);
-    // Limit to CLAWX-XXXX-XXXX-XXXX (20 chars)
-    setKeyInput(formatted.slice(0, 20));
+    // Limit to AGENTRY-XXXX-XXXX-XXXX (21 chars)
+    setKeyInput(formatted.slice(0, 21));
   };
 
   const handleActivate = async () => {
-    if (!keyInput || keyInput.length < 20) {
+    if (!keyInput || keyInput.length < 21) {
       toast.error(t('license.invalidKey'));
       return;
     }
@@ -168,9 +168,7 @@ export function LicenseSettings() {
           <div>
             <div className="flex items-center gap-2">
               <span className="font-medium">
-                {licenseInfo
-                  ? t(`license.tier.${licenseInfo.tier}`)
-                  : t('license.tier.free')}
+                {licenseInfo ? t(`license.tier.${licenseInfo.tier}`) : t('license.tier.free')}
               </span>
               <Badge variant={statusBadgeVariant(licenseStatus)}>
                 {t(`license.status.${licenseStatus}`)}
@@ -202,9 +200,9 @@ export function LicenseSettings() {
               onChange={handleKeyChange}
               placeholder={t('license.inputPlaceholder')}
               className="font-mono"
-              maxLength={20}
+              maxLength={21}
             />
-            <Button onClick={handleActivate} disabled={loading || keyInput.length < 20}>
+            <Button onClick={handleActivate} disabled={loading || keyInput.length < 21}>
               {t('license.activate')}
             </Button>
           </div>

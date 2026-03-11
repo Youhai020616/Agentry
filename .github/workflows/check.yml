@@ -1,5 +1,5 @@
-# ClawX CI Workflow
-# Runs on pull requests (main/develop) 
+# Agentry CI Workflow
+# Runs on pull requests (main/develop)
 name: Check and Build
 
 on:

@@ -22,7 +22,7 @@ import { tmpdir } from 'node:os';
 vi.mock('electron', () => ({
   app: {
     getPath: (name: string) => {
-      if (name === 'userData') return '/tmp/clawx-test';
+      if (name === 'userData') return '/tmp/agentry-test';
       return `/tmp/${name}`;
     },
   },
@@ -178,7 +178,7 @@ describe('Supervisor Engine E2E (Real SQLite)', () => {
 
   beforeEach(() => {
     // Create a temp directory for SQLite databases
-    tmpDir = mkdtempSync(join(tmpdir(), 'clawx-e2e-'));
+    tmpDir = mkdtempSync(join(tmpdir(), 'agentry-e2e-'));
 
     // Initialize TaskQueue with real SQLite
     const dbPath = join(tmpDir, 'tasks.db');

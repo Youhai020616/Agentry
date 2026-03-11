@@ -83,7 +83,7 @@ export class ProhibitionEngine extends EventEmitter {
 
   constructor(dbPath?: string) {
     super();
-    this.dbPath = dbPath ?? join(app.getPath('userData'), 'clawx-prohibitions.db');
+    this.dbPath = dbPath ?? join(app.getPath('userData'), 'agentry-prohibitions.db');
   }
 
   // ── Lifecycle ──────────────────────────────────────────────────

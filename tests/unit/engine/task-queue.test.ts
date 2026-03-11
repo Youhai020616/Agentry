@@ -126,9 +126,7 @@ function createMockDatabase() {
 
         // Apply WHERE filters (supports up to 2 positional ? params)
         if (parsed.whereCol) {
-          const whereMatch = sql.match(
-            /WHERE\s+(\w+)\s*=\s*\?(?:\s+AND\s+(\w+)\s*=\s*\?)?/i,
-          );
+          const whereMatch = sql.match(/WHERE\s+(\w+)\s*=\s*\?(?:\s+AND\s+(\w+)\s*=\s*\?)?/i);
           if (whereMatch) {
             const col1 = whereMatch[1];
             rows = rows.filter((r) => r[col1] === args[0]);
@@ -180,7 +178,9 @@ vi.mock('better-sqlite3', () => {
     // Ensure the `open` getter stays reactive
     Object.defineProperty(this, 'open', {
       get: () => db.open,
-      set: (v: boolean) => { db.open = v; },
+      set: (v: boolean) => {
+        db.open = v;
+      },
       configurable: true,
     });
   };
@@ -234,7 +234,7 @@ describe('TaskQueue', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockDb = createMockDatabase();
-    queue = new TaskQueue('/tmp/test/clawx-tasks.db');
+    queue = new TaskQueue('/tmp/test/agentry-tasks.db');
     queue.init();
   });
 
@@ -317,7 +317,7 @@ describe('TaskQueue', () => {
           requiresApproval: true,
           estimatedDuration: 3600,
           wave: 2,
-        }),
+        })
       );
 
       expect(task.owner).toBe('emp-1');
@@ -383,19 +383,15 @@ describe('TaskQueue', () => {
 
     it('listAvailable() returns only unblocked pending tasks', () => {
       // Create a dependency chain: task2 is blocked by task1
-      const task1 = queue.create(
-        makeTaskInput({ projectId: 'proj-1', subject: 'Task 1' }),
-      );
+      const task1 = queue.create(makeTaskInput({ projectId: 'proj-1', subject: 'Task 1' }));
       queue.create(
         makeTaskInput({
           projectId: 'proj-1',
           subject: 'Task 2 (blocked)',
           blockedBy: [task1.id],
-        }),
+        })
       );
-      queue.create(
-        makeTaskInput({ projectId: 'proj-1', subject: 'Task 3 (free)' }),
-      );
+      queue.create(makeTaskInput({ projectId: 'proj-1', subject: 'Task 3 (free)' }));
 
       const available = queue.listAvailable('proj-1');
 
@@ -410,15 +406,13 @@ describe('TaskQueue', () => {
     });
 
     it('listAvailable() includes blocked task when dependency is completed', () => {
-      const task1 = queue.create(
-        makeTaskInput({ projectId: 'proj-1', subject: 'Dependency' }),
-      );
+      const task1 = queue.create(makeTaskInput({ projectId: 'proj-1', subject: 'Dependency' }));
       queue.create(
         makeTaskInput({
           projectId: 'proj-1',
           subject: 'Blocked task',
           blockedBy: [task1.id],
-        }),
+        })
       );
 
       // Complete the dependency
@@ -515,7 +509,7 @@ describe('TaskQueue', () => {
 
     it('update() throws for a non-existent task', () => {
       expect(() => queue.update('nonexistent', { subject: 'Nope' })).toThrow(
-        'Task not found: nonexistent',
+        'Task not found: nonexistent'
       );
     });
 
@@ -599,7 +593,7 @@ describe('TaskQueue', () => {
 
     it('updateProject() throws for non-existent project', () => {
       expect(() => queue.updateProject('nonexistent', { goal: 'Nope' })).toThrow(
-        'Project not found: nonexistent',
+        'Project not found: nonexistent'
       );
     });
 
@@ -749,9 +743,7 @@ describe('TaskQueue', () => {
   describe('Dependency management', () => {
     it('create() with blockedBy updates the blocks array on the dependency task', () => {
       const dep = queue.create(makeTaskInput({ subject: 'Dependency' }));
-      queue.create(
-        makeTaskInput({ subject: 'Dependent', blockedBy: [dep.id] }),
-      );
+      queue.create(makeTaskInput({ subject: 'Dependent', blockedBy: [dep.id] }));
 
       // Re-fetch the dependency to see if blocks was updated
       const refreshedDep = queue.get(dep.id);

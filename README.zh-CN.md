@@ -1,353 +1,306 @@
+<div align="center">
 
-<p align="center">
-  <img src="src/assets/logo.svg" width="128" height="128" alt="ClawX Logo" />
-</p>
+# Agentry
 
-<h1 align="center">ClawX</h1>
+### 雇佣 AI 员工，而非 AI 工具。
 
-<p align="center">
-  <strong>OpenClaw AI 智能体的桌面客户端</strong>
-</p>
+桌面端 AI 员工管理平台 — 雇佣员工、激活技能、分配任务、自动执行。
 
-<p align="center">
-  <a href="#功能特性">功能特性</a> •
-  <a href="#为什么选择-clawx">为什么选择 ClawX</a> •
-  <a href="#快速上手">快速上手</a> •
-  <a href="#系统架构">系统架构</a> •
-  <a href="#开发指南">开发指南</a> •
-  <a href="#参与贡献">参与贡献</a>
-</p>
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Electron](https://img.shields.io/badge/Electron-40-47848F?logo=electron&logoColor=white)](https://www.electronjs.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![pnpm](https://img.shields.io/badge/pnpm-10-F69220?logo=pnpm&logoColor=white)](https://pnpm.io/)
 
-<p align="center">
-  <img src="https://img.shields.io/badge/platform-MacOS%20%7C%20Windows%20%7C%20Linux-blue" alt="Platform" />
-  <img src="https://img.shields.io/badge/electron-40+-47848F?logo=electron" alt="Electron" />
-  <img src="https://img.shields.io/badge/react-19-61DAFB?logo=react" alt="React" />
-  <a href="https://discord.com/invite/84Kex3GGAh" target="_blank">
-  <img src="https://img.shields.io/discord/1399603591471435907?logo=discord&labelColor=%20%235462eb&logoColor=%20%23f5f5f5&color=%20%235462eb" alt="chat on Discord" />
-  </a>
-  <img src="https://img.shields.io/github/downloads/ValueCell-ai/ClawX/total?color=%23027DEB" alt="Downloads" />
-  <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
-</p>
+[English](README.md) · **中文**
 
-<p align="center">
-  <a href="README.md">English</a> | 简体中文
-</p>
+</div>
 
 ---
 
-## 概述
+## Agentry 是什么？
 
-**ClawX** 是连接强大 AI 智能体与普通用户之间的桥梁。基于 [OpenClaw](https://github.com/OpenClaw) 构建，它将命令行式的 AI 编排转变为易用、美观的桌面体验——无需使用终端。
+**Agentry** 是一款跨平台桌面应用，让你在本地雇佣和管理 AI 员工。每位员工由一个 **Skill 技能包** 驱动 — 包含专业知识、工具能力和行为规则 — 使用你自己的 API Key 在本机运行。
 
-无论是自动化工作流、连接通讯软件，还是调度智能定时任务，ClawX 都能提供高效易用的图形界面，帮助你充分发挥 AI 智能体的能力。
-
-ClawX 预置了最佳实践的模型供应商配置，原生支持 Windows 平台以及多语言设置。当然，你也可以通过 **设置 → 高级 → 开发者模式** 来进行精细的高级配置。
-
----
-
-## 截图预览
-
-<p align="center">
-  <img src="resources/screenshot/zh/聊天.png" style="width: 100%; height: auto;">
-</p>
-
-<p align="center">
-  <img src="resources/screenshot/zh/定时任务.png" style="width: 100%; height: auto;">
-</p>
-
-<p align="center">
-  <img src="resources/screenshot/zh/技能.png" style="width: 100%; height: auto;">
-</p>
-
-<p align="center">
-  <img src="resources/screenshot/zh/频道.png" style="width: 100%; height: auto;">
-</p>
-
-<p align="center">
-  <img src="resources/screenshot/zh/仪表盘.png" style="width: 100%; height: auto;">
-</p>
-
-<p align="center">
-  <img src="resources/screenshot/zh/设置.png" style="width: 100%; height: auto;">
-</p>
-
----
-
-## 为什么选择 ClawX
-
-构建 AI 智能体不应该需要精通命令行。ClawX 的设计理念很简单：**强大的技术值得拥有一个尊重用户时间的界面。**
-
-| 痛点 | ClawX 解决方案 |
-|------|----------------|
-| 复杂的命令行配置 | 一键安装，配合引导式设置向导 |
-| 手动编辑配置文件 | 可视化设置界面，实时校验 |
-| 进程管理繁琐 | 自动管理网关生命周期 |
-| 多 AI 供应商切换 | 统一的供应商配置面板 |
-| 技能/插件安装复杂 | 内置技能市场与管理界面 |
-
-### 内置 OpenClaw 核心
-
-ClawX 直接基于官方 **OpenClaw** 核心构建。无需单独安装，我们将运行时嵌入应用内部，提供开箱即用的无缝体验。
-
-我们致力于与上游 OpenClaw 项目保持严格同步，确保你始终可以使用官方发布的最新功能、稳定性改进和生态兼容性。
-
----
-
-## 功能特性
-
-### 🎯 零配置门槛
-从安装到第一次 AI 对话，全程通过直观的图形界面完成。无需终端命令，无需 YAML 文件，无需到处寻找环境变量。
-
-### 💬 智能聊天界面
-通过现代化的聊天体验与 AI 智能体交互。支持多会话上下文、消息历史记录以及 Markdown 富文本渲染。
-
-### 📡 多频道管理
-同时配置和监控多个 AI 频道。每个频道独立运行，允许你为不同任务运行专门的智能体。
-
-### ⏰ 定时任务自动化
-调度 AI 任务自动执行。定义触发器、设置时间间隔，让 AI 智能体 7×24 小时不间断工作。
-
-### 🧩 可扩展技能系统
-通过预构建的技能扩展 AI 智能体的能力。在集成的技能面板中浏览、安装和管理技能——无需包管理器。
-
-### 🔐 安全的供应商集成
-连接多个 AI 供应商（OpenAI、Anthropic 等），凭证安全存储在系统原生密钥链中。
-
-### 🌙 自适应主题
-支持浅色模式、深色模式或跟随系统主题。ClawX 自动适应你的偏好设置。
-
----
-
-## 快速上手
-
-### 系统要求
-
-- **操作系统**：macOS 11+、Windows 10+ 或 Linux（Ubuntu 20.04+）
-- **内存**：最低 4GB RAM（推荐 8GB）
-- **存储空间**：1GB 可用磁盘空间
-
-### 安装方式
-
-#### 预构建版本（推荐）
-
-从 [Releases](https://github.com/ValueCell-ai/ClawX/releases) 页面下载适用于你平台的最新版本。
-
-#### 从源码构建
-
-```bash
-# 克隆仓库
-git clone https://github.com/ValueCell-ai/ClawX.git
-cd ClawX
-
-# 初始化项目
-pnpm run init
-
-# 以开发模式启动
-pnpm dev
 ```
+Skill   = 员工的灵魂（专业知识 + 工具能力）
+Agentry = 员工的身体（运行环境 + 管理界面 + 协作引擎）
+```
+
+> **BYOK**（Bring Your Own Key）— Agentry 使用你自己的 API Key 直连 LLM 供应商，你的数据不会经过我们的服务器。
+
+---
+
+## ✨ 核心功能
+
+### 🧑‍💼 AI 员工系统
+
+从市场雇佣 AI 员工或自行创建。每位员工拥有独立对话、持久记忆和专属工具。
+
+- **一键激活** — 安装技能包，激活员工，开始对话
+- **状态管理** — `离线 → 空闲 → 工作中 → 空闲 / 阻塞 / 异常`
+- **独立会话** — 每位员工独享 Gateway Session，完全上下文隔离
+
+### 🎯 Supervisor 协作
+
+向主管描述你的目标，Supervisor 自动编排团队协作：
+
+1. **规划** — 将目标拆分为任务 DAG（含依赖关系和优先级）
+2. **执行** — 按依赖波次将任务分发给对应员工
+3. **综合** — 汇总各员工的执行结果，生成最终交付物
+
+### 📋 任务看板
+
+Kanban 看板追踪 AI 团队的所有工作：
+
+`待处理 → 进行中 → 待审核 → 已完成 / 已阻塞`
+
+支持优先级、依赖关系、负责人分配、评分以及自动执行。
+
+### 🧠 记忆系统
+
+| 层级 | 用途 | 范围 |
+|------|------|------|
+| **情景记忆** | 任务经验与教训 | 每位员工独立 |
+| **语义记忆** | 品牌知识与业务上下文 | 全员共享 |
+
+编译 System Prompt 时自动注入记忆内容。
+
+### 💬 富文本对话
+
+- Markdown 渲染与代码高亮
+- 流式输出 + 思考过程展示（可折叠）
+- 工具调用状态追踪
+- 文件附件
+- 每位员工支持多会话管理
+
+### 🔌 渠道集成
+
+将 AI 员工接入外部平台 — Telegram、Discord、WhatsApp、飞书等。
+
+### ⏰ 定时任务
+
+支持 cron 表达式自动化定期任务 — 每天、每周、每月或自定义间隔。
+
+### 🔒 安全
+
+- API Key 通过操作系统级加密存储（macOS Keychain / Windows DPAPI / Linux libsecret）
+- 上下文隔离 + IPC 白名单机制 — 渲染进程无 Node.js 访问权限
+- 行为规则系统（硬规则 / 软规则）约束员工行为
+
+---
+
+## 📦 内置员工
+
+Agentry 预装 7 名即用型 AI 员工：
+
+| 员工 | 角色 | 类型 | 工具 |
+|------|------|------|------|
+| **Supervisor** | PM 主管 | 知识型 | 编排其他员工协作 |
+| **Researcher** | 研究员 | 知识型 | 网络搜索 + LLM 推理 |
+| **New Media** | 内容策划师 | 混合型 | DeerAPI 图片生成 |
+| **Browser Agent** | 浏览器助手 | 执行型 | 内置浏览器控制 |
+| **Reddit Nurture** | Reddit 养号专家 | 执行型 | Camofox 无头浏览器 |
+| **Publisher — 小红书** | 小红书发布专员 | 执行型 | xiaohongshu-mcp 服务 |
+| **Publisher — 抖音** | 抖音发布专员 | 执行型 | social-auto-upload + Playwright |
+
+> 从 **技能市场** 安装更多员工，或 [创建你自己的员工](#-创建自定义员工)。
+
+---
+
+## 🚀 快速开始
+
+### 下载安装
+
+下载适合你平台的最新版本：
+
+| 平台 | 架构 | 安装包 |
+|------|------|--------|
+| **macOS** | Apple Silicon (M1/M2/M3/M4) | `Agentry-*-mac-arm64.dmg` |
+| **macOS** | Intel | `Agentry-*-mac-x64.dmg` |
+| **Windows** | x64 | `Agentry-*-win-x64.exe` |
+| **Windows** | ARM64 | `Agentry-*-win-arm64.exe` |
+| **Linux** | x64 | `Agentry-*-linux-x86_64.AppImage` |
+| **Linux** | ARM64 | `Agentry-*-linux-arm64.AppImage` |
 
 ### 首次启动
 
-首次启动 ClawX 时，**设置向导** 将引导你完成以下步骤：
-
-1. **语言与区域** – 配置你的首选语言和地区
-2. **AI 供应商** – 输入所支持供应商的 API 密钥
-3. **技能包** – 选择适用于常见场景的预配置技能
-4. **验证** – 在进入主界面前测试你的配置
+1. **打开 Agentry** — 启动向导将引导你完成初始配置
+2. **添加 AI 供应商** — 配置至少一个 LLM 供应商和 API Key（OpenAI、Anthropic、Google、DashScope 等）
+3. **激活员工** — 前往员工中心，选择一名员工，点击 ▶ 激活
+4. **开始对话** — 点击员工头像进入对话界面
 
 ---
 
-## 系统架构
+## 🛠️ 开发指南
 
-ClawX 采用 **双进程架构**，将 UI 层与 AI 运行时操作分离：
+### 环境要求
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        ClawX 桌面应用                             │
-│                                                                  │
-│  ┌────────────────────────────────────────────────────────────┐  │
-│  │              Electron 主进程                                 │  │
-│  │  • 窗口与应用生命周期管理                                      │  │
-│  │  • 网关进程监控                                               │  │
-│  │  • 系统集成（托盘、通知、密钥链）                                │  │
-│  │  • 自动更新编排                                               │  │
-│  └────────────────────────────────────────────────────────────┘  │
-│                              │                                    │
-│                              │ IPC                                │
-│                              ▼                                    │
-│  ┌────────────────────────────────────────────────────────────┐  │
-│  │              React 渲染进程                                   │  │
-│  │  • 现代组件化 UI（React 19）                                   │  │
-│  │  • Zustand 状态管理                                           │  │
-│  │  • WebSocket 实时通信                                         │  │
-│  │  • Markdown 富文本渲染                                        │  │
-│  └────────────────────────────────────────────────────────────┘  │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │
-                               │ WebSocket (JSON-RPC)
-                               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     OpenClaw 网关                                 │
-│                                                                  │
-│  • AI 智能体运行时与编排                                          │
-│  • 消息频道管理                                                   │
-│  • 技能/插件执行环境                                              │
-│  • 供应商抽象层                                                   │
-└─────────────────────────────────────────────────────────────────┘
-```
+- **Node.js** 22+
+- **pnpm** 10+
+- **Git**
 
-### 设计原则
+### 安装
 
-- **进程隔离**：AI 运行时在独立进程中运行，确保即使在高负载计算期间 UI 也能保持响应
-- **优雅恢复**：内置带指数退避的重连逻辑，自动处理瞬时故障
-- **安全存储**：API 密钥和敏感数据利用操作系统原生的安全存储机制
-- **热重载**：开发模式支持即时 UI 更新，无需重启网关
+```bash
+# 克隆仓库
+git clone https://github.com/Youhai020616/Agentry.git
+cd Agentry
 
----
+# 安装依赖 + 下载内置运行时
+pnpm init
 
-## 使用场景
-
-### 🤖 个人 AI 助手
-配置一个通用 AI 智能体，可以回答问题、撰写邮件、总结文档并协助处理日常任务——全部通过简洁的桌面界面完成。
-
-### 📊 自动化监控
-设置定时智能体来监控新闻动态、追踪价格变动或监听特定事件。结果将推送到你偏好的通知渠道。
-
-### 💻 开发者效率工具
-将 AI 融入你的开发工作流。使用智能体进行代码审查、生成文档或自动化重复性编码任务。
-
-### 🔄 工作流自动化
-将多个技能串联起来，创建复杂的自动化流水线。处理数据、转换内容、触发操作——全部通过可视化方式编排。
-
----
-
-## 开发指南
-
-### 前置要求
-
-- **Node.js**：22+（推荐 LTS 版本）
-- **包管理器**：pnpm 9+（推荐）或 npm
-
-### 项目结构
-
-```
-ClawX/
-├── electron/              # Electron 主进程
-│   ├── main/             # 应用入口、窗口管理
-│   ├── gateway/          # OpenClaw 网关进程管理
-│   ├── preload/          # 安全 IPC 桥接脚本
-│   └── utils/            # 工具模块（存储、认证、路径）
-├── src/                   # React 渲染进程
-│   ├── components/       # 可复用 UI 组件
-│   │   ├── ui/          # 基础组件（shadcn/ui）
-│   │   ├── layout/      # 布局组件（侧边栏、顶栏）
-│   │   └── common/      # 公共组件
-│   ├── pages/           # 应用页面
-│   │   ├── Setup/       # 初始设置向导
-│   │   ├── Dashboard/   # 首页仪表盘
-│   │   ├── Chat/        # AI 聊天界面
-│   │   ├── Channels/    # 频道管理
-│   │   ├── Skills/      # 技能浏览与管理
-│   │   ├── Cron/        # 定时任务
-│   │   └── Settings/    # 配置面板
-│   ├── stores/          # Zustand 状态仓库
-│   ├── lib/             # 前端工具库
-│   └── types/           # TypeScript 类型定义
-├── resources/            # 静态资源（图标、图片）
-├── scripts/              # 构建与工具脚本
-└── tests/               # 测试套件
+# 启动开发服务器
+pnpm dev
 ```
 
 ### 常用命令
 
+| 命令 | 说明 |
+|------|------|
+| `pnpm dev` | 启动开发服务器（Vite + Electron 热重载） |
+| `pnpm build` | 完整生产构建 + electron-builder 打包 |
+| `pnpm build:vite` | 仅 Vite 构建（不打包） |
+| `pnpm lint` | ESLint 检查并自动修复 |
+| `pnpm typecheck` | TypeScript 严格类型检查（零错误） |
+| `pnpm test` | 运行单元测试（Vitest） |
+| `pnpm test:e2e` | 运行端到端测试（Playwright） |
+| `pnpm package:mac` | 打包 macOS 版本 |
+| `pnpm package:win` | 打包 Windows 版本 |
+| `pnpm package:linux` | 打包 Linux 版本 |
+
+### 从源码构建
+
 ```bash
-# 开发
-pnpm dev                  # 以热重载模式启动
-pnpm dev:electron         # 直接启动 Electron
+# 完整构建
+pnpm build
 
-# 代码质量
-pnpm lint                 # 运行 ESLint 检查
-pnpm lint:fix             # 自动修复问题
-pnpm typecheck            # TypeScript 类型检查
+# 按平台构建
+pnpm package:mac      # macOS (.dmg)
+pnpm package:win      # Windows (.exe)
+pnpm package:linux    # Linux (.AppImage, .deb, .rpm)
+```
 
-# 测试
-pnpm test                 # 运行单元测试
-pnpm test:watch           # 监听模式
-pnpm test:coverage        # 生成覆盖率报告
-pnpm test:e2e             # 运行 Playwright E2E 测试
+---
 
-# 构建与打包
-pnpm build                # 完整生产构建
-pnpm package              # 为当前平台打包
-pnpm package:mac          # 为 macOS 打包
-pnpm package:win          # 为 Windows 打包
-pnpm package:linux        # 为 Linux 打包
+## 🏗️ 架构概览
+
+```
+┌─ 渲染进程 (React 19) ──────────────────────────────────┐
+│  Pages → Zustand Stores → window.electron.ipcRenderer    │
+└────────────────────┬─────────────────────────────────────┘
+                     │ IPC（Preload 白名单过滤）
+┌────────────────────▼─────────────────────────────────────┐
+│  主进程 (Electron 40, Node 22)                            │
+│                                                           │
+│  ┌─────────────────────────────────────────────────────┐  │
+│  │  Skill 运行时引擎                                     │  │
+│  │  EmployeeManager · SkillCompiler · ManifestParser    │  │
+│  │  TaskQueue · Supervisor · TaskExecutor               │  │
+│  │  MemoryEngine · MessageBus · ProhibitionEngine       │  │
+│  │  CreditsEngine · ToolRegistry · BrowserManager       │  │
+│  └─────────────────────────────────────────────────────┘  │
+│                                                           │
+│  IPC Handlers (178 个) · 系统托盘 · 自动更新                │
+└────────────────────┬──────────────────────────────────────┘
+                     │ JSON-RPC 2.0 over WebSocket
+                     ▼
+              OpenClaw Gateway (:18790)
+              → LLM 供应商（BYOK）
 ```
 
 ### 技术栈
 
 | 层级 | 技术 |
 |------|------|
-| 运行时 | Electron 40+ |
-| UI 框架 | React 19 + TypeScript |
-| 样式 | Tailwind CSS + shadcn/ui |
-| 状态管理 | Zustand |
-| 构建工具 | Vite + electron-builder |
-| 测试 | Vitest + Playwright |
-| 动画 | Framer Motion |
-| 图标 | Lucide React |
+| 外壳 | Electron 40 |
+| UI 框架 | React 19 + Tailwind CSS 3.4 + shadcn/ui |
+| 开发语言 | TypeScript 5.7（严格模式） |
+| 路由 | React Router 7 |
+| 状态管理 | Zustand 5 |
+| 国际化 | i18next（英语、中文、日语） |
+| 数据库 | better-sqlite3（5 个数据库，WAL 模式） |
+| AI 网关 | OpenClaw（JSON-RPC 2.0） |
+| 构建工具 | Vite 7 + electron-builder 26 |
+| 测试框架 | Vitest 4 + Playwright |
+| 动画 | Framer Motion 12 |
 
 ---
 
-## 参与贡献
+## 📐 创建自定义员工
 
-我们欢迎社区的各种贡献！无论是修复 Bug、开发新功能、改进文档还是翻译——每一份贡献都让 ClawX 变得更好。
+使用脚手架快速创建新的 Skill 技能包：
 
-### 如何贡献
+```bash
+pnpm create-skill my-employee
+```
 
-1. **Fork** 本仓库
-2. **创建** 功能分支（`git checkout -b feature/amazing-feature`）
-3. **提交** 清晰描述的变更
-4. **推送** 到你的分支
-5. **创建** Pull Request
+生成标准 Skill 目录结构：
 
-### 贡献规范
+```
+resources/employees/my-employee/
+├── manifest.json    # 元数据、能力声明、工具、密钥、Onboarding 流程
+├── SKILL.md         # System Prompt 模板（支持 {{ROLE}}、{{TEAM}} 等变量）
+├── scripts/         # 执行脚本（可选）
+├── tools/           # CLI 工具定义（可选）
+└── references/      # 知识库文件（可选）
+```
 
-- 遵循现有代码风格（ESLint + Prettier）
-- 为新功能编写测试
-- 按需更新文档
-- 保持提交原子化且描述清晰
+**员工类型：**
 
----
-
-## 致谢
-
-ClawX 构建于以下优秀的开源项目之上：
-
-- [OpenClaw](https://github.com/OpenClaw) – AI 智能体运行时
-- [Electron](https://www.electronjs.org/) – 跨平台桌面框架
-- [React](https://react.dev/) – UI 组件库
-- [shadcn/ui](https://ui.shadcn.com/) – 精美设计的组件库
-- [Zustand](https://github.com/pmndrs/zustand) – 轻量级状态管理
+| 类型 | 说明 | 示例 |
+|------|------|------|
+| `knowledge` | 纯对话型，无外部工具 | Supervisor、Researcher |
+| `execution` | 需要外部工具执行操作 | Reddit Nurture、Publisher |
+| `hybrid` | 对话 + 工具组合 | New Media |
 
 ---
 
-## 社区
+## 🗺️ 路线图
 
-加入我们的社区，与其他用户交流、获取帮助、分享你的使用体验。
-
-| 企业微信 | 飞书群组 | Discord |
-| :---: | :---: | :---: |
-| <img src="src/assets/community/wecom-qr.png" width="150" alt="企业微信二维码" /> | <img src="src/assets/community/feishu-qr.png" width="150" alt="飞书二维码" /> | <img src="src/assets/community/20260212-185822.png" width="150" alt="Discord 二维码" /> |
+- [x] AI 员工生命周期管理
+- [x] Supervisor 多智能体编排
+- [x] 任务看板与自动执行
+- [x] 记忆系统（情景记忆 + 语义记忆）
+- [x] 行为规则约束系统
+- [x] 流式对话、工具调用、文件附件
+- [x] 渠道集成（Telegram、Discord、WhatsApp 等）
+- [x] 定时任务（cron）
+- [x] 自动更新（阿里云 OSS + GitHub Releases）
+- [ ] 更多内置 AI 员工
+- [ ] 技能市场完善
+- [ ] 桌面端 ↔ 云端数据同步
+- [ ] AI 网关迁移至 ZeroClaw（Rust）
+- [ ] Agentry Cloud — 7×24 小时云端 AI 员工
 
 ---
 
-## 许可证
+## 🤝 参与贡献
 
-ClawX 基于 [MIT 许可证](LICENSE) 发布。你可以自由地使用、修改和分发本软件。
+欢迎贡献！提交 PR 前请阅读 [CLAUDE.md](CLAUDE.md) 了解项目规范。
+
+1. Fork 本仓库
+2. 创建功能分支（`git checkout -b feature/amazing-feature`）
+3. 提交前运行检查：
+   ```bash
+   pnpm typecheck && pnpm lint && pnpm test
+   ```
+4. 提交更改（`git commit -m 'feat: add amazing feature'`）
+5. 推送分支（`git push origin feature/amazing-feature`）
+6. 提交 Pull Request
 
 ---
 
-<p align="center">
-  <sub>由 ValueCell 团队用 ❤️ 打造</sub>
-</p>
+## 📄 开源协议
+
+[MIT](LICENSE) © Agentry Team
+
+---
+
+<div align="center">
+
+**Agentry** — 你的桌面 AI 员工团队
+
+[报告 Bug](https://github.com/Youhai020616/Agentry/issues) · [功能建议](https://github.com/Youhai020616/Agentry/issues) · [社区讨论](https://github.com/Youhai020616/Agentry/discussions)
+
+</div>

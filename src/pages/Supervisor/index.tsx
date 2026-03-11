@@ -23,6 +23,7 @@ import { MessageDock, type DockCharacter } from '@/components/ui/message-dock';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { OrchestrationPanel } from './OrchestrationPanel';
+import { LightRays } from '@/components/chat/LightRays';
 
 /** Default supervisor slug — matches resources/employees/supervisor/ */
 const SUPERVISOR_SLUG = 'supervisor';
@@ -253,9 +254,12 @@ export function Supervisor() {
   }
 
   return (
-    <div className="-mx-4 -my-3 flex h-[calc(100%+1.5rem)] flex-col">
+    <div className="-mx-4 -my-3 flex h-[calc(100%+1.5rem)] flex-col overflow-hidden rounded-2xl relative">
+      {/* LightRays background — covers entire Supervisor page (chat + dock) */}
+      <LightRays className="z-0" />
+
       {/* Top bar: character indicator + panel toggle */}
-      <div className="flex shrink-0 items-center justify-between gap-2 px-4 py-3 border-b border-border/40">
+      <div className="relative z-[1] flex shrink-0 items-center justify-between gap-2 px-4 py-3 border-b border-border/40">
         <div className="flex items-center gap-2">
           {selectedId === SUPERVISOR_ID ? (
             <>
@@ -292,7 +296,7 @@ export function Supervisor() {
       </div>
 
       {/* Main area: Chat + Orchestration Panel */}
-      <div className="flex flex-1 min-h-0">
+      <div className="relative z-[1] flex flex-1 min-h-0">
         {/* Chat area */}
         <div className={cn('flex-1 min-w-0', activating && 'opacity-50 pointer-events-none')}>
           <Chat
@@ -331,7 +335,7 @@ export function Supervisor() {
       )}
 
       {/* MessageDock */}
-      <div className="shrink-0 flex justify-center py-2 border-t border-border/40">
+      <div className="relative z-[1] shrink-0 flex justify-center py-2 border-t border-border/40">
         <MessageDock
           characters={dockCharacters}
           selectedId={selectedId}

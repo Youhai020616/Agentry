@@ -2,7 +2,7 @@
   "name": "browser-agent",
   "version": "1.0.0",
   "description": "Web browser assistant - autonomously browses websites, extracts information, fills forms, and monitors pages using the built-in browser automation tool",
-  "author": "PocketCrow Team",
+  "author": "Agentry Team",
   "type": "execution",
   "employee": {
     "role": "Web Browser Assistant",

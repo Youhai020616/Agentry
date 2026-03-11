@@ -15,7 +15,7 @@
  *   node scripts/test-gateway-chat.mjs --interactive --employee browser-agent
  *
  * Prerequisites:
- *   - ClawX app must be running (Gateway process must be active)
+ *   - Agentry app must be running (Gateway process must be active)
  *   - The target employee must be activated in the Employee Hub
  *
  * Environment:
@@ -33,7 +33,7 @@ import WebSocket from 'ws';
 // ── Configuration ──────────────────────────────────────────────────────
 
 const APPDATA = process.env.APPDATA || join(homedir(), '.config');
-const SETTINGS_PATH = join(APPDATA, 'pocketcrow', 'settings.json');
+const SETTINGS_PATH = join(APPDATA, 'agentry', 'settings.json');
 const EMPLOYEES_DIR = join(process.cwd(), 'resources', 'employees');
 
 // ANSI colors
@@ -55,7 +55,7 @@ const C = {
 function loadSettings() {
   if (!existsSync(SETTINGS_PATH)) {
     console.error(`${C.red}✗ Settings file not found: ${SETTINGS_PATH}${C.reset}`);
-    console.error(`  Make sure ClawX has been launched at least once.`);
+    console.error(`  Make sure Agentry has been launched at least once.`);
     process.exit(1);
   }
   return JSON.parse(readFileSync(SETTINGS_PATH, 'utf-8'));
@@ -173,7 +173,7 @@ class GatewayTestClient {
           maxProtocol: 3,
           client: {
             id: 'gateway-client',
-            displayName: 'ClawX Test CLI',
+            displayName: 'Agentry Test CLI',
             version: '0.1.0',
             platform: process.platform,
             mode: 'ui',
@@ -658,7 +658,7 @@ async function main() {
   const sessionKey = `agent:${employeeSlug}:main`;
 
   console.log(`\n${C.bold}╔══════════════════════════════════════════╗${C.reset}`);
-  console.log(`${C.bold}║   ClawX Gateway Chat Test                ║${C.reset}`);
+  console.log(`${C.bold}║   Agentry Gateway Chat Test              ║${C.reset}`);
   console.log(`${C.bold}╚══════════════════════════════════════════╝${C.reset}`);
   console.log(
     `${C.dim}  Employee:    ${C.reset}${manifest.employee.avatar}  ${manifest.employee.role} (${employeeSlug})`
@@ -683,7 +683,7 @@ async function main() {
     console.log(`${C.green}✓ Connected to Gateway${C.reset}\n`);
   } catch (err) {
     console.error(`${C.red}✗ Failed to connect: ${err.message}${C.reset}`);
-    console.error(`  Is ClawX running? Is the Gateway started?`);
+    console.error(`  Is Agentry running? Is the Gateway started?`);
     process.exit(1);
   }
 
@@ -743,13 +743,13 @@ async function sendAndWait(client, employeeSlug, sessionKey, systemPrompt, messa
 
     if (err.message.includes('session') || err.message.includes('Session')) {
       console.error(
-        `\n${C.yellow}Hint: The employee "${employeeSlug}" may not be activated in ClawX.`
+        `\n${C.yellow}Hint: The employee "${employeeSlug}" may not be activated in Agentry.`
       );
-      console.error(`Open ClawX → Employees → click the ▶ button to activate.${C.reset}`);
+      console.error(`Open Agentry → Employees → click the ▶ button to activate.${C.reset}`);
     }
     if (err.message.includes('model') || err.message.includes('provider')) {
       console.error(
-        `\n${C.yellow}Hint: No LLM provider configured. Set up a provider in ClawX → Settings.${C.reset}`
+        `\n${C.yellow}Hint: No LLM provider configured. Set up a provider in Agentry → Settings.${C.reset}`
       );
     }
   }
@@ -834,7 +834,7 @@ async function runInteractive(client, employeeSlug, sessionKey, systemPrompt) {
 
 function printHelp() {
   console.log(`
-${C.bold}ClawX Gateway Chat Test${C.reset}
+${C.bold}Agentry Gateway Chat Test${C.reset}
 
 ${C.bold}Usage:${C.reset}
   node scripts/test-gateway-chat.mjs [options] "<message>"
@@ -862,7 +862,7 @@ ${C.bold}Examples:${C.reset}
   node scripts/test-gateway-chat.mjs --list
 
 ${C.bold}Prerequisites:${C.reset}
-  - ClawX must be running (Gateway process active)
+  - Agentry must be running (Gateway process active)
   - Target employee must be activated in Employee Hub
   - At least one LLM provider must be configured
 

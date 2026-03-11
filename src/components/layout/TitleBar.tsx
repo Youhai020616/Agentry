@@ -1,7 +1,7 @@
 /**
  * TitleBar Component
  * macOS: empty drag region (native traffic lights handled by hiddenInset).
- * Windows/Linux: icon + "PocketCrow" on left, minimize/maximize/close on right.
+ * Windows/Linux: icon + "Agentry" on left, minimize/maximize/close on right.
  */
 import { useState, useEffect } from 'react';
 import { Minus, Square, X, Copy } from 'lucide-react';
@@ -48,8 +48,8 @@ function WindowsTitleBar() {
     <div className="drag-region flex h-10 shrink-0 items-center justify-between glass-header">
       {/* Left: Icon + App Name */}
       <div className="no-drag flex items-center gap-2 pl-3">
-        <img src={logoSvg} alt="PocketCrow" className="h-5 w-auto" />
-        <span className="text-xs font-medium text-muted-foreground select-none">PocketCrow</span>
+        <img src={logoSvg} alt="Agentry" className="h-5 w-auto" />
+        <span className="text-xs font-medium text-muted-foreground select-none">Agentry</span>
       </div>
 
       {/* Right: Window Controls */}

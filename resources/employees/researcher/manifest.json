@@ -2,7 +2,7 @@
   "name": "researcher",
   "version": "1.1.0",
   "description": "Research analyst - conducts competitive research, industry analysis, trend reports using web search and LLM reasoning",
-  "author": "PocketCrow Team",
+  "author": "Agentry Team",
   "type": "knowledge",
   "employee": {
     "role": "Research Analyst",

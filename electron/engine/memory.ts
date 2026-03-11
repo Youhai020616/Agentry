@@ -3,8 +3,8 @@
  * File-backed episodic and brand memory for AI employees.
  *
  * Storage layout:
- *   ~/.clawx/employees/{employeeId}/MEMORY.md  — per-employee episodic memories
- *   ~/.clawx/shared/BRAND.md                   — shared brand context
+ *   ~/.agentry/employees/{employeeId}/MEMORY.md  — per-employee episodic memories
+ *   ~/.agentry/shared/BRAND.md                   — shared brand context
  *
  * Events:
  *  - 'memory-changed' ({ type: string, action: string }) — emitted after mutations
@@ -25,9 +25,9 @@ import type { EpisodicMemory } from '../../src/types/memory';
 
 // ── Constants ────────────────────────────────────────────────────────
 
-const CLAWX_DIR = join(homedir(), '.clawx');
-const EMPLOYEES_DIR = join(CLAWX_DIR, 'employees');
-const SHARED_DIR = join(CLAWX_DIR, 'shared');
+const AGENTRY_DIR = join(homedir(), '.agentry');
+const EMPLOYEES_DIR = join(AGENTRY_DIR, 'employees');
+const SHARED_DIR = join(AGENTRY_DIR, 'shared');
 const BRAND_FILE = join(SHARED_DIR, 'BRAND.md');
 
 /**
@@ -486,7 +486,7 @@ export class MemoryEngine extends EventEmitter {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { app } = require('electron') as typeof import('electron');
-      const oldDbPath = join(app.getPath('userData'), 'clawx-memory.db');
+      const oldDbPath = join(app.getPath('userData'), 'agentry-memory.db');
       if (existsSync(oldDbPath)) {
         logger.info('Old SQLite memory database detected, auto-migrating...');
         // Run migration asynchronously — don't block init

@@ -91,14 +91,14 @@ This returns JSON:
 
 **Interpret the result:**
 - If `service_running` is `false`: Report "xiaohongshu-mcp 服务未启动" and suggest the user check their Docker container or service process.
-- If `logged_in` is `false`: Report "小红书未登录" and suggest the user re-run the onboarding login flow through ClawX.
+- If `logged_in` is `false`: Report "小红书未登录" and suggest the user re-run the onboarding login flow through Agentry.
 - If both are `true`: Proceed to the requested operation.
 
 ### 2. Login Flow (if needed)
 
 Login is managed by the xiaohongshu-mcp service itself (Docker container or native binary provides QR code mechanism). You do NOT handle login. Simply inform the user:
 
-> "小红书登录已过期。请通过 ClawX 的员工管理界面重新进行登录引导。"
+> "小红书登录已过期。请通过 Agentry 的员工管理界面重新进行登录引导。"
 
 ### 3. Publish Image Note
 
@@ -177,7 +177,7 @@ Before calling the publish command:
 | Error | Cause | Action |
 |-------|-------|--------|
 | Service not running | xiaohongshu-mcp process stopped | Ask user to restart Docker container or service |
-| Not logged in | Cookies expired | Ask user to re-login via ClawX onboarding |
+| Not logged in | Cookies expired | Ask user to re-login via Agentry onboarding |
 | API timeout (120s) | Network or processing delay | Retry once with `exec` |
 | Image not found | Invalid file path | Report missing file path |
 | API error 4xx/5xx | Service-side issue | Report error detail to user |

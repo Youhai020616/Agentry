@@ -1,6 +1,6 @@
 {
   "title": "Settings",
-  "subtitle": "Configure your PocketCrow experience",
+  "subtitle": "Configure your Agentry experience",
   "appearance": {
     "title": "Appearance",
     "description": "Customize the look and feel",
@@ -18,7 +18,7 @@
     "notRequired": "Not required",
     "empty": {
       "title": "No providers configured",
-      "desc": "Add an AI provider to start using PocketCrow",
+      "desc": "Add an AI provider to start using Agentry",
       "cta": "Add Your First Provider"
     },
     "dialog": {
@@ -65,11 +65,11 @@
     "appLogs": "Application Logs",
     "openFolder": "Open Folder",
     "autoStart": "Auto-start Gateway",
-    "autoStartDesc": "Start Gateway when PocketCrow launches"
+    "autoStartDesc": "Start Gateway when Agentry launches"
   },
   "updates": {
     "title": "Updates",
-    "description": "Keep PocketCrow up to date",
+    "description": "Keep Agentry up to date",
     "autoCheck": "Auto-check for updates",
     "autoCheckDesc": "Check for updates on startup",
     "autoDownload": "Auto-download updates",
@@ -155,8 +155,8 @@
   },
   "about": {
     "title": "About",
-    "appName": "PocketCrow",
-    "tagline": "Graphical AI Assistant",
+    "appName": "Agentry",
+    "tagline": "AI Employee Platform",
     "basedOn": "Based on OpenClaw",
     "version": "Version {{version}}",
     "docs": "Website",
