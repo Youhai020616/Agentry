@@ -6,6 +6,7 @@ on:
   pull_request:
     branches:
       - main
+      - develop
 
 jobs:
   check:
@@ -26,6 +27,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check formatting
+        run: pnpm prettier --check .
+
       - name: Run linter
         run: pnpm run lint
 
@@ -36,6 +40,7 @@ jobs:
         run: pnpm run test
 
   build:
+    needs: check
     runs-on: windows-latest
     steps:
       - name: Checkout code

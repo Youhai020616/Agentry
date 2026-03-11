@@ -1,0 +1,28 @@
+{
+  "title": "ピクセルオフィス",
+  "description": "AI従業員をピクセルキャラクターとしてバーチャルオフィスで可視化",
+  "start": "オフィスを起動",
+  "stop": "オフィスを停止",
+  "restart": "再起動",
+  "starting": "起動中...",
+  "openExternal": "ブラウザで開く",
+  "status": {
+    "stopped": "停止中",
+    "starting": "起動中",
+    "running": "稼働中",
+    "error": "エラー"
+  },
+  "empty": {
+    "title": "ピクセルオフィス未稼働",
+    "description": "ピクセルオフィスを起動して、AI従業員がチャーミングなバーチャルワークスペースで働いている様子をご覧ください。従業員のステータス変更はリアルタイムで反映されます。",
+    "requirement": "Python 3.10+ のインストールが必要です"
+  },
+  "settings": {
+    "title": "Star Office",
+    "enabled": "Star Office を有効化",
+    "autoStart": "起動時に自動実行",
+    "port": "ポート",
+    "portHint": "デフォルト: 19000"
+  }
+}
+

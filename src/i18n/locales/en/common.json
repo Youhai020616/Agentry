@@ -55,7 +55,8 @@
     "supervisor": "Supervisor",
     "projects": "Projects",
     "browser": "Browser",
-    "mediaStudio": "Media Studio"
+    "mediaStudio": "Media Studio",
+    "office": "Pixel Office"
   },
   "gateway": {
     "notRunning": "Gateway Not Running",

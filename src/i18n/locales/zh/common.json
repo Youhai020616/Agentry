@@ -55,7 +55,8 @@
     "supervisor": "主管",
     "projects": "项目",
     "browser": "浏览器",
-    "mediaStudio": "新媒体工作台"
+    "mediaStudio": "新媒体工作台",
+    "office": "像素办公室"
   },
   "gateway": {
     "notRunning": "网关未运行",

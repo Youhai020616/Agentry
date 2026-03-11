@@ -272,6 +272,12 @@ const electronAPI = {
         'conversation:delete',
         'conversation:get',
         'conversation:listAll',
+        // Star Office
+        'star-office:start',
+        'star-office:stop',
+        'star-office:restart',
+        'star-office:status',
+        'star-office:get-url',
         // Studio Pipeline
         'studio:brand-analysis',
         'studio:text-generation',
@@ -322,6 +328,7 @@ const electronAPI = {
         'ollama:pull-progress',
         'extension:install-progress',
         'studio:log',
+        'star-office:status-changed',
       ];
 
       if (validChannels.includes(channel)) {
@@ -372,6 +379,7 @@ const electronAPI = {
         'ollama:pull-progress',
         'extension:install-progress',
         'studio:log',
+        'star-office:status-changed',
       ];
 
       if (validChannels.includes(channel)) {
@@ -414,6 +422,7 @@ const electronAPI = {
         'ollama:pull-progress',
         'extension:install-progress',
         'studio:log',
+        'star-office:status-changed',
       ];
 
       if (!validChannels.includes(channel)) {
