@@ -7,6 +7,7 @@ import {
   Sun,
   Moon,
   Monitor,
+  Palette,
   RefreshCw,
   Terminal,
   ExternalLink,
@@ -302,6 +303,14 @@ export function Settings() {
               >
                 <Moon className="h-4 w-4 mr-2" />
                 {t('appearance.dark')}
+              </Button>
+              <Button
+                variant={theme === 'illustration' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTheme('illustration')}
+              >
+                <Palette className="h-4 w-4 mr-2" />
+                {t('appearance.illustration')}
               </Button>
               <Button
                 variant={theme === 'system' ? 'default' : 'outline'}

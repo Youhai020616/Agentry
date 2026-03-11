@@ -6,7 +6,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import i18n from '@/i18n';
 
-type Theme = 'light' | 'dark' | 'system';
+type Theme = 'light' | 'dark' | 'system' | 'illustration';
 type UpdateChannel = 'stable' | 'beta' | 'dev';
 
 /** Media Studio API configuration for image/video generation pipeline */
