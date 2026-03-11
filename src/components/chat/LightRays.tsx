@@ -135,7 +135,7 @@ export function LightRays({ className = '' }: LightRaysProps) {
         const ext = rendererRef.current.gl.getExtension('WEBGL_lose_context');
         if (ext) ext.loseContext();
         if (canvas?.parentNode) canvas.parentNode.removeChild(canvas);
-      } catch (_e) {
+      } catch {
         /* ignore */
       }
     }
@@ -220,7 +220,7 @@ export function LightRays({ className = '' }: LightRaysProps) {
         try {
           rendererRef.current.render({ scene: mesh });
           animationIdRef.current = requestAnimationFrame(loop);
-        } catch (_e) {
+        } catch {
           /* WebGL lost — stop */
         }
       };
