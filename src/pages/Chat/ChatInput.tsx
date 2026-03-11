@@ -395,7 +395,7 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
             className={cn(
               'w-full resize-none border-0 bg-transparent px-4 pt-3 pb-1 text-[15px] leading-relaxed outline-none',
               'text-foreground placeholder:text-muted-foreground/40',
-              'focus:ring-0 focus-visible:outline-none min-h-[36px]',
+              'focus:ring-0 focus-visible:outline-none min-h-[36px] no-scrollbar',
               'disabled:cursor-not-allowed disabled:opacity-50'
             )}
             rows={1}

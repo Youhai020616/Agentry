@@ -169,20 +169,37 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
           const runId = p.runId ?? data.runId;
           const sessionKey = p.sessionKey ?? data.sessionKey;
           console.info(
-            `[gateway] lifecycle:end received — runId="${String(runId ?? '').slice(0, 12)}" → synthesizing final event`
+            `[gateway] lifecycle:end received — runId="${String(runId ?? '').slice(0, 12)}" → delaying 350ms before synthesizing final event`
           );
-          import('./chat')
-            .then(({ useChatStore }) => {
-              useChatStore.getState().handleChatEvent({
-                state: 'final',
-                runId,
-                sessionKey,
-                // No message body — handleChatEvent will promote streamingMessage
+          // ── BUG FIX: lifecycle:end race condition ─────────────────
+          // The lifecycle:end notification arrives via the `gateway:notification`
+          // channel (channel B), while the last streaming deltas arrive via
+          // `gateway:chat-message` (channel A). These two IPC channels have no
+          // ordering guarantee, so lifecycle:end can arrive BEFORE the final
+          // delta(s). When that happens, handleChatEvent promotes the current
+          // (incomplete) streamingMessage as the final message and then
+          // markRunCompleted() blocks all subsequent deltas — causing truncation.
+          //
+          // Fix: delay the synthesized final event by 350ms to give straggling
+          // deltas time to arrive and update streamingMessage. If a real final
+          // event (with message body + stopReason) arrives via channel A during
+          // this window, it will resolve the run first and markRunCompleted();
+          // the delayed lifecycle:end event will then be harmlessly dropped by
+          // the recentCompletedRunIds guard in handleChatEvent.
+          setTimeout(() => {
+            import('./chat')
+              .then(({ useChatStore }) => {
+                useChatStore.getState().handleChatEvent({
+                  state: 'final',
+                  runId,
+                  sessionKey,
+                  // No message body — handleChatEvent will promote streamingMessage
+                });
+              })
+              .catch((err) => {
+                console.warn('Failed to forward lifecycle:end as final event:', err);
               });
-            })
-            .catch((err) => {
-              console.warn('Failed to forward lifecycle:end as final event:', err);
-            });
+          }, 350);
           return;
         }
 

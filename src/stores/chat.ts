@@ -31,6 +31,9 @@ export interface RawMessage {
   errorMessage?: string;
   /** Local-only: file metadata for user-uploaded attachments (not sent to/from Gateway) */
   _attachedFiles?: AttachedFileMeta[];
+  /** Local-only: tool call statuses captured during streaming, preserved on final message
+   *  so that ChatMessage can render ToolStatusBar for completed (non-streaming) messages. */
+  _toolStatuses?: ToolStatus[];
 }
 
 /** Content block inside a message */
@@ -1057,8 +1060,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { activeRunId } = get();
 
     // ── Completed-run guard: drop late events for already-resolved runs ──
+    // BUG FIX: A single run can produce multiple assistant messages (e.g.,
+    // tool-use intermediate messages followed by a final text reply). Previously,
+    // the first resolved final message called markRunCompleted(), causing ALL
+    // subsequent messages in the same run to be silently dropped here.
+    // Now we allow events that carry a message body through — real duplicates
+    // are caught downstream by the alreadyExists (message ID) check.
     if (runId && recentCompletedRunIds.has(runId)) {
-      return;
+      const hasMessageBody = event.message && typeof event.message === 'object';
+      if (!hasMessageBody) {
+        return;
+      }
+      // Has message body → continue processing; alreadyExists will dedup
     }
 
     // Only process events for the active run (or if no active run set).
@@ -1091,6 +1104,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
         // completely overwrite earlier ones. Now we merge content intelligently:
         // if both old and new are objects with text content, we keep the longer
         // / more recent one (Gateway sends cumulative deltas, not incremental).
+        //
+        // MULTI-MESSAGE FIX: If a previous final message in the same run already
+        // set sending=false, but the run is still producing more messages (e.g.,
+        // supervisor mode), re-enable sending so the streaming UI renders.
+        if (!get().sending && event.message && typeof event.message === 'object') {
+          set({ sending: true });
+        }
         const updates = collectToolUpdates(event.message, resolvedState);
         set((s) => ({
           streamingMessage: (() => {
@@ -1150,6 +1170,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
           set((s) => {
             const nextTools =
               updates.length > 0 ? upsertToolStatuses(s.streamingTools, updates) : s.streamingTools;
+            // Snapshot tool statuses BEFORE clearing — we attach them to the
+            // final message so ChatMessage can render ToolStatusBar even after
+            // streaming ends. Only attach if there are meaningful statuses.
+            const toolSnapshot = nextTools.length > 0 ? nextTools : undefined;
             const streamingTools = isResolved ? [] : nextTools;
             // Check if message already exists (prevent duplicates)
             const alreadyExists = s.messages.some((m) => m.id === msgId);
@@ -1179,6 +1203,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
                       ...finalMsg,
                       role: finalMsg.role || 'assistant',
                       id: msgId,
+                      _toolStatuses: toolSnapshot,
                     },
                   ],
                   streamingText: '',
@@ -1193,6 +1218,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
                       ...finalMsg,
                       role: finalMsg.role || 'assistant',
                       id: msgId,
+                      _toolStatuses: toolSnapshot,
                     },
                   ],
                   streamingText: '',
@@ -1203,10 +1229,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
                   streamingTools,
                 };
           });
-          // Mark run as completed to block late-arriving duplicate events
-          if (isResolved && runId) {
-            markRunCompleted(runId);
-          }
+          // MULTI-MESSAGE FIX: Do NOT call markRunCompleted() here.
+          // A single run can produce multiple assistant messages (tool-use
+          // intermediates + final text). Marking the run completed after the
+          // first resolved message would block all subsequent messages.
+          // Instead, markRunCompleted() is called only when lifecycle:end
+          // arrives (the no-message-body branch below), which is the true
+          // end-of-run signal from the Gateway.
           // If still pending after set, schedule safety net
           if (get().pendingFinal) {
             schedulePendingFinalSafetyNet(get, set);
@@ -1217,7 +1246,27 @@ export const useChatStore = create<ChatState>((set, get) => ({
           // No message body in final event (e.g., lifecycle:end from Gateway).
           // Promote the current streamingMessage to the message history instead
           // of waiting 8s for the safety net timeout.
-          const { streamingMessage: sm } = get();
+          //
+          // DEFENSIVE CHECK: If `sending` is already false, a real final event
+          // (with full message body) already resolved this run via the `if (finalMsg)`
+          // branch above. In that case, skip the promote to avoid overwriting the
+          // complete message with a potentially truncated streamingMessage snapshot.
+          const { streamingMessage: sm, sending: stillSending } = get();
+          if (!stillSending) {
+            // Run already resolved by a real final event — nothing to do.
+            // Clear any leftover streaming state just in case.
+            set({ streamingText: '', streamingMessage: null, pendingFinal: false });
+            clearPendingFinalTimers();
+            // MULTI-MESSAGE FIX: Still mark the run as completed here.
+            // Since we moved markRunCompleted() out of the "final with message body"
+            // branch (to allow multiple messages per run), lifecycle:end is now the
+            // sole place that marks a run completed. We must do it even when
+            // sending is already false to block any further late-arriving events.
+            if (runId) {
+              markRunCompleted(runId);
+            }
+            break;
+          }
           if (sm && typeof sm === 'object') {
             const promoted = sm as RawMessage;
             const promotedId =
@@ -1232,6 +1281,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
             }
             set((s) => {
               const alreadyExists = s.messages.some((m) => m.id === promotedId);
+              // Snapshot tool statuses before clearing so promoted message
+              // retains them for ToolStatusBar rendering in ChatMessage.
+              const toolSnapshot = s.streamingTools.length > 0 ? s.streamingTools : undefined;
               if (alreadyExists) {
                 return {
                   streamingText: '',
@@ -1250,6 +1302,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
                     ...promoted,
                     role: promoted.role || 'assistant',
                     id: promotedId,
+                    _toolStatuses: toolSnapshot,
                   },
                 ],
                 streamingText: '',

@@ -4,13 +4,33 @@
  * with markdown, thinking sections, images, and tool cards.
  */
 import { useState, useCallback, memo } from 'react';
-import { User, Sparkles, Copy, Check, ChevronDown, ChevronRight, Wrench, FileText, Film, Music, FileArchive, File, AlertTriangle } from 'lucide-react';
+import {
+  User,
+  Sparkles,
+  Copy,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Wrench,
+  FileText,
+  Film,
+  Music,
+  FileArchive,
+  File,
+  AlertTriangle,
+} from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { RawMessage, AttachedFileMeta } from '@/stores/chat';
-import { extractText, extractThinking, extractImages, extractToolUse, formatTimestamp } from './message-utils';
+import type { RawMessage, AttachedFileMeta, ToolStatus } from '@/stores/chat';
+import {
+  extractText,
+  extractThinking,
+  extractImages,
+  extractToolUse,
+  formatTimestamp,
+} from './message-utils';
 
 interface ChatMessageProps {
   message: RawMessage;
@@ -47,27 +67,37 @@ export const ChatMessage = memo(function ChatMessage({
   const errorMessage = message.errorMessage;
   const isErrorResponse = !isUser && (message.stopReason === 'error' || !!errorMessage);
 
+  // Tool statuses preserved from streaming phase — render on completed messages too
+  const savedToolStatuses: ToolStatus[] =
+    (showThinking && !isStreaming && message._toolStatuses) || [];
+
   // Never render tool result messages in chat UI
   if (isToolResult) return null;
 
   // Don't render empty messages (also keep messages with streaming tool status or errors)
   const hasStreamingToolStatus = showThinking && isStreaming && streamingTools.length > 0;
-  if (!hasText && !visibleThinking && images.length === 0 && visibleTools.length === 0 && attachedFiles.length === 0 && !hasStreamingToolStatus && !isErrorResponse) return null;
+  const hasSavedToolStatus = savedToolStatuses.length > 0;
+  if (
+    !hasText &&
+    !visibleThinking &&
+    images.length === 0 &&
+    visibleTools.length === 0 &&
+    attachedFiles.length === 0 &&
+    !hasStreamingToolStatus &&
+    !hasSavedToolStatus &&
+    !isErrorResponse
+  )
+    return null;
 
   return (
-    <div
-      className={cn(
-        'flex gap-3 group',
-        isUser ? 'flex-row-reverse' : 'flex-row',
-      )}
-    >
+    <div className={cn('flex gap-3 group', isUser ? 'flex-row-reverse' : 'flex-row')}>
       {/* Avatar */}
       <div
         className={cn(
           'flex h-8 w-8 shrink-0 items-center justify-center rounded-full mt-1',
           isUser
             ? 'bg-primary text-primary-foreground'
-            : 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white',
+            : 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white'
         )}
       >
         {isUser ? <User className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
@@ -77,17 +107,17 @@ export const ChatMessage = memo(function ChatMessage({
       <div
         className={cn(
           'flex flex-col w-full max-w-[80%] space-y-2',
-          isUser ? 'items-end' : 'items-start',
+          isUser ? 'items-end' : 'items-start'
         )}
       >
+        {/* Tool status bar — shown during streaming (live) or from saved snapshot (completed) */}
         {showThinking && isStreaming && !isUser && streamingTools.length > 0 && (
           <ToolStatusBar tools={streamingTools} />
         )}
+        {!isUser && savedToolStatuses.length > 0 && <ToolStatusBar tools={savedToolStatuses} />}
 
         {/* Thinking section */}
-        {visibleThinking && (
-          <ThinkingBlock content={visibleThinking} />
-        )}
+        {visibleThinking && <ThinkingBlock content={visibleThinking} />}
 
         {/* Tool use cards */}
         {visibleTools.length > 0 && (
@@ -113,10 +143,7 @@ export const ChatMessage = memo(function ChatMessage({
         {isUser && images.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {images.map((img, i) => (
-              <div
-                key={`content-${i}`}
-                className="w-36 h-36 rounded-xl border overflow-hidden"
-              >
+              <div key={`content-${i}`} className="w-36 h-36 rounded-xl border overflow-hidden">
                 <img
                   src={`data:${img.mimeType};base64,${img.data}`}
                   alt="attachment"
@@ -203,7 +230,10 @@ export const ChatMessage = memo(function ChatMessage({
               }
               if (isImage && !file.preview) {
                 return (
-                  <div key={`local-${i}`} className="w-36 h-36 rounded-xl border overflow-hidden bg-muted flex items-center justify-center text-muted-foreground">
+                  <div
+                    key={`local-${i}`}
+                    className="w-36 h-36 rounded-xl border overflow-hidden bg-muted flex items-center justify-center text-muted-foreground"
+                  >
                     <File className="h-8 w-8" />
                   </div>
                 );
@@ -243,24 +273,30 @@ function ToolStatusBar({
   }>;
 }) {
   return (
-    <div className="w-full rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+    <div className="w-full rounded-lg glass-block-subtle px-3 py-2 text-xs text-muted-foreground">
       <div className="space-y-1">
         {tools.map((tool) => {
           const duration = formatDuration(tool.durationMs);
-          const statusLabel = tool.status === 'running' ? 'running' : (tool.status === 'error' ? 'error' : 'done');
+          const statusLabel =
+            tool.status === 'running' ? 'running' : tool.status === 'error' ? 'error' : 'done';
           return (
-            <div key={tool.toolCallId || tool.id || tool.name} className="flex flex-wrap items-center gap-2">
-              <span className={cn(
-                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]',
-                tool.status === 'error' ? 'bg-destructive/10 text-destructive' : 'bg-foreground/5 text-muted-foreground',
-              )}>
+            <div
+              key={tool.toolCallId || tool.id || tool.name}
+              className="flex flex-wrap items-center gap-2"
+            >
+              <span
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]',
+                  tool.status === 'error'
+                    ? 'bg-destructive/10 text-destructive'
+                    : 'bg-foreground/5 text-muted-foreground'
+                )}
+              >
                 <span className="font-mono">{tool.name}</span>
                 <span className="opacity-70">{statusLabel}</span>
               </span>
               {duration && <span className="text-[11px] opacity-70">{duration}</span>}
-              {tool.summary && (
-                <span className="truncate text-[11px]">{tool.summary}</span>
-              )}
+              {tool.summary && <span className="truncate text-[11px]">{tool.summary}</span>}
             </div>
           );
         })}
@@ -295,9 +331,7 @@ function MessageBubble({
       className={cn(
         'relative rounded-2xl px-4 py-3',
         !isUser && 'w-full',
-        isUser
-          ? 'bg-primary text-primary-foreground'
-          : 'bg-muted',
+        isUser ? 'glass-bubble-user' : 'glass-bubble-assistant'
       )}
     >
       {isUser ? (
@@ -312,7 +346,10 @@ function MessageBubble({
                 const isInline = !match && !className;
                 if (isInline) {
                   return (
-                    <code className="bg-background/50 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
+                    <code
+                      className="bg-background/50 px-1.5 py-0.5 rounded text-sm font-mono"
+                      {...props}
+                    >
                       {children}
                     </code>
                   );
@@ -327,7 +364,12 @@ function MessageBubble({
               },
               a({ href, children }) {
                 return (
-                  <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline"
+                  >
                     {children}
                   </a>
                 );
@@ -346,10 +388,10 @@ function MessageBubble({
       {!isUser && (
         <div className="flex items-center justify-between mt-2">
           {timestamp ? (
-            <span className="text-xs text-muted-foreground">
-              {formatTimestamp(timestamp)}
-            </span>
-          ) : <span />}
+            <span className="text-xs text-muted-foreground">{formatTimestamp(timestamp)}</span>
+          ) : (
+            <span />
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -370,12 +412,16 @@ function ThinkingBlock({ content }: { content: string }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="w-full rounded-lg border border-border/50 bg-muted/30 text-sm">
+    <div className="w-full rounded-lg glass-block-subtle text-sm">
       <button
         className="flex items-center gap-2 w-full px-3 py-2 text-muted-foreground hover:text-foreground transition-colors"
         onClick={() => setExpanded(!expanded)}
       >
-        {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+        {expanded ? (
+          <ChevronDown className="h-3.5 w-3.5" />
+        ) : (
+          <ChevronRight className="h-3.5 w-3.5" />
+        )}
         <span className="font-medium">Thinking</span>
       </button>
       {expanded && (
@@ -401,15 +447,28 @@ function formatFileSize(bytes: number): string {
 function FileIcon({ mimeType, className }: { mimeType: string; className?: string }) {
   if (mimeType.startsWith('video/')) return <Film className={className} />;
   if (mimeType.startsWith('audio/')) return <Music className={className} />;
-  if (mimeType.startsWith('text/') || mimeType === 'application/json' || mimeType === 'application/xml') return <FileText className={className} />;
-  if (mimeType.includes('zip') || mimeType.includes('compressed') || mimeType.includes('archive') || mimeType.includes('tar') || mimeType.includes('rar') || mimeType.includes('7z')) return <FileArchive className={className} />;
+  if (
+    mimeType.startsWith('text/') ||
+    mimeType === 'application/json' ||
+    mimeType === 'application/xml'
+  )
+    return <FileText className={className} />;
+  if (
+    mimeType.includes('zip') ||
+    mimeType.includes('compressed') ||
+    mimeType.includes('archive') ||
+    mimeType.includes('tar') ||
+    mimeType.includes('rar') ||
+    mimeType.includes('7z')
+  )
+    return <FileArchive className={className} />;
   if (mimeType === 'application/pdf') return <FileText className={className} />;
   return <File className={className} />;
 }
 
 function FileCard({ file }: { file: AttachedFileMeta }) {
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 bg-muted/30 max-w-[220px]">
+    <div className="flex items-center gap-2 rounded-lg glass-block-subtle px-3 py-2 max-w-[220px]">
       <FileIcon mimeType={file.mimeType} className="h-5 w-5 shrink-0 text-muted-foreground" />
       <div className="min-w-0 overflow-hidden">
         <p className="text-xs font-medium truncate">{file.fileName}</p>
@@ -427,18 +486,22 @@ function ToolCard({ name, input }: { name: string; input: unknown }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="rounded-lg border border-border/50 bg-muted/20 text-sm">
+    <div className="rounded-lg glass-block-subtle text-sm">
       <button
         className="flex items-center gap-2 w-full px-3 py-1.5 text-muted-foreground hover:text-foreground transition-colors"
         onClick={() => setExpanded(!expanded)}
       >
         <Wrench className="h-3.5 w-3.5" />
         <span className="font-mono text-xs">{name}</span>
-        {expanded ? <ChevronDown className="h-3 w-3 ml-auto" /> : <ChevronRight className="h-3 w-3 ml-auto" />}
+        {expanded ? (
+          <ChevronDown className="h-3 w-3 ml-auto" />
+        ) : (
+          <ChevronRight className="h-3 w-3 ml-auto" />
+        )}
       </button>
       {expanded && input != null && (
         <pre className="px-3 pb-2 text-xs text-muted-foreground overflow-x-auto">
-          {typeof input === 'string' ? input : JSON.stringify(input, null, 2) as string}
+          {typeof input === 'string' ? input : (JSON.stringify(input, null, 2) as string)}
         </pre>
       )}
     </div>
