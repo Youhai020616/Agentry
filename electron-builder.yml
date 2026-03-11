@@ -33,14 +33,11 @@ asarUnpack:
   - '**/*.node'
 
 # Auto-update configuration
-# Primary: Alibaba Cloud OSS (fast for Chinese users, used for auto-update)
-# Fallback: GitHub Releases (backup, used when OSS is unavailable)
+# Using GitHub Releases for auto-update
+# OSS can be added later as a CDN accelerator for Chinese users if needed
 publish:
-  - provider: generic
-    url: https://oss.intelli-spectrum.com/latest
-    useMultipleRangeRequest: false
   - provider: github
-    owner: ValueCell-ai
+    owner: Youhai020616
     repo: Agentry
     releaseType: release
 

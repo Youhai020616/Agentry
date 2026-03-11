@@ -144,7 +144,7 @@ Agentry 预装 7 名即用型 AI 员工：
 
 ```bash
 # 克隆仓库
-git clone https://github.com/ValueCell-ai/Agentry.git
+git clone https://github.com/Youhai020616/Agentry.git
 cd Agentry
 
 # 安装依赖 + 下载内置运行时
@@ -301,6 +301,6 @@ resources/employees/my-employee/
 
 **Agentry** — 你的桌面 AI 员工团队
 
-[报告 Bug](https://github.com/ValueCell-ai/Agentry/issues) · [功能建议](https://github.com/ValueCell-ai/Agentry/issues) · [社区讨论](https://github.com/ValueCell-ai/Agentry/discussions)
+[报告 Bug](https://github.com/Youhai020616/Agentry/issues) · [功能建议](https://github.com/Youhai020616/Agentry/issues) · [社区讨论](https://github.com/Youhai020616/Agentry/discussions)
 
 </div>

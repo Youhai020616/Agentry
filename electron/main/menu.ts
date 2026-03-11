@@ -182,7 +182,7 @@ export function createMenu(): void {
         {
           label: 'Report Issue',
           click: async () => {
-            await shell.openExternal('https://github.com/ValueCell-ai/Agentry/issues');
+            await shell.openExternal('https://github.com/Youhai020616/Agentry/issues');
           },
         },
         { type: 'separator' },

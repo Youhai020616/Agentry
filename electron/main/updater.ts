@@ -2,19 +2,23 @@
  * Auto-Updater Module
  * Handles automatic application updates using electron-updater
  *
- * Update providers are configured in electron-builder.yml (OSS primary, GitHub fallback).
- * For prerelease channels (alpha, beta), the feed URL is overridden at runtime
- * to point at the channel-specific OSS directory (e.g. /alpha/, /beta/).
+ * Update provider is configured in electron-builder.yml (GitHub Releases).
+ * For prerelease channels (alpha, beta), the channel is set at runtime
+ * so electron-updater requests the correct yml filename.
  */
 import { autoUpdater, UpdateInfo, ProgressInfo, UpdateDownloadedEvent } from 'electron-updater';
 import { BrowserWindow, app, ipcMain } from 'electron';
 import { EventEmitter } from 'events';
 
-/** Base CDN URL (without trailing channel path) */
-const OSS_BASE_URL = 'https://oss.intelli-spectrum.com';
-
 export interface UpdateStatus {
-  status: 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
+  status:
+    | 'idle'
+    | 'checking'
+    | 'available'
+    | 'not-available'
+    | 'downloading'
+    | 'downloaded'
+    | 'error';
   info?: UpdateInfo;
   progress?: ProgressInfo;
   error?: string;
@@ -27,7 +31,7 @@ export interface UpdaterEvents {
   'update-not-available': (info: UpdateInfo) => void;
   'download-progress': (progress: ProgressInfo) => void;
   'update-downloaded': (event: UpdateDownloadedEvent) => void;
-  'error': (error: Error) => void;
+  error: (error: Error) => void;
 }
 
 /**
@@ -45,11 +49,11 @@ export class AppUpdater extends EventEmitter {
 
   constructor() {
     super();
-    
+
     // Configure auto-updater
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = true;
-    
+
     // Use logger
     autoUpdater.logger = {
       info: (msg: string) => console.log('[Updater]', msg),
@@ -58,23 +62,15 @@ export class AppUpdater extends EventEmitter {
       debug: (msg: string) => console.debug('[Updater]', msg),
     };
 
-    // Override feed URL for prerelease channels so that
-    // alpha -> /alpha/alpha-mac.yml, beta -> /beta/beta-mac.yml, etc.
+    // Detect channel from version string and set it so electron-updater
+    // requests the correct yml filename from GitHub Releases.
+    // e.g. channel "alpha" → alpha-mac.yml, "latest" → latest-mac.yml
     const version = app.getVersion();
     const channel = detectChannel(version);
-    const feedUrl = `${OSS_BASE_URL}/${channel}`;
 
-    console.log(`[Updater] Version: ${version}, channel: ${channel}, feedUrl: ${feedUrl}`);
+    console.log(`[Updater] Version: ${version}, channel: ${channel}, provider: github`);
 
-    // Set channel so electron-updater requests the correct yml filename.
-    // e.g. channel "alpha" → requests alpha-mac.yml, channel "latest" → requests latest-mac.yml
     autoUpdater.channel = channel;
-
-    autoUpdater.setFeedURL({
-      provider: 'generic',
-      url: feedUrl,
-      useMultipleRangeRequest: false,
-    });
 
     this.setupListeners();
   }
@@ -225,10 +221,7 @@ export class AppUpdater extends EventEmitter {
 /**
  * Register IPC handlers for update operations
  */
-export function registerUpdateHandlers(
-  updater: AppUpdater,
-  mainWindow: BrowserWindow
-): void {
+export function registerUpdateHandlers(updater: AppUpdater, mainWindow: BrowserWindow): void {
   updater.setMainWindow(mainWindow);
 
   // Get current update status
@@ -279,7 +272,6 @@ export function registerUpdateHandlers(
     updater.setAutoDownload(enable);
     return { success: true };
   });
-
 }
 
 // Export singleton instance

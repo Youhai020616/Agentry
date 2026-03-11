@@ -74,3 +74,6 @@ resources/employees/*/image/
 
 # External projects
 star-office-ui/
+
+# Local docs (not tracked in repo)
+docs/

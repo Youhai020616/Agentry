@@ -302,7 +302,6 @@ export function Supervisor() {
           <Chat
             externalSession
             hideToolbar
-            hideBackground
             employeeName={
               selectedId === SUPERVISOR_ID ? t('supervisor.title') : selectedEmployee?.name
             }

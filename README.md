@@ -144,7 +144,7 @@ Download the latest release for your platform:
 
 ```bash
 # Clone the repository
-git clone https://github.com/ValueCell-ai/Agentry.git
+git clone https://github.com/Youhai020616/Agentry.git
 cd Agentry
 
 # Install dependencies + download bundled runtime
@@ -301,6 +301,6 @@ Contributions are welcome! Please read the project conventions in [CLAUDE.md](CL
 
 **Agentry** — Your Desktop AI Workforce
 
-[Report Bug](https://github.com/ValueCell-ai/Agentry/issues) · [Request Feature](https://github.com/ValueCell-ai/Agentry/issues) · [Discussions](https://github.com/ValueCell-ai/Agentry/discussions)
+[Report Bug](https://github.com/Youhai020616/Agentry/issues) · [Request Feature](https://github.com/Youhai020616/Agentry/issues) · [Discussions](https://github.com/Youhai020616/Agentry/discussions)
 
 </div>
