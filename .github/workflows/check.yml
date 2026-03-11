@@ -28,7 +28,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Check formatting
-        run: pnpm prettier --check .
+        run: pnpm exec prettier --check .
 
       - name: Run linter
         run: pnpm run lint
