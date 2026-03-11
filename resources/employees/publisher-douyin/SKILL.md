@@ -24,16 +24,16 @@ If the user asks to "view", "check", or "look at" their Douyin page/interface:
 ## Architecture
 
 ```
-ClawX (you) → publish_douyin.py → social-auto-upload Python lib → Playwright + Chromium → creator.douyin.com
+Agentry (you) → publish_douyin.py → social-auto-upload Python lib → Playwright + Chromium → creator.douyin.com
 ```
 
 **social-auto-upload** is a mature open-source library (Python + Playwright + stealth.min.js anti-detection) that handles all browser automation internally. You do NOT control the browser directly — you call the Python wrapper script which imports and invokes the library.
 
 ## Prerequisites
 
-- **social-auto-upload** installed — auto-installed by ClawX
-- **Playwright + Chromium** — auto-installed by ClawX
-- **Python 3** (3.8+) — auto-installed by ClawX
+- **social-auto-upload** installed — auto-installed by Agentry
+- **Playwright + Chromium** — auto-installed by Agentry
+- **Python 3** (3.8+) — auto-installed by Agentry
 - **Cookie file** generated via QR code login (see Login Flow)
 
 ## Configuration

@@ -26,7 +26,7 @@ vi.mock('../../../electron/utils/paths', () => ({
   getOpenClawSkillsDir: vi.fn().mockReturnValue('/tmp/.openclaw/skills'),
   getEmployeeWorkspaceDir: vi
     .fn()
-    .mockImplementation((id: string) => `/tmp/.clawx/employees/${id}`),
+    .mockImplementation((id: string) => `/tmp/.agentry/employees/${id}`),
 }));
 
 vi.mock('../../../electron/utils/channel-config', () => ({
@@ -247,7 +247,7 @@ describe('EmployeeManager', () => {
       vi.mocked(existsSync).mockImplementation((p: unknown) => {
         const path = String(p);
         // Workspace dir doesn't exist yet
-        if (path.includes('.clawx') && path.includes('employees')) return false;
+        if (path.includes('.agentry') && path.includes('employees')) return false;
         // Skill dirs exist (needed for scan)
         return true;
       });
@@ -354,8 +354,9 @@ describe('EmployeeManager', () => {
       setupScanMocks();
       await manager.scan();
 
-      const { readOpenClawConfig, writeOpenClawConfig } =
-        await import('../../../electron/utils/channel-config');
+      const { readOpenClawConfig, writeOpenClawConfig } = await import(
+        '../../../electron/utils/channel-config'
+      );
 
       // Simulate an existing agent in config from a previous activation
       vi.mocked(readOpenClawConfig).mockReturnValue({

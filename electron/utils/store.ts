@@ -13,7 +13,7 @@ let settingsStoreInstance: any = null;
  * Generate a random token for gateway authentication
  */
 function generateToken(): string {
-  return `pocketcrow-${randomBytes(16).toString('hex')}`;
+  return `agentry-${randomBytes(16).toString('hex')}`;
 }
 
 /**

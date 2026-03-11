@@ -2,7 +2,7 @@
   "name": "reddit-nurture",
   "version": "1.0.0",
   "description": "Automated Reddit account nurturing - builds karma through organic commenting and engagement via Camofox headless browser",
-  "author": "PocketCrow Team",
+  "author": "Agentry Team",
   "type": "execution",
   "employee": {
     "role": "Reddit Growth Specialist",
@@ -64,14 +64,8 @@
           "pics",
           "lifehacks"
         ],
-        "niche": [
-          "smallbusiness",
-          "Entrepreneur",
-          "marketing"
-        ],
-        "banned": [
-          "todayilearned"
-        ],
+        "niche": ["smallbusiness", "Entrepreneur", "marketing"],
+        "banned": ["todayilearned"],
         "limited": {
           "LifeProTips": "weekly"
         }
@@ -90,13 +84,7 @@
           "Great question",
           "This is so true"
         ],
-        "styles": [
-          "personal_story",
-          "question",
-          "humor",
-          "supplementary_info",
-          "genuine_opinion"
-        ],
+        "styles": ["personal_story", "question", "humor", "supplementary_info", "genuine_opinion"],
         "lengthDistribution": {
           "short": 0.3,
           "medium": 0.5,

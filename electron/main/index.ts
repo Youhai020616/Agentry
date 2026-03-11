@@ -122,7 +122,7 @@ async function createWindow(): Promise<BrowserWindow> {
 async function initialize(): Promise<void> {
   // Initialize logger first
   logger.init();
-  logger.info('=== PocketCrow Application Starting ===');
+  logger.info('=== Agentry Application Starting ===');
   logger.debug(
     `Runtime: platform=${process.platform}/${process.arch}, electron=${process.versions.electron}, node=${process.versions.node}, packaged=${app.isPackaged}`
   );
@@ -156,7 +156,7 @@ async function initialize(): Promise<void> {
     { urls: ['https://openrouter.ai/*'] },
     (details, callback) => {
       details.requestHeaders['HTTP-Referer'] = 'https://claw-x.com';
-      details.requestHeaders['X-Title'] = 'PocketCrow';
+      details.requestHeaders['X-Title'] = 'Agentry';
       callback({ requestHeaders: details.requestHeaders });
     }
   );

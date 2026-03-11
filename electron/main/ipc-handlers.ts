@@ -424,7 +424,7 @@ function transformCronJob(job: GatewayCronJob) {
  * These handlers bridge the two formats.
  *
  * Employee assignment (assignedEmployeeId) is stored locally since the
- * Gateway has no concept of PocketCrow employees. A lazily-initialized
+ * Gateway has no concept of Agentry employees. A lazily-initialized
  * electron-store persists the cronJobId → employeeId mapping.
  */
 
@@ -1414,7 +1414,7 @@ function registerProviderHandlers(): void {
         // This ensures Setup/Settings validation reflects unsaved edits immediately.
         const resolvedBaseUrl = options?.baseUrl || provider?.baseUrl || registryBaseUrl;
 
-        logger.debug(`[pocketcrow-validate] validating provider type: ${providerType}`);
+        logger.debug(`[agentry-validate] validating provider type: ${providerType}`);
         return await validateApiKeyWithProvider(providerType, apiKey, { baseUrl: resolvedBaseUrl });
       } catch (error) {
         logger.error('Validation error:', error);
@@ -1476,7 +1476,7 @@ async function validateApiKeyWithProvider(
 }
 
 function logValidationStatus(provider: string, status: number): void {
-  logger.debug(`[pocketcrow-validate] ${provider} HTTP ${status}`);
+  logger.debug(`[agentry-validate] ${provider} HTTP ${status}`);
 }
 
 function maskSecret(secret: string): string {
@@ -1523,7 +1523,7 @@ function logValidationRequest(
   headers: Record<string, string>
 ): void {
   logger.debug(
-    `[pocketcrow-validate] ${provider} request ${method} ${sanitizeValidationUrl(url)} headers=${JSON.stringify(sanitizeHeaders(headers))}`
+    `[agentry-validate] ${provider} request ${method} ${sanitizeValidationUrl(url)} headers=${JSON.stringify(sanitizeHeaders(headers))}`
   );
 }
 
@@ -1601,7 +1601,7 @@ async function validateOpenAiCompatibleKey(
   // Fall back to a minimal /chat/completions POST which almost all providers support.
   if (modelsResult.error?.includes('API error: 404')) {
     logger.debug(
-      `[pocketcrow-validate] ${providerType} /models returned 404, falling back to /chat/completions probe`
+      `[agentry-validate] ${providerType} /models returned 404, falling back to /chat/completions probe`
     );
     const base = normalizeBaseUrl(trimmedBaseUrl);
     const chatUrl = `${base}/chat/completions`;
@@ -2881,7 +2881,7 @@ function registerMemoryHandlers(engineRef: EngineRef, _gatewayManager: GatewayMa
 
   ipcMain.handle('memory:migrate', async (_event, dbPath?: string) => {
     try {
-      const path = dbPath ?? join(app.getPath('userData'), 'clawx-memory.db');
+      const path = dbPath ?? join(app.getPath('userData'), 'agentry-memory.db');
       const { MemoryEngine } = await import('../engine/memory');
       const result = await MemoryEngine.migrateFromSQLite(path, getMemoryEngine());
       return { success: true, result };
@@ -3001,7 +3001,7 @@ async function getLicenseStore(): Promise<{
 }> {
   if (!_licenseStoreInstance) {
     const ElectronStore = (await import('electron-store')).default;
-    _licenseStoreInstance = new ElectronStore({ name: 'clawx-license' });
+    _licenseStoreInstance = new ElectronStore({ name: 'agentry-license' });
   }
   return _licenseStoreInstance;
 }
@@ -3723,7 +3723,7 @@ async function getConversationStore() {
   if (!_conversationStore) {
     const ElectronStore = (await import('electron-store')).default;
     _conversationStore = new ElectronStore<{ conversations: ConversationRecord[] }>({
-      name: 'clawx-conversations',
+      name: 'agentry-conversations',
       defaults: {
         conversations: [],
       },

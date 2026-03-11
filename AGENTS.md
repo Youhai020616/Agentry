@@ -163,7 +163,7 @@ Agentry/
 │   ├── setup.ts                  # Vitest setup (mock window.electron)
 │   └── unit/                     # Unit tests
 ├── PRODUCT_PLAN.md               # Product roadmap (1600+ lines)
-├── CLAUDE.md                     # This file
+├── AGENTS.md                     # This file
 ├── package.json                  # pnpm, Electron 40, React 19
 ├── tsconfig.json                 # Strict TS, path aliases
 ├── tsconfig.node.json            # Node config for electron/

@@ -39,7 +39,7 @@ invalid connect params: at /client/id: must be equal to constant
 ```
 Always use `id: 'gateway-client'` in connect frames. This is hardcoded in both `GatewayManager` and `test-gateway-chat.mjs`.
 
-### 28. ClawX Gateway runs on port 18790, NOT 18789
+### 28. Agentry Gateway runs on port 18790, NOT 18789
 
 `electron/utils/config.ts` hardcodes `OPENCLAW_GATEWAY: 18790` to avoid conflict with standalone OpenClaw on 18789. The `settings.json` default of `18789` is overridden by the code. When writing test scripts, always use `GATEWAY_PORT=18790` or read the actual port from `config.ts` logic.
 
@@ -65,7 +65,7 @@ This confirms the migration from `extraSystemPrompt` hack to native multi-agent 
 The Gateway's config RPC methods:
 - `config.get` → `{ path, exists, raw, parsed, valid, hash }` — the `hash` enables optimistic concurrency
 - `config.patch` → expects `{ raw: "..." }` (the full raw config text), NOT JSON Patch `{ ops: [...] }`
-- For ClawX's use case, direct file writes are simpler and already proven. Reserve `config.patch` for future needs.
+- For Agentry's use case, direct file writes are simpler and already proven. Reserve `config.patch` for future needs.
 
 ### 32. Windows file lock on agent workspace — retry cleanup with delay
 
@@ -447,7 +447,7 @@ OpenClaw uses `@mariozechner/pi-coding-agent`'s skill system:
 - The LLM is instructed to use the `read` tool to load full skill content on demand
 - Skills are **tool documentation**, not session-level system prompts
 
-ClawX's employee system needs to inject the full compiled prompt directly, not rely on the
+Agentry's employee system needs to inject the full compiled prompt directly, not rely on the
 LLM deciding to read a file. The `agent` RPC method's `extraSystemPrompt` parameter is the
 correct integration point.
 

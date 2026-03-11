@@ -2,7 +2,7 @@
 /**
  * test-browser.mjs
  *
- * End-to-end test script for ClawX browser control.
+ * End-to-end test script for Agentry browser control.
  * Tests the same code path the IPC handlers use:
  *   IPC Handler → BrowserManager → `openclaw browser <cmd>` CLI → Chrome
  *
@@ -18,7 +18,7 @@
  *   node scripts/test-browser.mjs --help
  *
  * Prerequisites:
- *   - ClawX must be running (Gateway process active on port 18790)
+ *   - Agentry must be running (Gateway process active on port 18790)
  *   - Google Chrome/Chromium must be installed
  *   - Uses the OpenClaw-managed browser mode (no Chrome extension needed)
  *
@@ -51,7 +51,7 @@ const C = {
 // ── Configuration ───────────────────────────────────────────────────
 
 const APPDATA = process.env.APPDATA || join(homedir(), '.config');
-const SETTINGS_PATH = join(APPDATA, 'pocketcrow', 'settings.json');
+const SETTINGS_PATH = join(APPDATA, 'agentry', 'settings.json');
 
 const CLI_TIMEOUT_MS = 30_000;
 const LONG_TIMEOUT_MS = 60_000;
@@ -61,7 +61,7 @@ const LONG_TIMEOUT_MS = 60_000;
 function loadSettings() {
   if (!existsSync(SETTINGS_PATH)) {
     console.error(`${C.red}✗ Settings file not found: ${SETTINGS_PATH}${C.reset}`);
-    console.error(`  Make sure ClawX has been launched at least once.`);
+    console.error(`  Make sure Agentry has been launched at least once.`);
     process.exit(1);
   }
   return JSON.parse(readFileSync(SETTINGS_PATH, 'utf-8'));
@@ -70,7 +70,7 @@ function loadSettings() {
 function getGatewayConfig() {
   const settings = loadSettings();
   return {
-    // ClawX uses 18790 to avoid colliding with standalone OpenClaw on 18789
+    // Agentry uses 18790 to avoid colliding with standalone OpenClaw on 18789
     port: parseInt(process.env.GATEWAY_PORT || '') || settings.gatewayPort || 18790,
     token: process.env.GATEWAY_TOKEN || settings.gatewayToken,
   };
@@ -555,7 +555,7 @@ async function main() {
   const { port, token } = getGatewayConfig();
   const gatewayUrl = `ws://localhost:${port}/ws`;
 
-  console.log(`\n${C.bold}${C.blue}🌐 ClawX Browser Control — Functional Tests${C.reset}\n`);
+  console.log(`\n${C.bold}${C.blue}🌐 Agentry Browser Control — Functional Tests${C.reset}\n`);
   console.log(`${C.dim}  Gateway:    ${C.reset}${gatewayUrl}`);
   console.log(`${C.dim}  Token:      ${C.reset}${token ? token.slice(0, 12) + '...' : 'none'}`);
   console.log(`${C.dim}  Profile:    ${C.reset}${profile} (OpenClaw-managed)`);
@@ -573,8 +573,8 @@ async function main() {
   const initialStatus = await testStatus(ctx);
 
   if (!initialStatus) {
-    console.log(`\n${C.red}${C.bold}✗ Cannot reach browser status — is ClawX running?${C.reset}`);
-    console.log(`${C.dim}  Make sure ClawX is running and the Gateway is active.${C.reset}\n`);
+    console.log(`\n${C.red}${C.bold}✗ Cannot reach browser status — is Agentry running?${C.reset}`);
+    console.log(`${C.dim}  Make sure Agentry is running and the Gateway is active.${C.reset}\n`);
     printSummary();
     process.exit(1);
   }
@@ -710,7 +710,7 @@ function printSummary() {
 
 function printHelp() {
   console.log(`
-${C.bold}ClawX Browser Control — Test Script${C.reset}
+${C.bold}Agentry Browser Control — Test Script${C.reset}
 
 ${C.bold}Usage:${C.reset}
   node scripts/test-browser.mjs [options]
@@ -753,7 +753,7 @@ ${C.bold}Examples:${C.reset}
   node scripts/test-browser.mjs --url https://github.com --keep-open
 
 ${C.bold}Prerequisites:${C.reset}
-  - ClawX must be running (Gateway active)
+  - Agentry must be running (Gateway active)
   - Google Chrome/Chromium must be installed (auto-detected)
   - No Chrome extension required — uses OpenClaw-managed browser mode
 `);

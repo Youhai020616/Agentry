@@ -70,7 +70,7 @@ function autoTitle(firstMessage: string): string {
 /**
  * Read all conversations from electron-store via IPC.
  * Uses the dedicated `conversation:listAll` IPC channel which returns
- * all records from the clawx-conversations electron-store.
+ * all records from the agentry-conversations electron-store.
  * Falls back to empty array if store is not available.
  */
 async function readAllConversations(): Promise<Conversation[]> {

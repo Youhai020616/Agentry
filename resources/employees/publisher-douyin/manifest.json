@@ -2,7 +2,7 @@
   "name": "publisher-douyin",
   "version": "1.0.0",
   "description": "Douyin (抖音) automated publisher - uploads and publishes videos via social-auto-upload (Playwright + stealth.min.js anti-detection)",
-  "author": "PocketCrow Team",
+  "author": "Agentry Team",
   "type": "execution",
   "employee": {
     "role": "Douyin Publisher",

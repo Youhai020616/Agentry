@@ -1,352 +1,306 @@
+<div align="center">
 
-<p align="center">
-  <img src="src/assets/logo.svg" width="128" height="128" alt="ClawX Logo" />
-</p>
+# Agentry
 
-<h1 align="center">ClawX</h1>
+### Hire AI Employees, Not AI Tools.
 
-<p align="center">
-  <strong>The Desktop Interface for OpenClaw AI Agents</strong>
-</p>
+桌面端 AI 员工管理平台 — 雇佣员工、激活技能、分配任务、自动执行。
 
-<p align="center">
-  <a href="#features">Features</a> •
-  <a href="#why-clawx">Why ClawX</a> •
-  <a href="#getting-started">Getting Started</a> •
-  <a href="#architecture">Architecture</a> •
-  <a href="#development">Development</a> •
-  <a href="#contributing">Contributing</a>
-</p>
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Electron](https://img.shields.io/badge/Electron-40-47848F?logo=electron&logoColor=white)](https://www.electronjs.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![pnpm](https://img.shields.io/badge/pnpm-10-F69220?logo=pnpm&logoColor=white)](https://pnpm.io/)
 
-<p align="center">
-  <img src="https://img.shields.io/badge/platform-MacOS%20%7C%20Windows%20%7C%20Linux-blue" alt="Platform" />
-  <img src="https://img.shields.io/badge/electron-40+-47848F?logo=electron" alt="Electron" />
-  <img src="https://img.shields.io/badge/react-19-61DAFB?logo=react" alt="React" />
-  <a href="https://discord.com/invite/84Kex3GGAh" target="_blank">
-  <img src="https://img.shields.io/discord/1399603591471435907?logo=discord&labelColor=%20%235462eb&logoColor=%20%23f5f5f5&color=%20%235462eb" alt="chat on Discord" />
-  </a>
-  <img src="https://img.shields.io/github/downloads/ValueCell-ai/ClawX/total?color=%23027DEB" alt="Downloads" />
-  <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
-</p>
+**English** · [中文](README.zh-CN.md)
 
-<p align="center">
-  English | <a href="README.zh-CN.md">简体中文</a>
-</p>
+</div>
 
 ---
 
-## Overview
+## What is Agentry?
 
-**ClawX** bridges the gap between powerful AI agents and everyday users. Built on top of [OpenClaw](https://github.com/OpenClaw), it transforms command-line AI orchestration into an accessible, beautiful desktop experience—no terminal required.
+**Agentry** is a cross-platform desktop application that lets you hire and manage AI employees locally. Each employee is powered by a **Skill** — a self-contained package of expertise, tools, and behavioral rules — and runs on your machine with your own API keys.
 
-Whether you're automating workflows, managing AI-powered channels, or scheduling intelligent tasks, ClawX provides the interface you need to harness AI agents effectively.
-
-ClawX comes pre-configured with best-practice model providers and natively supports Windows as well as multi-language settings. Of course, you can also fine-tune advanced configurations via **Settings → Advanced → Developer Mode**.
-
----
-## Screenshot
-
-<p align="center">
-  <img src="resources/screenshot/chat.png" style="width: 100%; height: auto;">
-</p>
-
-<p align="center">
-  <img src="resources/screenshot/cron_task.png" style="width: 100%; height: auto;">
-</p>
-
-<p align="center">
-  <img src="resources/screenshot/skills.png" style="width: 100%; height: auto;">
-</p>
-
-<p align="center">
-  <img src="resources/screenshot/channels.png" style="width: 100%; height: auto;">
-</p>
-
-<p align="center">
-  <img src="resources/screenshot/dashboard.png" style="width: 100%; height: auto;">
-</p>
-
-<p align="center">
-  <img src="resources/screenshot/settings.png" style="width: 100%; height: auto;">
-</p>
-
----
-
-## Why ClawX
-
-Building AI agents shouldn't require mastering the command line. ClawX was designed with a simple philosophy: **powerful technology deserves an interface that respects your time.**
-
-| Challenge | ClawX Solution |
-|-----------|----------------|
-| Complex CLI setup | One-click installation with guided setup wizard |
-| Configuration files | Visual settings with real-time validation |
-| Process management | Automatic gateway lifecycle management |
-| Multiple AI providers | Unified provider configuration panel |
-| Skill/plugin installation | Built-in skill marketplace and management |
-
-### OpenClaw Inside
-
-ClawX is built directly upon the official **OpenClaw** core. Instead of requiring a separate installation, we embed the runtime within the application to provide a seamless "battery-included" experience.
-
-We are committed to maintaining strict alignment with the upstream OpenClaw project, ensuring that you always have access to the latest capabilities, stability improvements, and ecosystem compatibility provided by the official releases.
-
----
-
-## Features
-
-### 🎯 Zero Configuration Barrier
-Complete the entire setup—from installation to your first AI interaction—through an intuitive graphical interface. No terminal commands, no YAML files, no environment variable hunting.
-
-### 💬 Intelligent Chat Interface
-Communicate with AI agents through a modern chat experience. Support for multiple conversation contexts, message history, and rich content rendering with Markdown.
-
-### 📡 Multi-Channel Management
-Configure and monitor multiple AI channels simultaneously. Each channel operates independently, allowing you to run specialized agents for different tasks.
-
-### ⏰ Cron-Based Automation
-Schedule AI tasks to run automatically. Define triggers, set intervals, and let your AI agents work around the clock without manual intervention.
-
-### 🧩 Extensible Skill System
-Extend your AI agents with pre-built skills. Browse, install, and manage skills through the integrated skill panel—no package managers required.
-
-### 🔐 Secure Provider Integration
-Connect to multiple AI providers (OpenAI, Anthropic, and more) with credentials stored securely in your system's native keychain.
-
-### 🌙 Adaptive Theming
-Light mode, dark mode, or system-synchronized themes. ClawX adapts to your preferences automatically.
-
----
-
-## Getting Started
-
-### System Requirements
-
-- **Operating System**: macOS 11+, Windows 10+, or Linux (Ubuntu 20.04+)
-- **Memory**: 4GB RAM minimum (8GB recommended)
-- **Storage**: 1GB available disk space
-
-### Installation
-
-#### Pre-built Releases (Recommended)
-
-Download the latest release for your platform from the [Releases](https://github.com/ValueCell-ai/ClawX/releases) page.
-
-#### Build from Source
-
-```bash
-# Clone the repository
-git clone https://github.com/ValueCell-ai/ClawX.git
-cd ClawX
-
-# Initialize the project
-pnpm run init
-
-# Start in development mode
-pnpm dev
 ```
+Skill  = The employee's soul  (expertise + tool capabilities)
+Agentry = The employee's body  (runtime + management UI + collaboration engine)
+```
+
+> **BYOK** (Bring Your Own Key) — Agentry connects directly to LLM providers using your own API keys. Your data never passes through our servers.
+
+---
+
+## ✨ Key Features
+
+### 🧑‍💼 AI Employee System
+
+Hire AI employees from the marketplace or create your own. Each employee has an independent chat session, persistent memory, and specialized tools.
+
+- **One-click activation** — Install a Skill, activate an employee, start chatting
+- **State machine** — `offline → idle → working → idle / blocked / error`
+- **Independent sessions** — Each employee gets their own Gateway session with full context isolation
+
+### 🎯 Supervisor Collaboration
+
+Describe your goal, and the Supervisor PM automatically orchestrates your team:
+
+1. **Plan** — Decomposes your goal into a task DAG with dependencies
+2. **Execute** — Dispatches tasks to employees in dependency-wave order
+3. **Synthesize** — Aggregates results into a final deliverable
+
+### 📋 Task Board
+
+A Kanban board tracking all work across your AI team:
+
+`pending → in_progress → in_review → completed / blocked`
+
+Tasks support priorities, dependencies, assignees, ratings, and automatic execution.
+
+### 🧠 Memory System
+
+| Layer | Purpose | Scope |
+|-------|---------|-------|
+| **Episodic** | Task experiences & lessons learned | Per-employee |
+| **Semantic** | Brand knowledge & business context | Shared across all employees |
+
+Memory is automatically injected into system prompts at compile time.
+
+### 💬 Rich Chat
+
+- Markdown rendering with syntax highlighting
+- Streaming output with thinking blocks
+- Tool call status tracking
+- File attachments
+- Multi-conversation management per employee
+
+### 🔌 Channel Integrations
+
+Connect your AI employees to external platforms — Telegram, Discord, WhatsApp, Feishu, and more.
+
+### ⏰ Scheduled Tasks
+
+Automate recurring work with cron expressions — daily, weekly, monthly, or custom intervals.
+
+### 🔒 Security
+
+- API keys encrypted at rest via OS-level cryptography (Keychain / DPAPI / libsecret)
+- Context isolation with IPC whitelist — no Node.js access in the renderer
+- Behavioral prohibition rules (hard/soft) to constrain employee actions
+
+---
+
+## 📦 Built-in Employees
+
+Agentry ships with 7 ready-to-use employees:
+
+| Employee | Role | Type | Tools |
+|----------|------|------|-------|
+| **Supervisor** | PM & Team Lead | knowledge | Orchestrates other employees |
+| **Researcher** | Research Analyst | knowledge | Web search + LLM reasoning |
+| **New Media** | Content Creator | hybrid | DeerAPI image generation |
+| **Browser Agent** | Web Automation | execution | Built-in browser control |
+| **Reddit Nurture** | Reddit Growth | execution | Camofox headless browser |
+| **Publisher — Xiaohongshu** | 小红书 Publisher | execution | xiaohongshu-mcp service |
+| **Publisher — Douyin** | 抖音 Publisher | execution | social-auto-upload + Playwright |
+
+> Install more employees from the **Skill Marketplace**, or [create your own](#-create-your-own-employee).
+
+---
+
+## 🚀 Quick Start
+
+### Download
+
+Download the latest release for your platform:
+
+| Platform | Architecture | Download |
+|----------|-------------|----------|
+| **macOS** | Apple Silicon (M1/M2/M3/M4) | `Agentry-*-mac-arm64.dmg` |
+| **macOS** | Intel | `Agentry-*-mac-x64.dmg` |
+| **Windows** | x64 | `Agentry-*-win-x64.exe` |
+| **Windows** | ARM64 | `Agentry-*-win-arm64.exe` |
+| **Linux** | x64 | `Agentry-*-linux-x86_64.AppImage` |
+| **Linux** | ARM64 | `Agentry-*-linux-arm64.AppImage` |
 
 ### First Launch
 
-When you launch ClawX for the first time, the **Setup Wizard** will guide you through:
-
-1. **Language & Region** – Configure your preferred locale
-2. **AI Provider** – Enter your API keys for supported providers
-3. **Skill Bundles** – Select pre-configured skills for common use cases
-4. **Verification** – Test your configuration before entering the main interface
+1. **Open Agentry** — The setup wizard will guide you through initial configuration
+2. **Add an AI Provider** — Configure at least one LLM provider with your API key (OpenAI, Anthropic, Google, DashScope, etc.)
+3. **Activate an Employee** — Go to the Employee Hub, pick an employee, click ▶ to activate
+4. **Start Chatting** — Click on the employee to open a conversation
 
 ---
 
-## Architecture
-
-ClawX employs a **dual-process architecture** that separates UI concerns from AI runtime operations:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        ClawX Desktop App                         │
-│                                                                  │
-│  ┌────────────────────────────────────────────────────────────┐  │
-│  │              Electron Main Process                          │  │
-│  │  • Window & application lifecycle management               │  │
-│  │  • Gateway process supervision                              │  │
-│  │  • System integration (tray, notifications, keychain)       │  │
-│  │  • Auto-update orchestration                                │  │
-│  └────────────────────────────────────────────────────────────┘  │
-│                              │                                    │
-│                              │ IPC                                │
-│                              ▼                                    │
-│  ┌────────────────────────────────────────────────────────────┐  │
-│  │              React Renderer Process                         │  │
-│  │  • Modern component-based UI (React 19)                     │  │
-│  │  • State management with Zustand                            │  │
-│  │  • Real-time WebSocket communication                        │  │
-│  │  • Rich Markdown rendering                                  │  │
-│  └────────────────────────────────────────────────────────────┘  │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │
-                               │ WebSocket (JSON-RPC)
-                               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     OpenClaw Gateway                             │
-│                                                                  │
-│  • AI agent runtime and orchestration                           │
-│  • Message channel management                                    │
-│  • Skill/plugin execution environment                           │
-│  • Provider abstraction layer                                    │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Design Principles
-
-- **Process Isolation**: The AI runtime operates in a separate process, ensuring UI responsiveness even during heavy computation
-- **Graceful Recovery**: Built-in reconnection logic with exponential backoff handles transient failures automatically
-- **Secure Storage**: API keys and sensitive data leverage the operating system's native secure storage mechanisms
-- **Hot Reload**: Development mode supports instant UI updates without restarting the gateway
-
----
-
-## Use Cases
-
-### 🤖 Personal AI Assistant
-Configure a general-purpose AI agent that can answer questions, draft emails, summarize documents, and help with everyday tasks—all from a clean desktop interface.
-
-### 📊 Automated Monitoring
-Set up scheduled agents to monitor news feeds, track prices, or watch for specific events. Results are delivered to your preferred notification channel.
-
-### 💻 Developer Productivity
-Integrate AI into your development workflow. Use agents to review code, generate documentation, or automate repetitive coding tasks.
-
-### 🔄 Workflow Automation
-Chain multiple skills together to create sophisticated automation pipelines. Process data, transform content, and trigger actions—all orchestrated visually.
-
----
-
-## Development
+## 🛠️ Development
 
 ### Prerequisites
 
-- **Node.js**: 22+ (LTS recommended)
-- **Package Manager**: pnpm 9+ (recommended) or npm
+- **Node.js** 22+
+- **pnpm** 10+
+- **Git**
 
-### Project Structure
-
-```
-ClawX/
-├── electron/              # Electron Main Process
-│   ├── main/             # Application entry, window management
-│   ├── gateway/          # OpenClaw Gateway process manager
-│   ├── preload/          # Secure IPC bridge scripts
-│   └── utils/            # Utilities (storage, auth, paths)
-├── src/                   # React Renderer Process
-│   ├── components/       # Reusable UI components
-│   │   ├── ui/          # Base components (shadcn/ui)
-│   │   ├── layout/      # Layout components (sidebar, header)
-│   │   └── common/      # Shared components
-│   ├── pages/           # Application pages
-│   │   ├── Setup/       # Initial setup wizard
-│   │   ├── Dashboard/   # Home dashboard
-│   │   ├── Chat/        # AI chat interface
-│   │   ├── Channels/    # Channel management
-│   │   ├── Skills/      # Skill browser & manager
-│   │   ├── Cron/        # Scheduled tasks
-│   │   └── Settings/    # Configuration panels
-│   ├── stores/          # Zustand state stores
-│   ├── lib/             # Frontend utilities
-│   └── types/           # TypeScript type definitions
-├── resources/            # Static assets (icons, images)
-├── scripts/              # Build & utility scripts
-└── tests/               # Test suites
-```
-
-### Available Commands
+### Setup
 
 ```bash
-# Development
-pnpm dev                  # Start with hot reload
-pnpm dev:electron         # Launch Electron directly
+# Clone the repository
+git clone https://github.com/ValueCell-ai/Agentry.git
+cd Agentry
 
-# Quality
-pnpm lint                 # Run ESLint
-pnpm lint:fix             # Auto-fix issues
-pnpm typecheck            # TypeScript validation
+# Install dependencies + download bundled runtime
+pnpm init
 
-# Testing
-pnpm test                 # Run unit tests
-pnpm test:watch           # Watch mode
-pnpm test:coverage        # Generate coverage report
-pnpm test:e2e             # Run Playwright E2E tests
+# Start development server
+pnpm dev
+```
 
-# Build & Package
-pnpm build                # Full production build
-pnpm package              # Package for current platform
-pnpm package:mac          # Package for macOS
-pnpm package:win          # Package for Windows
-pnpm package:linux        # Package for Linux
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `pnpm dev` | Start dev server (Vite + Electron) |
+| `pnpm build` | Full production build + electron-builder |
+| `pnpm build:vite` | Vite build only (no packaging) |
+| `pnpm lint` | ESLint with auto-fix |
+| `pnpm typecheck` | TypeScript strict check (zero errors required) |
+| `pnpm test` | Run unit tests (Vitest) |
+| `pnpm test:e2e` | Run E2E tests (Playwright) |
+| `pnpm package:mac` | Package for macOS |
+| `pnpm package:win` | Package for Windows |
+| `pnpm package:linux` | Package for Linux |
+
+### Build from Source
+
+```bash
+# Full build (all platforms depend on your OS)
+pnpm build
+
+# Platform-specific
+pnpm package:mac      # macOS (.dmg)
+pnpm package:win      # Windows (.exe)
+pnpm package:linux    # Linux (.AppImage, .deb, .rpm)
+```
+
+---
+
+## 🏗️ Architecture
+
+```
+┌─ Renderer (React 19) ──────────────────────────────────┐
+│  Pages → Zustand Stores → window.electron.ipcRenderer   │
+└────────────────────┬────────────────────────────────────┘
+                     │ IPC (Preload whitelist)
+┌────────────────────▼────────────────────────────────────┐
+│  Main Process (Electron 40, Node 22)                     │
+│                                                          │
+│  ┌────────────────────────────────────────────────────┐  │
+│  │  Skill Runtime Engine                               │  │
+│  │  EmployeeManager · SkillCompiler · ManifestParser   │  │
+│  │  TaskQueue · Supervisor · TaskExecutor              │  │
+│  │  MemoryEngine · MessageBus · ProhibitionEngine      │  │
+│  │  CreditsEngine · ToolRegistry · BrowserManager      │  │
+│  └────────────────────────────────────────────────────┘  │
+│                                                          │
+│  IPC Handlers (178) · Tray · Auto-Updater                │
+└────────────────────┬─────────────────────────────────────┘
+                     │ JSON-RPC 2.0 over WebSocket
+                     ▼
+             OpenClaw Gateway (:18790)
+             → LLM Providers (BYOK)
 ```
 
 ### Tech Stack
 
 | Layer | Technology |
-|-------|------------|
-| Runtime | Electron 40+ |
-| UI Framework | React 19 + TypeScript |
-| Styling | Tailwind CSS + shadcn/ui |
-| State | Zustand |
-| Build | Vite + electron-builder |
-| Testing | Vitest + Playwright |
-| Animation | Framer Motion |
-| Icons | Lucide React |
+|-------|-----------|
+| Shell | Electron 40 |
+| UI | React 19 + Tailwind CSS 3.4 + shadcn/ui |
+| Language | TypeScript 5.7 (strict) |
+| Routing | React Router 7 |
+| State | Zustand 5 |
+| i18n | i18next (English, 中文, 日本語) |
+| Database | better-sqlite3 (5 databases, WAL mode) |
+| Gateway | OpenClaw (JSON-RPC 2.0) |
+| Build | Vite 7 + electron-builder 26 |
+| Test | Vitest 4 + Playwright |
+| Animations | Framer Motion 12 |
 
 ---
 
-## Contributing
+## 📐 Create Your Own Employee
 
-We welcome contributions from the community! Whether it's bug fixes, new features, documentation improvements, or translations—every contribution helps make ClawX better.
+Scaffold a new Skill package:
 
-### How to Contribute
+```bash
+pnpm create-skill my-employee
+```
 
-1. **Fork** the repository
-2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
-3. **Commit** your changes with clear messages
-4. **Push** to your branch
-5. **Open** a Pull Request
+This creates the standard Skill structure:
 
-### Guidelines
+```
+resources/employees/my-employee/
+├── manifest.json    # Metadata, capabilities, tools, secrets, onboarding
+├── SKILL.md         # System prompt template (supports {{ROLE}}, {{TEAM}}, etc.)
+├── scripts/         # Execution scripts (optional)
+├── tools/           # CLI tool definitions (optional)
+└── references/      # Knowledge base files (optional)
+```
 
-- Follow the existing code style (ESLint + Prettier)
-- Write tests for new functionality
-- Update documentation as needed
-- Keep commits atomic and descriptive
+**Employee types:**
 
----
-
-## Acknowledgments
-
-ClawX is built on the shoulders of excellent open-source projects:
-
-- [OpenClaw](https://github.com/OpenClaw) – The AI agent runtime
-- [Electron](https://www.electronjs.org/) – Cross-platform desktop framework
-- [React](https://react.dev/) – UI component library
-- [shadcn/ui](https://ui.shadcn.com/) – Beautifully designed components
-- [Zustand](https://github.com/pmndrs/zustand) – Lightweight state management
+| Type | Description | Example |
+|------|-------------|---------|
+| `knowledge` | Conversation-only, no external tools | Supervisor, Researcher |
+| `execution` | Requires external tools to operate | Reddit Nurture, Publishers |
+| `hybrid` | Conversation + tools | New Media Creator |
 
 ---
 
-## Community
+## 🗺️ Roadmap
 
-Join our community to connect with other users, get support, and share your experiences.
-
-| Enterprise WeChat | Feishu Group | Discord |
-| :---: | :---: | :---: |
-| <img src="src/assets/community/wecom-qr.png" width="150" alt="WeChat QR Code" /> | <img src="src/assets/community/feishu-qr.png" width="150" alt="Feishu QR Code" /> | <img src="src/assets/community/20260212-185822.png" width="150" alt="Discord QR Code" /> |
+- [x] AI Employee lifecycle management
+- [x] Supervisor multi-agent orchestration
+- [x] Task Board with automatic execution
+- [x] Memory system (episodic + semantic)
+- [x] Behavioral prohibition rules
+- [x] Chat with streaming, tool calls, file attachments
+- [x] Channel integrations (Telegram, Discord, WhatsApp, etc.)
+- [x] Scheduled tasks (cron)
+- [x] Auto-updater (Alibaba Cloud OSS + GitHub Releases)
+- [ ] More built-in employees
+- [ ] Skill Marketplace improvements
+- [ ] Desktop ↔ Cloud data sync
+- [ ] Gateway migration to ZeroClaw (Rust)
+- [ ] Agentry Cloud — 7×24 AI employees in the cloud
 
 ---
 
-## License
+## 🤝 Contributing
 
-ClawX is released under the [MIT License](LICENSE). You're free to use, modify, and distribute this software.
+Contributions are welcome! Please read the project conventions in [CLAUDE.md](CLAUDE.md) before submitting a PR.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Run checks before committing:
+   ```bash
+   pnpm typecheck && pnpm lint && pnpm test
+   ```
+4. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+5. Push to the branch (`git push origin feature/amazing-feature`)
+6. Open a Pull Request
 
 ---
 
-<p align="center">
-  <sub>Built with ❤️ by the ValueCell Team</sub>
-</p>
+## 📄 License
+
+[MIT](LICENSE) © Agentry Team
+
+---
+
+<div align="center">
+
+**Agentry** — Your Desktop AI Workforce
+
+[Report Bug](https://github.com/ValueCell-ai/Agentry/issues) · [Request Feature](https://github.com/ValueCell-ai/Agentry/issues) · [Discussions](https://github.com/ValueCell-ai/Agentry/discussions)
+
+</div>

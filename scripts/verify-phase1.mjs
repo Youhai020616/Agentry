@@ -17,16 +17,11 @@
  *   node scripts/verify-phase1.mjs --list           # List discovered workspaces + config
  *
  * Prerequisites:
- *   - ClawX app must be running (for Gateway chat tests)
+ *   - Agentry app must be running (for Gateway chat tests)
  *   - At least one employee must have been activated via the UI
  */
 
-import {
-  readFileSync,
-  existsSync,
-  readdirSync,
-  statSync,
-} from 'node:fs';
+import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { randomUUID } from 'node:crypto';
@@ -35,10 +30,10 @@ import WebSocket from 'ws';
 // ── Paths ────────────────────────────────────────────────────────────────
 
 const HOME = homedir();
-const CLAWX_EMPLOYEES_DIR = join(HOME, '.clawx', 'employees');
+const AGENTRY_EMPLOYEES_DIR = join(HOME, '.agentry', 'employees');
 const OPENCLAW_CONFIG_PATH = join(HOME, '.openclaw', 'openclaw.json');
 const APPDATA = process.env.APPDATA || join(HOME, '.config');
-const SETTINGS_PATH = join(APPDATA, 'pocketcrow', 'settings.json');
+const SETTINGS_PATH = join(APPDATA, 'agentry', 'settings.json');
 
 // ── ANSI colors ──────────────────────────────────────────────────────────
 
@@ -54,14 +49,28 @@ const C = {
   magenta: '\x1b[35m',
 };
 
-function pass(msg) { console.log(`  ${C.green}✓${C.reset} ${msg}`); }
-function fail(msg) { console.log(`  ${C.red}✗${C.reset} ${msg}`); }
-function info(msg) { console.log(`  ${C.dim}ℹ ${msg}${C.reset}`); }
-function warn(msg) { console.log(`  ${C.yellow}⚠ ${msg}${C.reset}`); }
-function heading(msg) { console.log(`\n${C.bold}${C.cyan}═══ ${msg} ═══${C.reset}`); }
-function subheading(msg) { console.log(`\n${C.bold}  ${msg}${C.reset}`); }
+function pass(msg) {
+  console.log(`  ${C.green}✓${C.reset} ${msg}`);
+}
+function fail(msg) {
+  console.log(`  ${C.red}✗${C.reset} ${msg}`);
+}
+function info(msg) {
+  console.log(`  ${C.dim}ℹ ${msg}${C.reset}`);
+}
+function warn(msg) {
+  console.log(`  ${C.yellow}⚠ ${msg}${C.reset}`);
+}
+function heading(msg) {
+  console.log(`\n${C.bold}${C.cyan}═══ ${msg} ═══${C.reset}`);
+}
+function subheading(msg) {
+  console.log(`\n${C.bold}  ${msg}${C.reset}`);
+}
 
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
 // ── Results tracker ──────────────────────────────────────────────────────
 
@@ -88,8 +97,11 @@ function skip(name, reason) {
 
 function loadSettings() {
   if (!existsSync(SETTINGS_PATH)) return null;
-  try { return JSON.parse(readFileSync(SETTINGS_PATH, 'utf-8')); }
-  catch { return null; }
+  try {
+    return JSON.parse(readFileSync(SETTINGS_PATH, 'utf-8'));
+  } catch {
+    return null;
+  }
 }
 
 function getGatewayConfig() {
@@ -102,8 +114,11 @@ function getGatewayConfig() {
 
 function readOpenClawConfig() {
   if (!existsSync(OPENCLAW_CONFIG_PATH)) return null;
-  try { return JSON.parse(readFileSync(OPENCLAW_CONFIG_PATH, 'utf-8')); }
-  catch { return null; }
+  try {
+    return JSON.parse(readFileSync(OPENCLAW_CONFIG_PATH, 'utf-8'));
+  } catch {
+    return null;
+  }
 }
 
 // ── File System Checks ───────────────────────────────────────────────────
@@ -113,25 +128,30 @@ function checkFileSystem(targetEmployee) {
 
   // 1. Check workspaces directory
   subheading('Workspaces directory');
-  if (!existsSync(CLAWX_EMPLOYEES_DIR)) {
-    record('Workspaces dir exists', false, `${CLAWX_EMPLOYEES_DIR} not found`);
+  if (!existsSync(AGENTRY_EMPLOYEES_DIR)) {
+    record('Workspaces dir exists', false, `${AGENTRY_EMPLOYEES_DIR} not found`);
     return [];
   }
-  record('Workspaces dir exists', true, CLAWX_EMPLOYEES_DIR);
+  record('Workspaces dir exists', true, AGENTRY_EMPLOYEES_DIR);
 
   // 2. List employee workspace dirs
-  const entries = readdirSync(CLAWX_EMPLOYEES_DIR, { withFileTypes: true })
-    .filter(e => e.isDirectory());
+  const entries = readdirSync(AGENTRY_EMPLOYEES_DIR, { withFileTypes: true }).filter((e) =>
+    e.isDirectory()
+  );
 
   if (entries.length === 0) {
-    record('Has employee workspaces', false, 'No subdirectories found — activate an employee first');
+    record(
+      'Has employee workspaces',
+      false,
+      'No subdirectories found — activate an employee first'
+    );
     return [];
   }
   record('Has employee workspaces', true, `${entries.length} workspace(s) found`);
 
   // 3. Check each workspace (or just the target)
   const workspacesToCheck = targetEmployee
-    ? entries.filter(e => e.name === targetEmployee)
+    ? entries.filter((e) => e.name === targetEmployee)
     : entries;
 
   if (targetEmployee && workspacesToCheck.length === 0) {
@@ -142,7 +162,7 @@ function checkFileSystem(targetEmployee) {
   const validWorkspaces = [];
 
   for (const entry of workspacesToCheck) {
-    const wsDir = join(CLAWX_EMPLOYEES_DIR, entry.name);
+    const wsDir = join(AGENTRY_EMPLOYEES_DIR, entry.name);
     subheading(`Employee: ${entry.name}`);
 
     // Check AGENTS.md
@@ -210,7 +230,7 @@ function checkConfig(validWorkspaces, targetEmployee) {
 
   // Cross-reference with workspaces on disk
   const agentsToTest = targetEmployee
-    ? agentsList.filter(a => a.id === targetEmployee)
+    ? agentsList.filter((a) => a.id === targetEmployee)
     : agentsList;
 
   const registeredIds = [];
@@ -226,10 +246,15 @@ function checkConfig(validWorkspaces, targetEmployee) {
     const wsPath = agent.workspace?.replace(/\//g, '\\') || agent.workspace;
     const wsNormalized = agent.workspace; // as stored (forward slashes)
     const wsExists = existsSync(wsPath) || existsSync(wsNormalized);
-    record(`${agent.id} workspace exists on disk`, wsExists, wsExists ? 'OK' : `Not found at ${agent.workspace}`);
+    record(
+      `${agent.id} workspace exists on disk`,
+      wsExists,
+      wsExists ? 'OK' : `Not found at ${agent.workspace}`
+    );
 
     // Check AGENTS.md inside the registered workspace
-    const agentsMdInWs = existsSync(join(wsPath, 'AGENTS.md')) || existsSync(join(wsNormalized, 'AGENTS.md'));
+    const agentsMdInWs =
+      existsSync(join(wsPath, 'AGENTS.md')) || existsSync(join(wsNormalized, 'AGENTS.md'));
     record(`${agent.id} workspace has AGENTS.md`, agentsMdInWs);
 
     // Session key format
@@ -254,7 +279,7 @@ function checkConfig(validWorkspaces, targetEmployee) {
     if (validWorkspaces.includes(agent.id)) {
       record(`${agent.id} cross-ref FS ↔ config`, true, 'Workspace dir and config entry match');
     } else if (validWorkspaces.length > 0) {
-      warn(`${agent.id} is in config but workspace dir not in ${CLAWX_EMPLOYEES_DIR}`);
+      warn(`${agent.id} is in config but workspace dir not in ${AGENTRY_EMPLOYEES_DIR}`);
     }
 
     registeredIds.push(agent.id);
@@ -281,7 +306,7 @@ class GatewayClient {
   }
 
   _emit(event, ...args) {
-    for (const h of (this.eventHandlers.get(event) || [])) h(...args);
+    for (const h of this.eventHandlers.get(event) || []) h(...args);
   }
 
   connect(timeoutMs = 10000) {
@@ -321,22 +346,36 @@ class GatewayClient {
       };
 
       this.pending.set(connectFrame.id, {
-        resolve: () => { done = true; this.connected = true; resolve(); },
-        reject: (err) => { done = true; reject(err); },
+        resolve: () => {
+          done = true;
+          this.connected = true;
+          resolve();
+        },
+        reject: (err) => {
+          done = true;
+          reject(err);
+        },
         timeout: setTimeout(() => {
-          if (!done) { this.ws?.close(); reject(new Error('Handshake timeout')); }
+          if (!done) {
+            this.ws?.close();
+            reject(new Error('Handshake timeout'));
+          }
         }, timeoutMs),
       });
 
       this.ws.on('open', () => {
-        setTimeout(() => { if (!connectSent) doSendConnect(); }, 500);
+        setTimeout(() => {
+          if (!connectSent) doSendConnect();
+        }, 500);
       });
 
       this.ws.on('message', (data) => {
         try {
           const msg = JSON.parse(data.toString());
           this._handleMessage(msg, doSendConnect);
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       });
 
       this.ws.on('close', (code) => {
@@ -401,9 +440,10 @@ class GatewayClient {
         clearTimeout(req.timeout);
         this.pending.delete(msg.id);
         if (msg.ok === false || msg.error) {
-          const errStr = typeof msg.error === 'object'
-            ? (msg.error?.message || JSON.stringify(msg.error))
-            : String(msg.error || 'Unknown');
+          const errStr =
+            typeof msg.error === 'object'
+              ? msg.error?.message || JSON.stringify(msg.error)
+              : String(msg.error || 'Unknown');
           req.reject(new Error(errStr));
         } else {
           req.resolve(msg.payload ?? msg);
@@ -427,12 +467,14 @@ class GatewayClient {
   rpc(method, params, timeoutMs = 30000) {
     return new Promise((resolve, reject) => {
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-        reject(new Error('Not connected')); return;
+        reject(new Error('Not connected'));
+        return;
       }
       const id = randomUUID();
       const frame = { type: 'req', id, method, params };
       this.pending.set(id, {
-        resolve, reject,
+        resolve,
+        reject,
         timeout: setTimeout(() => {
           this.pending.delete(id);
           reject(new Error(`RPC timeout: ${method} (${timeoutMs}ms)`));
@@ -443,7 +485,10 @@ class GatewayClient {
   }
 
   close() {
-    if (this.ws) { this.ws.close(); this.ws = null; }
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
     for (const [, req] of this.pending) {
       clearTimeout(req.timeout);
       req.reject(new Error('Client closed'));
@@ -516,18 +561,24 @@ async function sendChatAndCollect(client, employeeId, message, timeoutMs = 60000
     client.on('chat', onChat);
 
     // Send the message via chat.send (native routing — no extraSystemPrompt needed!)
-    client.rpc('chat.send', {
-      sessionKey,
-      message,
-      deliver: false,
-      idempotencyKey: randomUUID(),
-    }, timeoutMs).catch((err) => {
-      if (!resolved) {
-        resolved = true;
-        cleanup();
-        resolve({ content: '', sessionKey, timedOut: false, error: String(err) });
-      }
-    });
+    client
+      .rpc(
+        'chat.send',
+        {
+          sessionKey,
+          message,
+          deliver: false,
+          idempotencyKey: randomUUID(),
+        },
+        timeoutMs
+      )
+      .catch((err) => {
+        if (!resolved) {
+          resolved = true;
+          cleanup();
+          resolve({ content: '', sessionKey, timedOut: false, error: String(err) });
+        }
+      });
   });
 }
 
@@ -550,13 +601,13 @@ async function testGatewayChat(registeredIds, targetEmployee) {
     record('Gateway connection', true, `Connected to port ${gw.port}`);
   } catch (err) {
     record('Gateway connection', false, String(err));
-    info('Make sure ClawX is running with Gateway active');
+    info('Make sure Agentry is running with Gateway active');
     return;
   }
 
   // Test chat with each registered agent (or just the target)
   const idsToTest = targetEmployee
-    ? registeredIds.filter(id => id === targetEmployee)
+    ? registeredIds.filter((id) => id === targetEmployee)
     : registeredIds.slice(0, 2); // Test at most 2 to avoid long runtime
 
   for (const employeeId of idsToTest) {
@@ -575,11 +626,17 @@ async function testGatewayChat(registeredIds, targetEmployee) {
     if (result.error) {
       record(`${employeeId} chat response`, false, `Error: ${result.error}`);
     } else if (result.timedOut) {
-      record(`${employeeId} chat response`, false,
-        `Timeout — got ${result.content.length} chars before timeout`);
+      record(
+        `${employeeId} chat response`,
+        false,
+        `Timeout — got ${result.content.length} chars before timeout`
+      );
     } else if (result.content.length > 0) {
-      record(`${employeeId} chat response`, true,
-        `${result.content.length} chars received via native routing`);
+      record(
+        `${employeeId} chat response`,
+        true,
+        `${result.content.length} chars received via native routing`
+      );
     } else {
       record(`${employeeId} chat response`, false, 'Empty response');
     }
@@ -603,14 +660,15 @@ function listMode() {
 
   // Workspaces
   subheading('Employee workspaces');
-  if (existsSync(CLAWX_EMPLOYEES_DIR)) {
-    const entries = readdirSync(CLAWX_EMPLOYEES_DIR, { withFileTypes: true })
-      .filter(e => e.isDirectory());
+  if (existsSync(AGENTRY_EMPLOYEES_DIR)) {
+    const entries = readdirSync(AGENTRY_EMPLOYEES_DIR, { withFileTypes: true }).filter((e) =>
+      e.isDirectory()
+    );
     if (entries.length === 0) {
       info('(none — no employee has been activated yet)');
     }
     for (const e of entries) {
-      const wsDir = join(CLAWX_EMPLOYEES_DIR, e.name);
+      const wsDir = join(AGENTRY_EMPLOYEES_DIR, e.name);
       const hasAgentsMd = existsSync(join(wsDir, 'AGENTS.md'));
       const hasClaudeMd = existsSync(join(wsDir, 'CLAUDE.md'));
       let agentsMdSize = '';
@@ -621,11 +679,13 @@ function listMode() {
       const files = [
         hasAgentsMd ? `AGENTS.md${agentsMdSize}` : null,
         hasClaudeMd ? 'CLAUDE.md' : null,
-      ].filter(Boolean).join(', ');
+      ]
+        .filter(Boolean)
+        .join(', ');
       console.log(`  ${C.green}●${C.reset} ${e.name} — ${files || '(empty)'}`);
     }
   } else {
-    info(`Directory not found: ${CLAWX_EMPLOYEES_DIR}`);
+    info(`Directory not found: ${AGENTRY_EMPLOYEES_DIR}`);
   }
 
   // Config agents
@@ -685,23 +745,29 @@ function printReport() {
   `);
 
   if (allPassed) {
-    console.log(`  ${C.green}${C.bold}🎉 Phase 1 verification PASSED!${C.reset}`);
+    console.log(`  ${C.green}${C.bold}🎉 Agentry Phase 1 verification PASSED!${C.reset}`);
     console.log(`  ${C.dim}Native multi-agent routing is working correctly.${C.reset}`);
     console.log(`  ${C.dim}The extraSystemPrompt hack is no longer needed.${C.reset}`);
   } else if (results.failed > 0) {
-    console.log(`  ${C.red}${C.bold}⚠ Phase 1 verification has failures${C.reset}`);
+    console.log(`  ${C.red}${C.bold}⚠ Agentry Phase 1 verification has failures${C.reset}`);
     console.log(`  ${C.dim}Review the failed items above.${C.reset}`);
 
     // Specific guidance
-    const failedNames = results.details.filter(d => d.ok === false).map(d => d.name);
-    if (failedNames.some(n => n.includes('Workspaces dir'))) {
-      console.log(`\n  ${C.yellow}Hint:${C.reset} No workspaces found. Activate an employee in the ClawX UI first.`);
+    const failedNames = results.details.filter((d) => d.ok === false).map((d) => d.name);
+    if (failedNames.some((n) => n.includes('Workspaces dir'))) {
+      console.log(
+        `\n  ${C.yellow}Hint:${C.reset} No workspaces found. Activate an employee in the Agentry UI first.`
+      );
     }
-    if (failedNames.some(n => n.includes('Gateway'))) {
-      console.log(`\n  ${C.yellow}Hint:${C.reset} Gateway not reachable. Start ClawX with \`pnpm dev\`.`);
+    if (failedNames.some((n) => n.includes('Gateway'))) {
+      console.log(
+        `\n  ${C.yellow}Hint:${C.reset} Gateway not reachable. Start Agentry with \`pnpm dev\`.`
+      );
     }
-    if (failedNames.some(n => n.includes('agents.list'))) {
-      console.log(`\n  ${C.yellow}Hint:${C.reset} agents.list is empty. The new activate() must register agents.`);
+    if (failedNames.some((n) => n.includes('agents.list'))) {
+      console.log(
+        `\n  ${C.yellow}Hint:${C.reset} agents.list is empty. The new activate() must register agents.`
+      );
     }
   } else {
     console.log(`  ${C.yellow}No checks ran. Activate an employee first.${C.reset}`);
@@ -721,9 +787,9 @@ async function main() {
 
   console.log(`${C.bold}${C.blue}`);
   console.log(`╔══════════════════════════════════════════════════╗`);
-  console.log(`║   ClawX Phase 1 — Multi-Agent Verification      ║`);
+  console.log(`║   Agentry Phase 1 — Multi-Agent Verification     ║`);
   console.log(`╚══════════════════════════════════════════════════╝${C.reset}`);
-  console.log(`  ${C.dim}Workspaces: ${CLAWX_EMPLOYEES_DIR}${C.reset}`);
+  console.log(`  ${C.dim}Workspaces: ${AGENTRY_EMPLOYEES_DIR}${C.reset}`);
   console.log(`  ${C.dim}Config:     ${OPENCLAW_CONFIG_PATH}${C.reset}`);
   if (targetEmployee) {
     console.log(`  ${C.dim}Target:     ${targetEmployee}${C.reset}`);

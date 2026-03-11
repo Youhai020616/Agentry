@@ -23,7 +23,7 @@ import { tmpdir } from 'node:os';
 vi.mock('electron', () => ({
   app: {
     getPath: (name: string) => {
-      if (name === 'userData') return '/tmp/clawx-test';
+      if (name === 'userData') return '/tmp/agentry-test';
       return `/tmp/${name}`;
     },
   },
@@ -61,11 +61,10 @@ let MessageStore: typeof import('../../electron/engine/message-store').MessageSt
 let sqliteAvailable = false;
 
 try {
-   
   const mod = await import('../../electron/engine/message-store');
   MessageStore = mod.MessageStore;
   // Try to actually instantiate to verify native module loads
-  const tmpDb = join(tmpdir(), `clawx-sqlite-probe-${Date.now()}.db`);
+  const tmpDb = join(tmpdir(), `agentry-sqlite-probe-${Date.now()}.db`);
   const probe = new MessageStore(tmpDb);
   probe.init();
   probe.destroy();
@@ -89,7 +88,7 @@ describe('Multi-Agent Migration Integration', () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), 'clawx-migration-test-'));
+    tmpDir = mkdtempSync(join(tmpdir(), 'agentry-migration-test-'));
   });
 
   afterEach(() => {

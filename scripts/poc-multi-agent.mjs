@@ -18,7 +18,7 @@
  *   node scripts/poc-multi-agent.mjs --skip-chat   # Skip LLM chat (config-only tests)
  *
  * Prerequisites:
- *   - ClawX app must be running (Gateway process must be active)
+ *   - Agentry app must be running (Gateway process must be active)
  *   - At least one LLM provider configured (for Blocker #2 chat test)
  *
  * Environment:
@@ -50,11 +50,11 @@ const OPENCLAW_CONFIG_DIR = join(homedir(), '.openclaw');
 const OPENCLAW_CONFIG_PATH = join(OPENCLAW_CONFIG_DIR, 'openclaw.json');
 const OPENCLAW_CONFIG_BACKUP_PATH = join(OPENCLAW_CONFIG_DIR, 'openclaw.json.poc-backup');
 
-// POC workspace — use ~/.clawx/employees/ path as the migration plan proposes
-const POC_WORKSPACE_DIR = join(homedir(), '.clawx', 'employees', POC_AGENT_ID);
+// POC workspace — use ~/.agentry/employees/ path as the migration plan proposes
+const POC_WORKSPACE_DIR = join(homedir(), '.agentry', 'employees', POC_AGENT_ID);
 
 const APPDATA = process.env.APPDATA || join(homedir(), '.config');
-const SETTINGS_PATH = join(APPDATA, 'pocketcrow', 'settings.json');
+const SETTINGS_PATH = join(APPDATA, 'agentry', 'settings.json');
 
 // ANSI colors
 const C = {
@@ -104,7 +104,7 @@ function sleep(ms) {
 function loadSettings() {
   if (!existsSync(SETTINGS_PATH)) {
     fail(`Settings file not found: ${SETTINGS_PATH}`);
-    console.error(`  Make sure ClawX has been launched at least once.`);
+    console.error(`  Make sure Agentry has been launched at least once.`);
     process.exit(1);
   }
   return JSON.parse(readFileSync(SETTINGS_PATH, 'utf-8'));
@@ -222,7 +222,7 @@ function cleanupTestWorkspace() {
   }
 
   // Also clean up the parent dir if empty
-  const parentDir = join(homedir(), '.clawx', 'employees');
+  const parentDir = join(homedir(), '.agentry', 'employees');
   try {
     if (existsSync(parentDir) && readdirSync(parentDir).length === 0) {
       rmSync(parentDir, { recursive: true, force: true });
@@ -919,7 +919,7 @@ async function testAfterRestart(client, gatewayConfig) {
   if (!reconnected) {
     record('Gateway restart + reconnect', false, 'Could not reconnect after 15s');
     warn('Gateway may need manual restart. POC cannot continue this test.');
-    warn('Try: restart ClawX app, then re-run this script with --skip-restart');
+    warn('Try: restart Agentry app, then re-run this script with --skip-restart');
     return { afterRestart: false, error: 'Gateway did not come back' };
   }
 }
@@ -1159,7 +1159,7 @@ async function main() {
     pass('Connected to Gateway');
   } catch (err) {
     fail(`Failed to connect: ${err.message}`);
-    console.error(`\n  ${C.red}Is ClawX running? Is the Gateway started?${C.reset}\n`);
+    console.error(`\n  ${C.red}Is Agentry running? Is the Gateway started?${C.reset}\n`);
     process.exit(1);
   }
 

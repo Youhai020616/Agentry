@@ -57,7 +57,7 @@ const STEP = {
 const steps: SetupStep[] = [
   {
     id: 'welcome',
-    title: 'Welcome to PocketCrow',
+    title: 'Welcome to Agentry',
     description: 'Your AI assistant is ready to be configured',
   },
   {
@@ -83,7 +83,7 @@ const steps: SetupStep[] = [
   {
     id: 'complete',
     title: 'All Set!',
-    description: 'PocketCrow is ready to use',
+    description: 'Agentry is ready to use',
   },
 ];
 
@@ -108,7 +108,7 @@ import {
   getProviderIconUrl,
   shouldInvertInDark,
 } from '@/lib/providers';
-import pocketcrowIcon from '@/assets/logo.svg';
+import agentryIcon from '@/assets/logo.svg';
 
 // Use the shared provider registry for setup providers
 const providers = SETUP_PROVIDERS;
@@ -325,7 +325,7 @@ function WelcomeContent() {
   return (
     <div className="text-center space-y-4">
       <div className="mb-4 flex justify-center">
-        <img src={pocketcrowIcon} alt="PocketCrow" className="h-16 w-16" />
+        <img src={agentryIcon} alt="Agentry" className="h-16 w-16" />
       </div>
       <h2 className="text-xl font-semibold">{t('welcome.title')}</h2>
       <p className="text-muted-foreground">{t('welcome.description')}</p>

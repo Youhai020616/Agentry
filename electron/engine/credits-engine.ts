@@ -65,7 +65,7 @@ export class CreditsEngine extends EventEmitter {
 
   constructor(dbPath?: string) {
     super();
-    this.dbPath = dbPath ?? join(app.getPath('userData'), 'clawx-credits.db');
+    this.dbPath = dbPath ?? join(app.getPath('userData'), 'agentry-credits.db');
   }
 
   // ── Lifecycle ────────────────────────────────────────────────────
@@ -137,13 +137,11 @@ export class CreditsEngine extends EventEmitter {
     amount: number,
     description: string,
     employeeId?: string,
-    taskId?: string,
+    taskId?: string
   ): boolean {
     const balance = this.getBalance();
     if (balance.remaining < amount) {
-      logger.warn(
-        `Insufficient credits: need ${amount}, remaining ${balance.remaining}`,
-      );
+      logger.warn(`Insufficient credits: need ${amount}, remaining ${balance.remaining}`);
       return false;
     }
 
@@ -158,9 +156,7 @@ export class CreditsEngine extends EventEmitter {
         timestamp: Date.now(),
       });
 
-      logger.debug(
-        `Credits consumed: ${amount} (${type}) ${employeeId ? `by ${employeeId}` : ''}`,
-      );
+      logger.debug(`Credits consumed: ${amount} (${type}) ${employeeId ? `by ${employeeId}` : ''}`);
       this.emit('credits-changed');
       return true;
     } catch (err) {
@@ -206,7 +202,7 @@ export class CreditsEngine extends EventEmitter {
           `SELECT
             COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) as total,
             COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) as used
-          FROM credit_transactions`,
+          FROM credit_transactions`
         )
         .get() as { total: number; used: number };
 
@@ -228,7 +224,7 @@ export class CreditsEngine extends EventEmitter {
    */
   getHistory(
     limit: number = 50,
-    offset: number = 0,
+    offset: number = 0
   ): { transactions: CreditTransaction[]; total: number } {
     try {
       const total = (this.stmtCount.get() as { cnt: number }).cnt;
@@ -247,15 +243,9 @@ export class CreditsEngine extends EventEmitter {
   /**
    * Get transaction history for a specific employee
    */
-  getHistoryByEmployee(
-    employeeId: string,
-    limit: number = 50,
-  ): CreditTransaction[] {
+  getHistoryByEmployee(employeeId: string, limit: number = 50): CreditTransaction[] {
     try {
-      const rows = this.stmtGetByEmployee.all(
-        employeeId,
-        limit,
-      ) as CreditTransactionRow[];
+      const rows = this.stmtGetByEmployee.all(employeeId, limit) as CreditTransactionRow[];
       return rows.map((row) => this.rowToTransaction(row));
     } catch (err) {
       logger.error(`Failed to get history for employee ${employeeId}: ${err}`);
@@ -266,15 +256,9 @@ export class CreditsEngine extends EventEmitter {
   /**
    * Get transaction history by type
    */
-  getHistoryByType(
-    type: CreditTransactionType,
-    limit: number = 50,
-  ): CreditTransaction[] {
+  getHistoryByType(type: CreditTransactionType, limit: number = 50): CreditTransaction[] {
     try {
-      const rows = this.stmtGetByType.all(
-        type,
-        limit,
-      ) as CreditTransactionRow[];
+      const rows = this.stmtGetByType.all(type, limit) as CreditTransactionRow[];
       return rows.map((row) => this.rowToTransaction(row));
     } catch (err) {
       logger.error(`Failed to get history for type ${type}: ${err}`);
@@ -299,7 +283,7 @@ export class CreditsEngine extends EventEmitter {
           FROM credit_transactions
           WHERE timestamp > ?
           GROUP BY day
-          ORDER BY day DESC`,
+          ORDER BY day DESC`
         )
         .all(since) as DailySummaryRow[];
 
@@ -325,20 +309,18 @@ export class CreditsEngine extends EventEmitter {
     `);
 
     this.stmtGetAll = this.db.prepare(
-      'SELECT * FROM credit_transactions ORDER BY timestamp DESC LIMIT ? OFFSET ?',
+      'SELECT * FROM credit_transactions ORDER BY timestamp DESC LIMIT ? OFFSET ?'
     );
 
     this.stmtGetByEmployee = this.db.prepare(
-      'SELECT * FROM credit_transactions WHERE employeeId = ? ORDER BY timestamp DESC LIMIT ?',
+      'SELECT * FROM credit_transactions WHERE employeeId = ? ORDER BY timestamp DESC LIMIT ?'
     );
 
     this.stmtGetByType = this.db.prepare(
-      'SELECT * FROM credit_transactions WHERE type = ? ORDER BY timestamp DESC LIMIT ?',
+      'SELECT * FROM credit_transactions WHERE type = ? ORDER BY timestamp DESC LIMIT ?'
     );
 
-    this.stmtCount = this.db.prepare(
-      'SELECT COUNT(*) as cnt FROM credit_transactions',
-    );
+    this.stmtCount = this.db.prepare('SELECT COUNT(*) as cnt FROM credit_transactions');
   }
 
   /**

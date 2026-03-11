@@ -33,23 +33,23 @@ export function getOpenClawSkillsDir(): string {
 }
 
 /**
- * Get PocketCrow config directory
- * Note: path kept as ~/.clawx for backward compatibility with existing installations
+ * Get Agentry config directory
+ * Note: path kept as ~/.agentry for backward compatibility with existing installations
  */
-export function getPocketCrowConfigDir(): string {
-  return join(homedir(), '.clawx');
+export function getAgentryConfigDir(): string {
+  return join(homedir(), '.agentry');
 }
 
 /**
- * Get employee workspaces root directory (~/.clawx/employees/)
+ * Get employee workspaces root directory (~/.agentry/employees/)
  * Each employee gets a subdirectory used as an OpenClaw agent workspace.
  */
 export function getEmployeeWorkspacesDir(): string {
-  return join(getPocketCrowConfigDir(), 'employees');
+  return join(getAgentryConfigDir(), 'employees');
 }
 
 /**
- * Get a specific employee's workspace directory (~/.clawx/employees/{id}/)
+ * Get a specific employee's workspace directory (~/.agentry/employees/{id}/)
  * Contains AGENTS.md (compiled system prompt) read by OpenClaw as the agent's instructions.
  */
 export function getEmployeeWorkspaceDir(id: string): string {
@@ -57,19 +57,19 @@ export function getEmployeeWorkspaceDir(id: string): string {
 }
 
 /**
- * @deprecated Use getPocketCrowConfigDir() instead
+ * @deprecated Use getAgentryConfigDir() instead
  */
-export const getClawXConfigDir = getPocketCrowConfigDir;
+export const getClawXConfigDir = getAgentryConfigDir;
 
 /**
- * Get PocketCrow logs directory
+ * Get Agentry logs directory
  */
 export function getLogsDir(): string {
   return join(app.getPath('userData'), 'logs');
 }
 
 /**
- * Get PocketCrow data directory
+ * Get Agentry data directory
  */
 export function getDataDir(): string {
   return app.getPath('userData');

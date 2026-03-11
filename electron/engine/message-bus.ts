@@ -1,6 +1,6 @@
 /**
  * Message Bus
- * SQLite-backed cross-employee messaging system for the PocketCrow AI Employee Platform.
+ * SQLite-backed cross-employee messaging system for the Agentry AI Employee Platform.
  *
  * @deprecated Real-time inter-agent communication is migrating to OpenClaw native
  * `sessions_send` via `tools.agentToAgent` config in openclaw.json.

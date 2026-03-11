@@ -2,7 +2,7 @@
   "gatewayNotRunning": "网关未运行",
   "gatewayRequired": "OpenClaw 网关需要运行才能使用聊天。它将自动启动，或者您可以从设置中启动。",
   "welcome": {
-    "title": "PocketCrow 聊天",
+    "title": "Agentry 聊天",
     "subtitle": "您的 AI 助手已就绪。在下方开始对话。",
     "employeeSubtitle": "随时向我提问，我会用专业技能为你服务。",
     "askQuestions": "提问",

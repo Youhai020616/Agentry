@@ -66,12 +66,12 @@ export function createTray(mainWindow: BrowserWindow): Tray {
   tray = new Tray(icon);
 
   // Set tooltip
-  tray.setToolTip('PocketCrow - AI Assistant');
+  tray.setToolTip('Agentry - AI Assistant');
 
   // Create context menu
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: 'Show PocketCrow',
+      label: 'Show Agentry',
       click: () => {
         mainWindow.show();
         mainWindow.focus();
@@ -132,7 +132,7 @@ export function createTray(mainWindow: BrowserWindow): Tray {
       type: 'separator',
     },
     {
-      label: 'Quit PocketCrow',
+      label: 'Quit Agentry',
       click: () => {
         app.quit();
       },
@@ -180,8 +180,8 @@ export function updateTrayMenu(mainWindow: BrowserWindow, employees: EmployeeTra
   const workingCount = employees.filter((e) => e.status === 'working').length;
   const tooltip =
     workingCount > 0
-      ? `PocketCrow - ${workingCount} employee${workingCount > 1 ? 's' : ''} working`
-      : 'PocketCrow - AI Employee Platform';
+      ? `Agentry - ${workingCount} employee${workingCount > 1 ? 's' : ''} working`
+      : 'Agentry - AI Employee Platform';
   tray.setToolTip(tooltip);
 
   const employeeMenuItems: Electron.MenuItemConstructorOptions[] =
@@ -194,7 +194,7 @@ export function updateTrayMenu(mainWindow: BrowserWindow, employees: EmployeeTra
 
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: 'Show PocketCrow',
+      label: 'Show Agentry',
       click: () => {
         mainWindow.show();
         mainWindow.focus();
@@ -232,7 +232,7 @@ export function updateTrayMenu(mainWindow: BrowserWindow, employees: EmployeeTra
     },
     { type: 'separator' },
     {
-      label: 'Quit PocketCrow',
+      label: 'Quit Agentry',
       click: () => {
         app.quit();
       },
@@ -247,7 +247,7 @@ export function updateTrayMenu(mainWindow: BrowserWindow, employees: EmployeeTra
  */
 export function updateTrayStatus(status: string): void {
   if (tray) {
-    tray.setToolTip(`PocketCrow - ${status}`);
+    tray.setToolTip(`Agentry - ${status}`);
   }
 }
 

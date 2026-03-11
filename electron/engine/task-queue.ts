@@ -127,7 +127,7 @@ export class TaskQueue extends EventEmitter {
 
   constructor(dbPath?: string) {
     super();
-    this.dbPath = dbPath ?? join(app.getPath('userData'), 'clawx-tasks.db');
+    this.dbPath = dbPath ?? join(app.getPath('userData'), 'agentry-tasks.db');
   }
 
   // ── Lifecycle ────────────────────────────────────────────────────

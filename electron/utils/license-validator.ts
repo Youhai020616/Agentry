@@ -1,7 +1,7 @@
 /**
  * License Validator
- * Local license key validation for PocketCrow tiers.
- * Format: CLAWX-XXXX-XXXX-XXXX (kept for backward compatibility)
+ * Local license key validation for Agentry tiers.
+ * Format: AGENTRY-XXXX-XXXX-XXXX (kept for backward compatibility)
  */
 import { createHmac } from 'crypto';
 import { logger } from './logger';
@@ -17,17 +17,17 @@ export interface LicenseInfo {
 
 export type LicenseStatus = 'valid' | 'expired' | 'invalid' | 'none';
 
-const LICENSE_SECRET = 'clawx-license-2024';
+const LICENSE_SECRET = 'agentry-license-2024';
 
 export class LicenseValidator {
   /**
    * Validate a license key locally.
-   * Format: CLAWX-XXXX-XXXX-XXXX
-   * Structure: CLAWX-{tier}{checksum}-{expiry}-{random}
+   * Format: AGENTRY-XXXX-XXXX-XXXX
+   * Structure: AGENTRY-{tier}{checksum}-{expiry}-{random}
    */
   validate(key: string): LicenseInfo | null {
-    // 1. Check format: must match CLAWX-XXXX-XXXX-XXXX
-    const pattern = /^CLAWX-([A-Z0-9]{4})-([A-Z0-9]{4})-([A-Z0-9]{4})$/;
+    // 1. Check format: must match AGENTRY-XXXX-XXXX-XXXX
+    const pattern = /^AGENTRY-([A-Z0-9]{4})-([A-Z0-9]{4})-([A-Z0-9]{4})$/;
     const match = key.trim().toUpperCase().match(pattern);
     if (!match) {
       logger.debug('License key format mismatch');
@@ -113,6 +113,6 @@ export class LicenseValidator {
     const segment1 = `${prefix}DEV`;
     const segment2 = '0000'; // perpetual
     const random = Math.random().toString(36).substring(2, 6).toUpperCase().padEnd(4, 'X');
-    return `CLAWX-${segment1}-${segment2}-${random}`;
+    return `AGENTRY-${segment1}-${segment2}-${random}`;
   }
 }
