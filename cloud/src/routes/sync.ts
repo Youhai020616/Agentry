@@ -56,7 +56,7 @@ router.post('/pull', (req, res) => {
     )
     .all(sinceTimestamp, client_id);
 
-  const parsed = changes.map((row: Record<string, unknown>) => ({
+  const parsed = (changes as Record<string, unknown>[]).map((row) => ({
     ...row,
     payload: JSON.parse(row.payload as string),
   }));
