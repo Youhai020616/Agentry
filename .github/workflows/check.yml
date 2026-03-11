@@ -38,6 +38,7 @@ jobs:
 
   build:
     needs: check
+    if: github.base_ref == 'main'
     runs-on: windows-latest
     steps:
       - name: Checkout code
