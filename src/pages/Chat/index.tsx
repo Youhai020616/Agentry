@@ -11,9 +11,17 @@
  * - Switch between conversations
  * - The first user message auto-titles the conversation
  */
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { AlertCircle, Bot, MessageSquare, Sparkles } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import {
+  AlertCircle,
+  ArrowDown,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  TriangleAlert,
+} from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useChatStore, type RawMessage } from '@/stores/chat';
 import { useGatewayStore } from '@/stores/gateway';
@@ -22,6 +30,7 @@ import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { ChatToolbar } from './ChatToolbar';
+import { WelcomeScreen } from './WelcomeScreen';
 import { ConversationList } from '@/components/chat/ConversationList';
 import { LightRays } from '@/components/chat/LightRays';
 import { extractImages, extractText, extractThinking, extractToolUse } from './message-utils';
@@ -83,9 +92,13 @@ export function Chat({
   const loadConversations = useConversationsStore((s) => s.loadConversations);
   const setActiveConversation = useConversationsStore((s) => s.setActiveConversation);
 
+  const toggleThinking = useChatStore((s) => s.toggleThinking);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [streamingTimestamp, setStreamingTimestamp] = useState<number>(0);
   const [historyCollapsed, setHistoryCollapsed] = useState(true);
+  const [isAtBottom, setIsAtBottom] = useState(true);
 
   // Track whether we've initialized the conversation for this session
   const initializedSessionRef = useRef<string | null>(null);
@@ -171,6 +184,90 @@ export function Chat({
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     });
   }, [messages, streamingMessage, sending]);
+
+  // Track scroll position for "scroll to bottom" button
+  const handleScroll = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const scrolledToBottom = scrollHeight - scrollTop - clientHeight < 50;
+    setIsAtBottom(scrolledToBottom);
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    messagesContainerRef.current?.scrollTo({
+      top: messagesContainerRef.current.scrollHeight,
+      behavior: 'smooth',
+    });
+  }, []);
+
+  // Build a map of toolCallId → tool result content from toolresult messages
+  // so ToolCard renderers can display the output of each tool invocation.
+  const toolResultsMap = useMemo(() => {
+    const map = new Map<string, unknown>();
+    for (const msg of messages) {
+      const role = typeof msg.role === 'string' ? msg.role.toLowerCase() : '';
+      if (role === 'toolresult' || role === 'tool_result') {
+        const id = msg.toolCallId;
+        if (id) {
+          map.set(id, msg.content);
+        }
+      }
+    }
+    return map;
+  }, [messages]);
+
+  // Cmd+E / Ctrl+E shortcut to toggle thinking
+  // Cmd+Shift+K: copy the last assistant message to clipboard
+  // Cmd+Shift+D: delete current session (with confirm dialog)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMod = e.metaKey || e.ctrlKey;
+      if (!isMod) return;
+
+      // Cmd+E — toggle thinking
+      if (e.key.toLowerCase() === 'e' && !e.shiftKey) {
+        e.preventDefault();
+        toggleThinking();
+        return;
+      }
+
+      // Cmd+Shift+K — copy last assistant message
+      if (e.shiftKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
+        if (lastAssistant) {
+          const text = extractText(lastAssistant);
+          if (text) {
+            navigator.clipboard.writeText(text).catch(() => {
+              // clipboard not available
+            });
+          }
+        }
+        return;
+      }
+
+      // Cmd+Shift+D — delete current conversation (with confirmation)
+      if (e.shiftKey && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        const conv = findBySessionKey(currentSessionKey);
+        if (conv) {
+          const confirmed = window.confirm(t('history.deleteConfirm'));
+          if (confirmed) {
+            const deleteConversation = useConversationsStore.getState().deleteConversation;
+            deleteConversation(conv.id).catch(() => {
+              // ignore
+            });
+            // Start a fresh session
+            newSession();
+          }
+        }
+        return;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleThinking, messages, findBySessionKey, currentSessionKey, t, newSession]);
 
   // Update timestamp when sending starts
   useEffect(() => {
@@ -347,7 +444,11 @@ export function Chat({
 
         {/* Messages Area */}
         <div className="relative flex-1 min-h-0 z-[2]">
-          <div className="absolute inset-0 overflow-y-auto no-scrollbar px-4 py-4">
+          <div
+            ref={messagesContainerRef}
+            onScroll={handleScroll}
+            className="absolute inset-0 overflow-y-auto no-scrollbar px-4 py-4"
+          >
             <div className="relative max-w-4xl mx-auto space-y-4">
               {loading ? (
                 <div className="flex h-full items-center justify-center py-20">
@@ -362,6 +463,7 @@ export function Chat({
                       key={msg.id || `msg-${idx}`}
                       message={msg}
                       showThinking={showThinking}
+                      toolResultsMap={toolResultsMap}
                     />
                   ))}
 
@@ -406,23 +508,18 @@ export function Chat({
           </div>
         </div>
 
-        {/* Error bar */}
-        {error && (
-          <div className="relative z-[2] px-4 py-2 bg-destructive/10 border-t border-destructive/20">
-            <div className="max-w-4xl mx-auto flex items-center justify-between">
-              <p className="text-sm text-destructive flex items-center gap-2">
-                <AlertCircle className="h-4 w-4" />
-                {error}
-              </p>
-              <button
-                onClick={clearError}
-                className="text-xs text-destructive/60 hover:text-destructive underline"
-              >
-                {t('common:actions.dismiss')}
-              </button>
-            </div>
-          </div>
-        )}
+        {/* Scroll to bottom button */}
+        <div className="relative z-[3] flex justify-center -mt-12 pointer-events-none">
+          <ScrollToBottomButton
+            show={!isAtBottom && messages.length > 0}
+            onClick={scrollToBottom}
+          />
+        </div>
+
+        {/* Expandable Error Bar */}
+        <AnimatePresence>
+          {error && <ErrorBar error={error} onDismiss={clearError} />}
+        </AnimatePresence>
 
         {/* Input Area — above LightRays */}
         <div className="relative z-[2]">
@@ -438,86 +535,135 @@ export function Chat({
   );
 }
 
-// ── Welcome Screen ──────────────────────────────────────────────
+// ── Expandable Error Bar ─────────────────────────────────────────
 
-function WelcomeScreen({
-  employeeName,
-  employeeAvatar,
-}: {
-  employeeName?: string;
-  employeeAvatar?: string;
-}) {
+const ERROR_TRUNCATE_LENGTH = 200;
+
+function ErrorBar({ error, onDismiss }: { error: string; onDismiss: () => void }) {
   const { t } = useTranslation('chat');
-  const isEmployee = !!employeeName;
+  const [isExpanded, setIsExpanded] = useState(false);
+  const isTruncatable = error.length > ERROR_TRUNCATE_LENGTH;
+  const displayedError = isExpanded ? error : error.slice(0, ERROR_TRUNCATE_LENGTH);
 
   return (
-    <div className="flex flex-col items-center justify-center text-center py-20">
-      {isEmployee ? (
-        <div className="w-16 h-16 rounded-2xl bg-card glass-border shadow-island flex items-center justify-center mb-6 text-4xl">
-          {employeeAvatar || '🤖'}
+    <motion.div
+      className="relative z-[2] px-4 py-3 bg-destructive/10 border-t border-destructive/20"
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ duration: 0.25, ease: 'easeInOut' }}
+    >
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-start gap-3">
+          <div className="p-1.5 bg-destructive/10 rounded-md shrink-0 mt-0.5">
+            <TriangleAlert className="h-3.5 w-3.5 text-destructive" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-sm text-destructive mb-1">{t('error.title')}</p>
+            <div className="text-sm text-muted-foreground">
+              <p className="whitespace-pre-wrap break-words">
+                {displayedError}
+                {isTruncatable && !isExpanded && '...'}
+              </p>
+              {isTruncatable && (
+                <Button
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-1 text-xs mt-1"
+                >
+                  {isExpanded ? (
+                    <>
+                      <ChevronUp className="h-3 w-3 mr-1" />
+                      {t('error.showLess')}
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-3 w-3 mr-1" />
+                      {t('error.showMore')}
+                    </>
+                  )}
+                </Button>
+              )}
+              <p className="text-xs text-muted-foreground/60 mt-2 italic">{t('error.notSaved')}</p>
+            </div>
+          </div>
+          <button
+            onClick={onDismiss}
+            className="text-xs text-destructive/60 hover:text-destructive underline shrink-0 mt-1"
+          >
+            {t('common:actions.dismiss')}
+          </button>
         </div>
-      ) : (
-        <div className="w-16 h-16 rounded-2xl bg-card glass-border shadow-island flex items-center justify-center mb-6">
-          <Bot className="h-8 w-8 text-primary" />
-        </div>
-      )}
-      <h2 className="text-2xl font-bold mb-2">{isEmployee ? employeeName : t('welcome.title')}</h2>
-      <p className="text-muted-foreground mb-8 max-w-md">
-        {isEmployee ? t('welcome.employeeSubtitle') : t('welcome.subtitle')}
-      </p>
+      </div>
+    </motion.div>
+  );
+}
 
-      {!isEmployee && (
-        <div className="grid grid-cols-2 gap-4 max-w-lg w-full">
-          {[
-            {
-              icon: MessageSquare,
-              title: t('welcome.askQuestions'),
-              desc: t('welcome.askQuestionsDesc'),
-            },
-            {
-              icon: Sparkles,
-              title: t('welcome.creativeTasks'),
-              desc: t('welcome.creativeTasksDesc'),
-            },
-          ].map((item, i) => (
-            <Card key={i} className="text-left rounded-2xl glass-border shadow-island">
-              <CardContent className="p-4">
-                <item.icon className="h-6 w-6 text-primary mb-2" />
-                <h3 className="font-medium">{item.title}</h3>
-                <p className="text-sm text-muted-foreground">{item.desc}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+// ── Scroll To Bottom Button ──────────────────────────────────────
+
+function ScrollToBottomButton({ show, onClick }: { show: boolean; onClick: () => void }) {
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.8 }}
+          transition={{ duration: 0.2, ease: 'easeInOut' }}
+          className="pointer-events-auto"
+        >
+          <Button
+            onClick={onClick}
+            className="shadow-lg backdrop-blur-sm border transition-colors"
+            size="icon"
+            variant="ghost"
+          >
+            <ArrowDown className="h-4 w-4" />
+          </Button>
+        </motion.div>
       )}
-    </div>
+    </AnimatePresence>
   );
 }
 
 // ── Typing Indicator ────────────────────────────────────────────
 
 function TypingIndicator() {
+  const { t } = useTranslation('chat');
+
   return (
-    <div className="flex gap-3">
+    <motion.div
+      className="flex gap-3"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+    >
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-600/20 text-primary backdrop-blur-sm">
         <Sparkles className="h-4 w-4" />
       </div>
-      <div className="glass-typing rounded-2xl px-4 py-3">
-        <div className="flex gap-1">
-          <span
-            className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce"
-            style={{ animationDelay: '0ms' }}
-          />
-          <span
-            className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce"
-            style={{ animationDelay: '150ms' }}
-          />
-          <span
-            className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce"
-            style={{ animationDelay: '300ms' }}
-          />
+      <div className="glass-typing rounded-2xl px-4 py-3 backdrop-blur-md bg-card/50 glass-border shadow-island">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground/70">{t('typing.thinking')}</span>
+          <div className="flex gap-1">
+            <motion.span
+              className="w-1.5 h-1.5 bg-primary/50 rounded-full"
+              animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1, 0.8] }}
+              transition={{ duration: 1.4, repeat: Infinity, delay: 0 }}
+            />
+            <motion.span
+              className="w-1.5 h-1.5 bg-primary/50 rounded-full"
+              animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1, 0.8] }}
+              transition={{ duration: 1.4, repeat: Infinity, delay: 0.2 }}
+            />
+            <motion.span
+              className="w-1.5 h-1.5 bg-primary/50 rounded-full"
+              animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1, 0.8] }}
+              transition={{ duration: 1.4, repeat: Infinity, delay: 0.4 }}
+            />
+          </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

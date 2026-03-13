@@ -102,8 +102,11 @@ export function ChatToolbar({ hideSessionSelector, hideSessionControls }: ChatTo
             <Brain className="h-4 w-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>
-          <p>{showThinking ? t('toolbar.hideThinking') : t('toolbar.showThinking')}</p>
+        <TooltipContent className="flex items-center gap-2">
+          <span>{showThinking ? t('toolbar.hideThinking') : t('toolbar.showThinking')}</span>
+          <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+            <span className="text-xs">{navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}</span>E
+          </kbd>
         </TooltipContent>
       </Tooltip>
     </div>
