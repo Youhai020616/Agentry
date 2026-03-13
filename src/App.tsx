@@ -22,6 +22,7 @@ import { Tasks } from './pages/Tasks';
 import { Projects } from './pages/Projects';
 import { Browser } from './pages/Browser';
 import { MediaStudio } from './pages/MediaStudio';
+import Office from './pages/Office';
 import { ProjectDetail } from './pages/Projects/ProjectDetail';
 import { useSettingsStore } from './stores/settings';
 import { useGatewayStore } from './stores/gateway';
@@ -178,6 +179,7 @@ function App() {
             <Route path="/cron" element={<Cron />} />
             <Route path="/browser" element={<Browser />} />
             <Route path="/media-studio" element={<MediaStudio />} />
+            <Route path="/office" element={<Office />} />
             <Route path="/settings/*" element={<Settings />} />
           </Route>
         </Routes>

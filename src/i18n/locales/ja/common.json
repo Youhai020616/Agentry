@@ -55,7 +55,8 @@
     "supervisor": "スーパーバイザー",
     "projects": "プロジェクト",
     "browser": "ブラウザ",
-    "mediaStudio": "メディアスタジオ"
+    "mediaStudio": "メディアスタジオ",
+    "office": "ピクセルオフィス"
   },
   "gateway": {
     "notRunning": "ゲートウェイが停止中",

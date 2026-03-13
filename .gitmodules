@@ -1,0 +1,3 @@
+[submodule "resources/star-office"]
+	path = resources/star-office
+	url = https://github.com/ringhyacinth/Star-Office-UI.git

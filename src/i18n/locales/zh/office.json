@@ -1,0 +1,28 @@
+{
+  "title": "像素办公室",
+  "description": "将你的 AI 员工可视化为像素角色，在虚拟办公室中工作",
+  "start": "启动办公室",
+  "stop": "停止办公室",
+  "restart": "重启",
+  "starting": "启动中...",
+  "openExternal": "在浏览器中打开",
+  "status": {
+    "stopped": "已停止",
+    "starting": "启动中",
+    "running": "运行中",
+    "error": "错误"
+  },
+  "empty": {
+    "title": "像素办公室未运行",
+    "description": "启动像素办公室，在一个像素风格的虚拟工作空间中查看你的 AI 员工工作状态。员工状态变化将实时反映在办公室中。",
+    "requirement": "需要系统安装 Python 3.10+"
+  },
+  "settings": {
+    "title": "Star Office",
+    "enabled": "启用 Star Office",
+    "autoStart": "启动时自动运行",
+    "port": "端口",
+    "portHint": "默认: 19000"
+  }
+}
+

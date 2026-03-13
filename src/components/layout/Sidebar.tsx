@@ -15,6 +15,7 @@ import {
   Wrench,
   Clock,
   Settings,
+  Monitor,
   ChevronLeft,
   ChevronRight,
   Terminal,
@@ -208,6 +209,7 @@ export function Sidebar() {
 
   const navItems = [
     { to: '/', icon: <Crown className="h-5 w-5" />, label: t('nav.supervisor') },
+    { to: '/office', icon: <Monitor className="h-5 w-5" />, label: t('nav.office') },
     { to: '/employees', icon: <Users className="h-5 w-5" />, label: t('nav.employees') },
     {
       to: '/projects',

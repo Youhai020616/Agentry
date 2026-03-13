@@ -79,6 +79,7 @@ import type { ExecutionOptions } from '../engine/execution-worker';
 import { LicenseValidator } from '../utils/license-validator';
 import type { LicenseInfo } from '../utils/license-validator';
 import { ollamaManager } from '../utils/ollama-manager';
+import { StarOfficeManager } from '../star-office/manager';
 
 /**
  * Mutable reference to EngineContext.
@@ -94,7 +95,8 @@ export function registerIpcHandlers(
   gatewayManager: GatewayManager,
   clawHubService: ClawHubService,
   mainWindow: BrowserWindow,
-  engineRef: EngineRef
+  engineRef: EngineRef,
+  starOfficeManager?: StarOfficeManager
 ): void {
   // Gateway handlers (engineRef passed for lazy employee system prompt injection)
   registerGatewayHandlers(gatewayManager, mainWindow, engineRef);
@@ -178,6 +180,11 @@ export function registerIpcHandlers(
   registerConversationHandlers();
   registerChatMessageHandlers(engineRef, gatewayManager);
   registerStudioHandlers(engineRef, gatewayManager, mainWindow);
+
+  // Star Office handlers
+  if (starOfficeManager) {
+    registerStarOfficeHandlers(starOfficeManager, mainWindow);
+  }
 
   // Note: task:changed event forwarding happens lazily when Phase 1 initializes.
   // The task-changed listener is set up inside registerTaskHandlers via getLazy().
@@ -4341,6 +4348,65 @@ function registerBrowserHandlers(mainWindow: BrowserWindow): void {
     } catch (error) {
       logger.error('browser:history failed:', error);
       return { success: false, error: String(error) };
+    }
+  });
+}
+
+
+// ── Star Office Handlers ─────────────────────────────────────────
+
+function registerStarOfficeHandlers(
+  starOfficeManager: StarOfficeManager,
+  mainWindow: BrowserWindow
+): void {
+  ipcMain.handle('star-office:start', async () => {
+    try {
+      await starOfficeManager.start();
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('star-office:stop', async () => {
+    try {
+      await starOfficeManager.stop();
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('star-office:restart', async () => {
+    try {
+      await starOfficeManager.restart();
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('star-office:status', () => {
+    return { success: true, result: starOfficeManager.getStatus() };
+  });
+
+  ipcMain.handle('star-office:get-url', () => {
+    return { success: true, result: starOfficeManager.getUrl() };
+  });
+
+  // Forward status events to renderer
+  starOfficeManager.on('status', (status) => {
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('star-office:status-changed', status);
+    }
+  });
+
+  starOfficeManager.on('error', (error) => {
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('star-office:status-changed', {
+        ...starOfficeManager.getStatus(),
+        error: error.message,
+      });
     }
   });
 }

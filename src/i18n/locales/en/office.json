@@ -1,0 +1,28 @@
+{
+  "title": "Pixel Office",
+  "description": "Visualize your AI employees as pixel characters in a virtual office",
+  "start": "Start Office",
+  "stop": "Stop Office",
+  "restart": "Restart",
+  "starting": "Starting...",
+  "openExternal": "Open in Browser",
+  "status": {
+    "stopped": "Stopped",
+    "starting": "Starting",
+    "running": "Running",
+    "error": "Error"
+  },
+  "empty": {
+    "title": "Pixel Office Not Running",
+    "description": "Start the pixel office to see your AI employees working in a charming virtual workspace. Employee status changes will be reflected in real-time.",
+    "requirement": "Requires Python 3.10+ installed on your system"
+  },
+  "settings": {
+    "title": "Star Office",
+    "enabled": "Enable Star Office",
+    "autoStart": "Auto-start on launch",
+    "port": "Port",
+    "portHint": "Default: 19000"
+  }
+}
+

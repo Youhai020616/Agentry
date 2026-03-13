@@ -6,6 +6,7 @@ on:
   pull_request:
     branches:
       - main
+      - develop
 
 jobs:
   check:
@@ -36,6 +37,8 @@ jobs:
         run: pnpm run test
 
   build:
+    needs: check
+    if: github.base_ref == 'main'
     runs-on: windows-latest
     steps:
       - name: Checkout code

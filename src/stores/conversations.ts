@@ -174,7 +174,7 @@ function applyFilter(conversations: Conversation[], filter?: ConversationFilter)
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
 
-      let cmp = 0;
+      let cmp: number;
       if (sortBy === 'title') {
         cmp = a.title.localeCompare(b.title);
       } else if (sortBy === 'createdAt') {
