@@ -5,12 +5,45 @@
     "title": "Agentry チャット",
     "subtitle": "AI アシスタントの準備ができました。下の入力欄から会話を始めましょう。",
     "employeeSubtitle": "いつでもご質問ください。専門スキルでお手伝いします。",
+    "startConversation": "{{name}} と会話を始める",
+    "greeting": {
+      "goodMorning": "おはようございます",
+      "goodAfternoon": "こんにちは",
+      "goodEvening": "こんばんは"
+    },
+    "suggestions": {
+      "askAnything": "気になることを何でも聞いてください...",
+      "writeCode": "コードの作成やデバッグをお手伝い...",
+      "brainstorm": "一緒にアイデアをブレストしましょう...",
+      "analyzeData": "データ分析やコンテンツの要約..."
+    },
     "askQuestions": "質問する",
     "askQuestionsDesc": "あらゆるトピックについて回答を得る",
     "creativeTasks": "クリエイティブタスク",
     "creativeTasksDesc": "ライティング、ブレスト、アイデア"
   },
+  "error": {
+    "title": "エラー",
+    "showMore": "もっと見る",
+    "showLess": "折りたたむ",
+    "notSaved": "このメッセージは保存されませんでした。もう一度お試しください。"
+  },
+  "typing": {
+    "thinking": "考え中..."
+  },
   "noLogs": "（ログはまだありません）",
+  "message": {
+    "copy": "コピー",
+    "edit": "編集",
+    "delete": "削除",
+    "regenerate": "再生成",
+    "showMore": "もっと見る",
+    "showLess": "折りたたむ",
+    "thinking": "思考中",
+    "editPlaceholder": "メッセージを編集...",
+    "saveEdit": "保存",
+    "cancelEdit": "キャンセル"
+  },
   "toolbar": {
     "newSession": "新しい会話",
     "refresh": "チャットを更新",
@@ -37,5 +70,28 @@
     "deleteConfirm": "この会話を削除してもよろしいですか？",
     "conversations": "件の会話",
     "conversation": "件の会話"
+  },
+  "tool": {
+    "input": "入力",
+    "output": "出力",
+    "copy": "コピー",
+    "copied": "コピー済み",
+    "noData": "データなし",
+    "results": "結果",
+    "searchResults": "検索結果",
+    "searchingFor": "検索中",
+    "searchError": "検索に失敗しました",
+    "noResults": "結果が見つかりません",
+    "code": "コード",
+    "noOutput": "出力なし",
+    "summary": "概要",
+    "rawOutput": "生データ",
+    "browserClick": "クリック",
+    "browserType": "入力",
+    "browserNavigate": "ナビゲート",
+    "browserScreenshot": "スクリーンショット",
+    "browserScroll": "スクロール",
+    "browserObserve": "観察",
+    "browserBrowse": "ブラウズ"
   }
 }
