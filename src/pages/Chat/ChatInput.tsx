@@ -357,93 +357,118 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
       <div className="chat-glass-wrapper max-w-3xl mx-auto">
         <div
           className={cn(
-            'chat-glass-input overflow-hidden rounded-3xl',
+            'relative overflow-hidden rounded-3xl transition-all duration-200',
             dragOver && 'ring-2 ring-primary'
           )}
+          style={{
+            boxShadow: '0 6px 6px rgba(0, 0, 0, 0.15), 0 0 20px rgba(0, 0, 0, 0.08)',
+          }}
         >
-          {/* Attachment Previews */}
-          {attachments.length > 0 && (
-            <div className="flex gap-2 flex-wrap px-3 pt-3 pb-0">
-              {attachments.map((att) => (
-                <AttachmentPreview
-                  key={att.id}
-                  attachment={att}
-                  onRemove={() => removeAttachment(att.id)}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* Textarea — compact, clean */}
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              adjustHeight();
+          {/* Layer 1: Backdrop blur */}
+          <div
+            className="absolute inset-0 z-0 overflow-hidden rounded-3xl"
+            style={{
+              backdropFilter: 'blur(12px) saturate(1.6)',
+              WebkitBackdropFilter: 'blur(12px) saturate(1.6)',
+              isolation: 'isolate',
             }}
-            onKeyDown={handleKeyDown}
-            onCompositionStart={() => {
-              isComposingRef.current = true;
-            }}
-            onCompositionEnd={() => {
-              isComposingRef.current = false;
-            }}
-            onPaste={handlePaste}
-            placeholder={disabled ? 'Gateway not connected...' : 'Ask anything...'}
-            disabled={disabled}
-            className={cn(
-              'w-full resize-none border-0 bg-transparent px-4 pt-3 pb-1 text-[15px] leading-relaxed outline-none',
-              'text-foreground placeholder:text-muted-foreground/40',
-              'focus:ring-0 focus-visible:outline-none min-h-[36px] no-scrollbar',
-              'disabled:cursor-not-allowed disabled:opacity-50'
-            )}
-            rows={1}
           />
+          {/* Layer 2: Tint */}
+          <div className="absolute inset-0 z-[1] rounded-3xl bg-muted/60 transition-all duration-200" />
+          {/* Layer 3: Inner highlight */}
+          <div
+            className="absolute inset-0 z-[2] rounded-3xl overflow-hidden pointer-events-none"
+            style={{
+              boxShadow:
+                'inset 1px 1px 1px 0 rgba(255, 255, 255, 0.3), inset -1px -1px 1px 0 rgba(255, 255, 255, 0.2)',
+            }}
+          />
+          {/* Layer 4: Content */}
+          <div className="relative z-[3] flex w-full flex-col items-stretch focus-within:bg-muted/40 hover:bg-muted/40 rounded-3xl transition-all duration-200">
+            {/* Attachment Previews */}
+            {attachments.length > 0 && (
+              <div className="flex gap-2 flex-wrap px-3 pt-3 pb-0">
+                {attachments.map((att) => (
+                  <AttachmentPreview
+                    key={att.id}
+                    attachment={att}
+                    onRemove={() => removeAttachment(att.id)}
+                  />
+                ))}
+              </div>
+            )}
 
-          {/* Bottom toolbar — attach left, send right */}
-          <div className="flex items-center justify-between px-2.5 pb-2 pt-0.5">
-            <div className="flex items-center gap-1">
+            {/* Textarea — compact, clean */}
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                adjustHeight();
+              }}
+              onKeyDown={handleKeyDown}
+              onCompositionStart={() => {
+                isComposingRef.current = true;
+              }}
+              onCompositionEnd={() => {
+                isComposingRef.current = false;
+              }}
+              onPaste={handlePaste}
+              placeholder={disabled ? 'Gateway not connected...' : 'Ask anything...'}
+              disabled={disabled}
+              className={cn(
+                'w-full resize-none border-0 bg-transparent px-4 pt-3 pb-1 text-[15px] leading-relaxed outline-none',
+                'text-foreground placeholder:text-muted-foreground/40',
+                'focus:ring-0 focus-visible:outline-none min-h-[36px] no-scrollbar',
+                'disabled:cursor-not-allowed disabled:opacity-50'
+              )}
+              rows={1}
+            />
+
+            {/* Bottom toolbar — attach left, send right */}
+            <div className="flex items-center justify-between px-2.5 pb-2 pt-0.5">
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={pickFiles}
+                  disabled={disabled || sending}
+                  className={cn(
+                    'flex h-8 w-8 items-center justify-center rounded-lg',
+                    'text-muted-foreground/60 transition-colors',
+                    'hover:bg-foreground/5 hover:text-foreground/80',
+                    'focus-visible:outline-none',
+                    'disabled:pointer-events-none disabled:opacity-30'
+                  )}
+                  title="Attach files"
+                >
+                  <Paperclip className="h-4 w-4" />
+                </button>
+              </div>
+
               <button
                 type="button"
-                onClick={pickFiles}
-                disabled={disabled || sending}
+                onClick={sending ? handleStop : handleSend}
+                disabled={sending ? !canStop : !canSend}
                 className={cn(
-                  'flex h-8 w-8 items-center justify-center rounded-lg',
-                  'text-muted-foreground/60 transition-colors',
-                  'hover:bg-foreground/5 hover:text-foreground/80',
-                  'focus-visible:outline-none',
-                  'disabled:pointer-events-none disabled:opacity-30'
+                  'flex h-8 w-8 items-center justify-center rounded-full transition-all duration-150',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  sending
+                    ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50'
+                    : cn(
+                        'bg-foreground text-background',
+                        'hover:opacity-85',
+                        'disabled:opacity-20 disabled:pointer-events-none'
+                      )
                 )}
-                title="Attach files"
+                title={sending ? 'Stop' : 'Send'}
               >
-                <Paperclip className="h-4 w-4" />
+                {sending ? (
+                  <Square className="h-3 w-3" fill="currentColor" />
+                ) : (
+                  <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
+                )}
               </button>
             </div>
-
-            <button
-              type="button"
-              onClick={sending ? handleStop : handleSend}
-              disabled={sending ? !canStop : !canSend}
-              className={cn(
-                'flex h-8 w-8 items-center justify-center rounded-full transition-all duration-150',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                sending
-                  ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50'
-                  : cn(
-                      'bg-foreground text-background',
-                      'hover:opacity-85',
-                      'disabled:opacity-20 disabled:pointer-events-none'
-                    )
-              )}
-              title={sending ? 'Stop' : 'Send'}
-            >
-              {sending ? (
-                <Square className="h-3 w-3" fill="currentColor" />
-              ) : (
-                <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
-              )}
-            </button>
           </div>
         </div>
       </div>
