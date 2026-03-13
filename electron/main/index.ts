@@ -364,9 +364,9 @@ app.on('before-quit', (event) => {
       }
     }
 
-    await gatewayManager.stop();
     starOfficeSyncBridge.destroy();
-    starOfficeManager.destroy();
+    await starOfficeManager.destroy();
+    await gatewayManager.stop();
     cleanupDone = true;
     app.quit(); // Re-trigger quit now that cleanup is done
   })();

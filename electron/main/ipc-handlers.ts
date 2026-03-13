@@ -4352,7 +4352,6 @@ function registerBrowserHandlers(mainWindow: BrowserWindow): void {
   });
 }
 
-
 // ── Star Office Handlers ─────────────────────────────────────────
 
 function registerStarOfficeHandlers(
