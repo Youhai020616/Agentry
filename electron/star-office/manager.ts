@@ -144,13 +144,9 @@ export class StarOfficeManager extends EventEmitter {
     await this.start();
   }
 
-  /** Clean up — call on app quit */
-  destroy(): void {
-    this.clearHealthCheck();
-    if (this.process) {
-      this.process.kill('SIGTERM');
-      this.process = null;
-    }
+  /** Clean up — call on app quit. Uses stop() for SIGKILL fallback. */
+  async destroy(): Promise<void> {
+    await this.stop();
     this.removeAllListeners();
   }
 
@@ -178,7 +174,7 @@ export class StarOfficeManager extends EventEmitter {
     const env: Record<string, string | undefined> = {
       ...process.env,
       STAR_BACKEND_PORT: String(this.status.port),
-      FLASK_ENV: 'development',
+      FLASK_ENV: app.isPackaged ? 'production' : 'development',
     };
 
     logger.info(

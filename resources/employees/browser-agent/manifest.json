@@ -1,7 +1,7 @@
 {
   "name": "browser-agent",
   "version": "1.0.0",
-  "description": "Web browser assistant - autonomously browses websites, extracts information, fills forms, and monitors pages using the built-in browser automation tool",
+  "description": "Web browser assistant - searches the web (Brave Search), browses websites, extracts information, fills forms, and monitors pages",
   "author": "Agentry Team",
   "type": "execution",
   "employee": {
@@ -39,8 +39,21 @@
   "tools": [
     {
       "name": "browser"
+    },
+    {
+      "name": "web_search"
+    },
+    {
+      "name": "web_fetch"
     }
   ],
+  "secrets": {
+    "BRAVE_API_KEY": {
+      "required": true,
+      "description": "Brave Search API key for web_search tool",
+      "obtainUrl": "https://api.search.brave.com/app"
+    }
+  },
   "pricing": {
     "model": "included"
   }

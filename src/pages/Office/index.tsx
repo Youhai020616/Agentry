@@ -41,6 +41,7 @@ export default function Office() {
 
   // Overlay handlers: wheel scrolls parent, click passes through to iframe
   const handleOverlayWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
     containerRef.current?.scrollBy({ top: e.deltaY });
   }, []);
 
@@ -67,11 +68,7 @@ export default function Office() {
     }
   };
 
-  const statusVariant = isRunning
-    ? 'default'
-    : hasError
-      ? 'destructive'
-      : ('secondary' as const);
+  const statusVariant = isRunning ? 'default' : hasError ? 'destructive' : ('secondary' as const);
 
   return (
     <div className="flex h-full flex-col">
@@ -102,7 +99,12 @@ export default function Office() {
 
         {isRunning && (
           <>
-            <Button size="sm" variant="ghost" onClick={handleOpenExternal} title={t('openExternal')}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleOpenExternal}
+              title={t('openExternal')}
+            >
               <ExternalLink className="h-3.5 w-3.5" />
             </Button>
             <Button size="sm" variant="ghost" onClick={restart}>
@@ -156,12 +158,7 @@ export default function Office() {
             />
           </div>
         ) : (
-          <EmptyState
-            state={status.state}
-            error={status.error}
-            onStart={start}
-            t={t}
-          />
+          <EmptyState state={status.state} error={status.error} onStart={start} t={t} />
         )}
       </div>
     </div>
@@ -208,4 +205,3 @@ function EmptyState({
     </div>
   );
 }
-
