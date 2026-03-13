@@ -2,9 +2,26 @@
  * Electron Main Process Entry
  * Manages window creation, system tray, and IPC handlers
  */
+
+// ── Global EPIPE guard ──────────────────────────────────────────────────────
+// In packaged Electron apps launched via .app bundle (macOS) or detached from a
+// terminal, stdout/stderr may be connected to a pipe that is already closed.
+// Any console.* call then throws an uncaught EPIPE, crashing the process.
+// Installing error handlers on both streams prevents this.
+for (const stream of [process.stdout, process.stderr]) {
+  stream?.on?.('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EPIPE' || err.code === 'ERR_STREAM_DESTROYED') return; // swallow
+    // Re-throw non-EPIPE errors so they are still caught by the normal handler
+    throw err;
+  });
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { app, BrowserWindow, nativeImage, session, shell } from 'electron';
 import { join } from 'path';
 import { GatewayManager } from '../gateway/manager';
+import { StarOfficeManager } from '../star-office/manager';
+import { StarOfficeSyncBridge } from '../star-office/sync-bridge';
 import { getPort } from '../utils/config';
 import { registerIpcHandlers } from './ipc-handlers';
 import type { EngineRef } from './ipc-handlers';
@@ -31,6 +48,8 @@ let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
 const gatewayManager = new GatewayManager();
 const clawHubService = new ClawHubService();
+const starOfficeManager = new StarOfficeManager(getPort('STAR_OFFICE'));
+const starOfficeSyncBridge = new StarOfficeSyncBridge(starOfficeManager.client);
 let engineContext: EngineContext | null = null;
 
 /**
@@ -208,7 +227,7 @@ async function initialize(): Promise<void> {
   // Engine is null here; engine-dependent handlers read engineRef.current lazily,
   // so they'll pick up the engine once bootstrap completes.
   const engineRef: EngineRef = { current: null };
-  registerIpcHandlers(gatewayManager, clawHubService, mainWindow, engineRef);
+  registerIpcHandlers(gatewayManager, clawHubService, mainWindow, engineRef, starOfficeManager);
 
   // Register update handlers
   registerUpdateHandlers(appUpdater, mainWindow);
@@ -219,6 +238,18 @@ async function initialize(): Promise<void> {
     engineContext = await bootstrapEngine();
     engineRef.current = engineContext;
     logger.info('Skill Runtime Engine bootstrapped');
+
+    // Attach Star Office sync bridge to employee manager
+    starOfficeSyncBridge.attach(engineContext.employeeManager);
+
+    // Enable sync when Star Office starts, disable when it stops
+    starOfficeManager.on('status', (status) => {
+      if (status.state === 'running') {
+        void starOfficeSyncBridge.enable();
+      } else if (status.state === 'stopped' || status.state === 'error') {
+        starOfficeSyncBridge.disable();
+      }
+    });
   } catch (error) {
     logger.error('Skill Runtime Engine bootstrap failed:', error);
     // Notify the renderer so the UI can show a meaningful error instead of
@@ -334,6 +365,8 @@ app.on('before-quit', (event) => {
     }
 
     await gatewayManager.stop();
+    starOfficeSyncBridge.destroy();
+    starOfficeManager.destroy();
     cleanupDone = true;
     app.quit(); // Re-trigger quit now that cleanup is done
   })();
