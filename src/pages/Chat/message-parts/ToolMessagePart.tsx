@@ -21,7 +21,12 @@ import {
   Code2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getToolRenderer } from '../tool-renderers';
+import {
+  WebSearchRenderer,
+  CodeExecutorRenderer,
+  BrowserRenderer,
+  DefaultRenderer,
+} from '../tool-renderers';
 
 // ── Shared tool helpers ──────────────────────────────────────────
 
@@ -123,8 +128,15 @@ export const ToolCard = memo(function ToolCard({ name, input, output }: ToolCard
   const [expanded, setExpanded] = useState(false);
   const label = getToolLabel(name);
 
-  // Dynamically select the appropriate renderer for this tool type
-  const Renderer = getToolRenderer(name);
+  // Select renderer inline to avoid "component created during render" lint error
+  const n = name.toLowerCase();
+  const isSearch = n.includes('search');
+  const isCode =
+    n.includes('code') ||
+    n.includes('execute') ||
+    n.includes('run_code') ||
+    n.includes('interpreter');
+  const isBrowser = n.includes('browser') || n.includes('navigate') || n.includes('playwright');
 
   return (
     <div className="rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm text-sm">
@@ -134,9 +146,7 @@ export const ToolCard = memo(function ToolCard({ name, input, output }: ToolCard
       >
         {renderToolIcon(name, 'h-3.5 w-3.5 text-primary/70')}
         <span className="text-xs font-medium">{label}</span>
-        {output != null && (
-          <CheckCircle2 className="h-3 w-3 text-emerald-500/70" />
-        )}
+        {output != null && <CheckCircle2 className="h-3 w-3 text-emerald-500/70" />}
         {expanded ? (
           <ChevronDown className="h-3 w-3 ml-auto" />
         ) : (
@@ -145,7 +155,15 @@ export const ToolCard = memo(function ToolCard({ name, input, output }: ToolCard
       </button>
       {expanded && (
         <div className="px-3 pb-2.5">
-          <Renderer name={name} input={input} output={output} />
+          {isSearch ? (
+            <WebSearchRenderer name={name} input={input} output={output} />
+          ) : isCode ? (
+            <CodeExecutorRenderer name={name} input={input} output={output} />
+          ) : isBrowser ? (
+            <BrowserRenderer name={name} input={input} output={output} />
+          ) : (
+            <DefaultRenderer name={name} input={input} output={output} />
+          )}
         </div>
       )}
     </div>
