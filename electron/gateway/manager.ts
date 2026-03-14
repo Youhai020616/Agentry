@@ -20,6 +20,7 @@ import { getSetting } from '../utils/store';
 import { getApiKey, getDefaultProvider, getProvider } from '../utils/secure-storage';
 import { getProviderEnvVar, getKeyableProviderTypes } from '../utils/provider-registry';
 import { GatewayEventType, JsonRpcNotification, isNotification, isResponse } from './protocol';
+import { CircuitBreaker } from './circuit-breaker';
 import { logger } from '../utils/logger';
 import { getUvMirrorEnv } from '../utils/uv-env';
 import { isPythonReady, setupManagedPython } from '../utils/uv-setup';
@@ -121,6 +122,17 @@ export class GatewayManager extends EventEmitter {
   private _pendingSendConnect: (() => void) | null = null;
   private processExitedDuringStart = false;
   private _lastConfigError = false;
+
+  /** Circuit breaker — fast-fail RPC calls when Gateway is known to be down */
+  private circuitBreaker = new CircuitBreaker({
+    failureThreshold: 5,
+    cooldownMs: 30_000,
+    successThreshold: 1,
+  });
+
+  /** Consecutive health check failures — triggers reconnect after threshold */
+  private healthFailures = 0;
+  private static readonly HEALTH_FAILURE_RECONNECT_THRESHOLD = 3;
 
   /**
    * Dedup: prevent duplicate chat:message emissions from channel webhook retries
@@ -319,6 +331,8 @@ export class GatewayManager extends EventEmitter {
     }
 
     this.reconnectAttempts = 0;
+    this.healthFailures = 0;
+    this.circuitBreaker.reset();
     this.setStatus({ state: 'starting', reconnectAttempts: 0 });
 
     try {
@@ -496,6 +510,10 @@ export class GatewayManager extends EventEmitter {
    * Uses OpenClaw protocol format: { type: "req", id: "...", method: "...", params: {...} }
    */
   async rpc<T>(method: string, params?: unknown, timeoutMs = 30000): Promise<T> {
+    return this.circuitBreaker.execute(method, () => this._rpcInner<T>(method, params, timeoutMs));
+  }
+
+  private _rpcInner<T>(method: string, params?: unknown, timeoutMs = 30000): Promise<T> {
     return new Promise((resolve, reject) => {
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
         reject(new Error('Gateway not connected'));
@@ -551,8 +569,27 @@ export class GatewayManager extends EventEmitter {
       try {
         const health = await this.checkHealth();
         if (!health.ok) {
-          logger.warn(`Gateway health check failed: ${health.error ?? 'unknown'}`);
-          this.emit('error', new Error(health.error || 'Health check failed'));
+          this.healthFailures++;
+          logger.warn(
+            `Gateway health check failed (${this.healthFailures}/${GatewayManager.HEALTH_FAILURE_RECONNECT_THRESHOLD}): ${health.error ?? 'unknown'}`
+          );
+
+          if (this.healthFailures >= GatewayManager.HEALTH_FAILURE_RECONNECT_THRESHOLD) {
+            logger.error(
+              `Gateway health check failed ${this.healthFailures} times — triggering reconnect`
+            );
+            this.healthFailures = 0;
+            if (this.healthCheckInterval) {
+              clearInterval(this.healthCheckInterval);
+              this.healthCheckInterval = null;
+            }
+            this.scheduleReconnect();
+          } else {
+            this.emit('error', new Error(health.error || 'Health check failed'));
+          }
+        } else {
+          // Reset failure counter on success
+          this.healthFailures = 0;
         }
       } catch (error) {
         logger.error('Gateway health check error:', error);

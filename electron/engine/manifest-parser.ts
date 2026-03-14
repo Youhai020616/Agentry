@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { logger } from '../utils/logger';
-import type { SkillManifest } from '../../src/types/manifest';
+import type { SkillManifest } from '@shared/types/manifest';
 
 /**
  * ManifestParser — reads and validates manifest.json from skill directories

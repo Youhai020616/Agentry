@@ -22,8 +22,8 @@ import { configUpdateQueue } from './config-update-queue';
 import { ManifestParser } from './manifest-parser';
 import { SkillCompiler } from './compiler';
 import type { ToolRegistry } from './tool-registry';
-import type { Employee, EmployeeStatus, EmployeeSource } from '../../src/types/employee';
-import type { SkillManifest } from '../../src/types/manifest';
+import type { Employee, EmployeeStatus, EmployeeSource } from '@shared/types/employee';
+import type { SkillManifest } from '@shared/types/manifest';
 
 /**
  * EmployeeManager — scan-based discovery, activation, and status tracking.

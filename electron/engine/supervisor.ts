@@ -24,7 +24,7 @@ import type { MessageBus } from './message-bus';
 import type { EmployeeManager } from './employee-manager';
 import type { GatewayManager } from '../gateway/manager';
 import type { TaskExecutor } from './task-executor';
-import type { Task, Project, CreateTaskInput } from '../../src/types/task';
+import type { Task, Project, CreateTaskInput } from '@shared/types/task';
 
 /** Parsed task from PM's response */
 interface PMTaskPlan {

@@ -20,7 +20,7 @@ import { logger } from '../utils/logger';
 import type { TaskQueue } from './task-queue';
 import type { EmployeeManager } from './employee-manager';
 import type { GatewayManager } from '../gateway/manager';
-import type { Task } from '../../src/types/task';
+import type { Task } from '@shared/types/task';
 
 // ── Types ────────────────────────────────────────────────────────────
 

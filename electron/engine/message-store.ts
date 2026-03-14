@@ -164,6 +164,7 @@ export class MessageStore extends EventEmitter {
     try {
       this.db = new Database(this.dbPath);
       this.db.pragma('journal_mode = WAL');
+      this.db.pragma('synchronous = NORMAL');
       this.db.pragma('foreign_keys = ON');
 
       this.db.exec(CREATE_MESSAGES_TABLE);

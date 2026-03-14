@@ -66,7 +66,14 @@ function NavItem({ to, icon, label, badge, collapsed }: NavItemProps) {
         <>
           <span className="flex-1 truncate">{label}</span>
           {badge && (
-            <Badge variant="secondary" className="ml-auto">
+            <Badge
+              variant="secondary"
+              className={cn(
+                'ml-auto text-[10px] px-1 py-0 h-4 leading-none',
+                badge === 'Beta' && 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+                badge === 'New' && 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+              )}
+            >
               {badge}
             </Badge>
           )}
@@ -206,21 +213,34 @@ export function Sidebar() {
 
   const { t } = useTranslation();
 
-  const navItems = [
+  // ── Primary navigation (always visible) ──
+  const primaryItems = [
     { to: '/', icon: <Crown className="h-5 w-5" />, label: t('nav.supervisor') },
     { to: '/employees', icon: <Users className="h-5 w-5" />, label: t('nav.employees') },
     {
       to: '/projects',
       icon: <FolderKanban className="h-5 w-5" />,
       label: t('nav.projects'),
+      badge: 'Beta' as const,
     },
-    { to: '/tasks', icon: <ClipboardList className="h-5 w-5" />, label: t('nav.tasks') },
-    { to: '/dashboard', icon: <Activity className="h-5 w-5" />, label: t('nav.dashboard') },
     { to: '/channels', icon: <Radio className="h-5 w-5" />, label: t('nav.channels') },
-    { to: '/skills', icon: <Wrench className="h-5 w-5" />, label: t('nav.skills') },
     { to: '/cron', icon: <Clock className="h-5 w-5" />, label: t('nav.cron') },
+    { to: '/skills', icon: <Wrench className="h-5 w-5" />, label: t('nav.skills') },
     { to: '/settings', icon: <Settings className="h-5 w-5" />, label: t('nav.settings') },
   ];
+
+  // ── Secondary navigation (collapsed by default) ──
+  const secondaryItems = [
+    { to: '/dashboard', icon: <Activity className="h-5 w-5" />, label: t('nav.dashboard') },
+    {
+      to: '/tasks',
+      icon: <ClipboardList className="h-5 w-5" />,
+      label: t('nav.tasks'),
+      badge: 'Beta' as const,
+    },
+  ];
+
+  const [showSecondary, setShowSecondary] = useState(false);
 
   const currentWidth = sidebarCollapsed ? MIN_WIDTH : sidebarWidth;
   // Hide labels when sidebar is too narrow, even if not formally collapsed
@@ -237,9 +257,38 @@ export function Sidebar() {
       <div className="flex flex-1 flex-col my-1.5 ml-1 mr-1 rounded-2xl bg-card/60 backdrop-blur-xl glass-border shadow-island overflow-hidden">
         {/* Navigation */}
         <nav className="flex-1 space-y-0.5 overflow-auto px-1.5 py-2">
-          {navItems.map((item) => (
+          {primaryItems.map((item) => (
             <NavItem key={item.to} {...item} collapsed={hideLabels} />
           ))}
+
+          {/* Secondary section toggle */}
+          {secondaryItems.length > 0 && (
+            <>
+              {!hideLabels && (
+                <button
+                  onClick={() => setShowSecondary((v) => !v)}
+                  className={cn(
+                    'flex w-full items-center gap-2.5 rounded-xl px-2 py-1 text-xs font-medium',
+                    'text-muted-foreground/60 hover:text-muted-foreground transition-colors'
+                  )}
+                >
+                  <ChevronRight
+                    className={cn(
+                      'h-3.5 w-3.5 transition-transform',
+                      showSecondary && 'rotate-90'
+                    )}
+                  />
+                  <span>
+                    {showSecondary ? t('sidebar.less', 'Less') : t('sidebar.more', 'More')}
+                  </span>
+                </button>
+              )}
+              {showSecondary &&
+                secondaryItems.map((item) => (
+                  <NavItem key={item.to} {...item} collapsed={hideLabels} />
+                ))}
+            </>
+          )}
         </nav>
 
         {/* Footer */}

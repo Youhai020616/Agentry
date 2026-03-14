@@ -5,7 +5,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { logger } from '../utils/logger';
-import type { SkillManifest } from '../../src/types/manifest';
+import type { SkillManifest } from '@shared/types/manifest';
 import type { ToolRegistry } from './tool-registry';
 import type { MemoryEngine } from './memory';
 import type { ProhibitionEngine } from './prohibition';

@@ -25,7 +25,8 @@
     "baseUrl": ".",
     "paths": {
       "@electron/*": ["electron/*"],
+      "@shared/*": ["shared/*"],
     },
   },
-  "include": ["electron", "src/types", "vite.config.ts"],
+  "include": ["electron", "shared", "src/types", "vite.config.ts"],
 }

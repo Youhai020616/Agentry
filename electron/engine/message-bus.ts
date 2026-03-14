@@ -14,7 +14,7 @@ import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import type Database from 'better-sqlite3';
 import { logger } from '../utils/logger';
-import type { Message, MessageType, SendMessageInput } from '../../src/types/task';
+import type { Message, MessageType, SendMessageInput } from '@shared/types/task';
 
 /**
  * Raw row shape coming from SQLite (approve and read stored as INTEGER)

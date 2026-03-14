@@ -36,7 +36,7 @@ import type {
   BrowserTraceResult,
   SnapshotFormat,
   SnapshotRef,
-} from '../../src/types/browser';
+} from '@shared/types/browser';
 
 // Re-export types for convenience
 export type {

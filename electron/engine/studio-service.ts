@@ -16,7 +16,7 @@ import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { logger } from '../utils/logger';
 import { getSkillConfig } from '../utils/skill-config';
-import type { EngineRef } from '../main/ipc-handlers';
+import type { EngineRef } from '../main/ipc/types';
 import type { GatewayManager } from '../gateway/manager';
 import type {
   StudioStep,
@@ -28,7 +28,7 @@ import type {
   ImageGenerationResult,
   VideoGenerationResult,
   Platform,
-} from '../../src/types/media-studio';
+} from '@shared/types/media-studio';
 
 // ---------------------------------------------------------------------------
 // Constants

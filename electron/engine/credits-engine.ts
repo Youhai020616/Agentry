@@ -13,7 +13,7 @@ import type {
   CreditTransactionType,
   CreditsBalance,
   CreditsDailySummary,
-} from '../../src/types/credits';
+} from '@shared/types/credits';
 
 // ── SQL Schema ───────────────────────────────────────────────────────
 
@@ -78,9 +78,22 @@ export class CreditsEngine extends EventEmitter {
     try {
       this.db = new Database(this.dbPath);
       this.db.pragma('journal_mode = WAL');
+      this.db.pragma('synchronous = NORMAL');
       this.db.pragma('foreign_keys = ON');
 
       this.db.exec(CREATE_CREDIT_TRANSACTIONS_TABLE);
+
+      // Indexes for common query patterns
+      this.db.exec(
+        `CREATE INDEX IF NOT EXISTS idx_credits_timestamp ON credit_transactions(timestamp)`
+      );
+      this.db.exec(
+        `CREATE INDEX IF NOT EXISTS idx_credits_employeeId ON credit_transactions(employeeId)`
+      );
+      this.db.exec(
+        `CREATE INDEX IF NOT EXISTS idx_credits_type ON credit_transactions(type)`
+      );
+
       this.prepareStatements();
 
       // Seed initial credits for new users (1000 free credits)

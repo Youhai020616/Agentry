@@ -10,7 +10,7 @@
  */
 import { logger } from '../utils/logger';
 import { isBuiltinTool, generateBuiltinToolPrompt } from './browser-tool-prompt';
-import type { SkillManifest } from '../../src/types/manifest';
+import type { SkillManifest } from '@shared/types/manifest';
 
 export interface ToolDefinition {
   name: string;

@@ -42,8 +42,8 @@ Skill = 员工的灵魂（专业知识 + 工具能力），Agentry = 员工的�
 
 **三层 IPC 架构**:
 1. **Renderer** 调用 `window.electron.ipcRenderer.invoke(channel, ...args)`
-2. **Preload** (`electron/preload/index.ts`) 验证 channel 在 `validChannels` 白名单中
-3. **Main** (`electron/main/ipc-handlers.ts`) 的 `ipcMain.handle(channel, handler)` 执行逻辑
+2. **Preload** (`electron/preload/index.ts`) 验证 channel 在白名单 Set 中（`INVOKE_CHANNELS` / `EVENT_CHANNELS`，各定义一次）
+3. **Main** (`electron/main/ipc/*.ts`) 的 `ipcMain.handle(channel, handler)` 执行逻辑（35 个模块化文件，通过 `ipc/index.ts` 统一注册）
 
 ---
 
@@ -90,10 +90,32 @@ TypeScript (`tsconfig.json`):
 
 ```
 Agentry/
+├── shared/                       # Types shared between Main & Renderer
+│   └── types/
+│       ├── index.ts              # Barrel export
+│       ├── employee.ts           # Employee, EmployeeStatus
+│       ├── task.ts               # Task, Project, Message
+│       ├── manifest.ts           # SkillManifest
+│       ├── credits.ts            # CreditTransaction, CreditsBalance
+│       ├── memory.ts             # EpisodicMemory
+│       ├── user.ts               # User, UserRole
+│       ├── browser.ts            # BrowserState, BrowserSnapshot
+│       └── media-studio.ts       # StudioStep, BrandAnalysisInput
 ├── electron/                     # Main process
 │   ├── main/
 │   │   ├── index.ts              # App entry, startup sequence
-│   │   ├── ipc-handlers.ts       # All IPC handler registration (~1600 lines)
+│   │   ├── ipc/                  # Modular IPC handlers (35 modules)
+│   │   │   ├── index.ts          # Central registry — registerIpcHandlers()
+│   │   │   ├── types.ts          # IpcContext, EngineRef shared types
+│   │   │   ├── helpers.ts        # ipcHandle() wrapper with auto error handling
+│   │   │   ├── shared-stores.ts  # Lazy electron-store instances (cross-module)
+│   │   │   ├── gateway.ts        # gateway:* + chat:sendWithMedia
+│   │   │   ├── employee.ts       # employee:*
+│   │   │   ├── task.ts           # task:*
+│   │   │   ├── supervisor.ts     # supervisor:*
+│   │   │   ├── provider.ts       # provider:* + API key validation
+│   │   │   ├── browser.ts        # browser:*
+│   │   │   └── ... (30 more)     # Each namespace in its own file
 │   │   ├── tray.ts               # System tray
 │   │   ├── menu.ts               # Application menu
 │   │   └── updater.ts            # Auto-updater
@@ -138,13 +160,16 @@ Agentry/
 │   │   ├── Employees/            # NEW — Employee Hub (new home page)
 │   │   └── Tasks/                # NEW — Task Board (kanban)
 │   ├── stores/
-│   │   ├── chat.ts               # Chat store (~960 lines, reference pattern)
+│   │   ├── chat/                 # Chat store (split from monolith)
+│   │   │   ├── index.ts          # Barrel re-export (useChatStore + types)
+│   │   │   ├── store.ts          # Zustand store implementation
+│   │   │   └── types.ts          # ChatState, RawMessage, etc.
 │   │   ├── gateway.ts            # Gateway connection store
 │   │   ├── settings.ts           # Persisted settings (electron-store)
 │   │   ├── skills.ts             # Skills store (reference for IPC pattern)
-│   │   ├── employees.ts          # NEW — Employee state
-│   │   ├── tasks.ts              # NEW — Task state
-│   │   └── credits.ts            # NEW — Credits tracking
+│   │   ├── employees.ts          # Employee state
+│   │   ├── tasks.ts              # Task state
+│   │   └── credits.ts            # Credits tracking
 │   ├── types/
 │   │   ├── electron.d.ts         # window.electron type declarations
 │   │   ├── skill.ts              # Skill types
@@ -181,51 +206,59 @@ Agentry/
 ### 1. IPC Handler Pattern
 
 ```typescript
-// electron/main/ipc-handlers.ts
-ipcMain.handle('employee:list', async (_event, params?: { status?: string }) => {
-  try {
-    const employees = await employeeManager.list(params?.status);
-    return { success: true, result: employees };
-  } catch (error) {
-    logger.error('employee:list failed:', error);
-    return { success: false, error: String(error) };
-  }
-});
+// electron/main/ipc/employee.ts
+import { ipcMain } from 'electron';
+import { logger } from '../../utils/logger';
+import type { IpcContext } from './types';
+
+export function register({ employeeManager }: IpcContext): void {
+  ipcMain.handle('employee:list', async (_event, params?: { status?: string }) => {
+    try {
+      const employees = employeeManager.list(params?.status);
+      return { success: true, result: employees };
+    } catch (error) {
+      logger.error('employee:list failed:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+}
 ```
 
 All handlers return `{ success: boolean; result?: T; error?: string }`.
+Each IPC namespace lives in its own file under `electron/main/ipc/`, exporting
+a `register(ctx: IpcContext): void` function. The central `ipc/index.ts` calls
+all modules with a shared `IpcContext` containing gateway, engine, window refs.
 
 ### 2. Preload Whitelist Pattern
 
 ```typescript
-// electron/preload/index.ts — validChannels array
-const validChannels = [
-  // ... existing channels ...
-  'employee:create',
-  'employee:list',
-  'employee:activate',
-  // ... new channels must be added here ...
-];
+// electron/preload/index.ts — channel lists defined ONCE, shared via Sets
+const INVOKE_CHANNELS = [ 'employee:list', 'employee:activate', /* ... */ ] as const;
+const EVENT_CHANNELS  = [ 'employee:status-changed', /* ... */ ] as const;
+
+const invokeSet = new Set<string>(INVOKE_CHANNELS);
+const eventSet  = new Set<string>(EVENT_CHANNELS);
+
+// invoke/on/once/off all check against the same Sets — no duplication
 ```
 
 Every new IPC channel MUST be added to:
-1. `electron/preload/index.ts` → `validChannels` (invoke) or event whitelist (on)
-2. `electron/main/ipc-handlers.ts` → `ipcMain.handle()`
+1. `electron/preload/index.ts` → `INVOKE_CHANNELS` (invoke) or `EVENT_CHANNELS` (on/once/off)
+2. `electron/main/ipc/<namespace>.ts` → `ipcMain.handle()` inside the `register()` function
 3. `src/types/electron.d.ts` → type declarations (if narrowing types)
 
 ### 3. Zustand Store Pattern
 
 ```typescript
-// Reference: src/stores/skills.ts
+// Reference: src/stores/employees.ts
 import { create } from 'zustand';
+import { ipcSafe } from '@/lib/ipc';
 
 interface EmployeesState {
   employees: Employee[];
   loading: boolean;
   error: string | null;
-
   fetchEmployees: () => Promise<void>;
-  createEmployee: (data: CreateEmployeeInput) => Promise<void>;
 }
 
 export const useEmployeesStore = create<EmployeesState>((set, get) => ({
@@ -234,24 +267,21 @@ export const useEmployeesStore = create<EmployeesState>((set, get) => ({
   error: null,
 
   fetchEmployees: async () => {
-    set({ loading: true, error: null });
-    try {
-      const result = await window.electron.ipcRenderer.invoke('employee:list');
-      const { success, result: employees, error } = result as {
-        success: boolean;
-        result?: Employee[];
-        error?: string;
-      };
-      if (success) {
-        set({ employees: employees ?? [], loading: false });
-      } else {
-        set({ error: error ?? 'Unknown error', loading: false });
-      }
-    } catch (error) {
-      set({ error: String(error), loading: false });
+    if (get().employees.length === 0) set({ loading: true, error: null });
+    const result = await ipcSafe<Employee[]>('employee:list');
+    if (result.ok) {
+      set({ employees: result.data ?? [], loading: false });
+    } else {
+      set({ error: result.error, loading: false });
     }
   },
 }));
+```
+
+Use `ipcSafe<T>()` from `src/lib/ipc.ts` instead of raw `window.electron.ipcRenderer.invoke()`:
+- `ipc<T>(channel, ...args)` — returns T directly, throws on failure
+- `ipcSafe<T>(channel, ...args)` — returns `{ ok, data } | { ok, error }`, never throws
+- `ipcRaw<T>(channel, ...args)` — for legacy handlers without `{ success, result }` wrapper
 ```
 
 ### 4. Gateway RPC Pattern
@@ -331,7 +361,7 @@ pnpm test:e2e     # playwright test
 
 ## Critical Rules
 
-1. **IPC Whitelist**: Every new IPC channel MUST be added to `electron/preload/index.ts` `validChannels`. Missing = runtime `Error: Invalid IPC channel`.
+1. **IPC Whitelist**: Every new IPC channel MUST be added to `electron/preload/index.ts` `INVOKE_CHANNELS` (for invoke) or `EVENT_CHANNELS` (for on/once/off). Missing = runtime `Error: Invalid IPC channel`.
 
 2. **electron-store is ESM-only**: Must use lazy `await import('electron-store')` in Main process. Never static import.
 
@@ -343,7 +373,7 @@ pnpm test:e2e     # playwright test
 
 6. **All UI text through i18n**: Use `useTranslation(namespace)` + `t('key')`. No hardcoded user-facing strings in components.
 
-7. **Engine isolation**: `electron/engine/` code must NOT import from `src/`. `src/` code must NOT import from `electron/`. Shared types live in `src/types/`.
+7. **Engine isolation**: `electron/engine/` code must NOT import from `src/`. `src/` code must NOT import from `electron/`. Shared types live in `shared/types/` and are aliased as `@shared/types/*`. The `src/types/` files re-export from `@shared/types/` for backward compatibility.
 
 ---
 

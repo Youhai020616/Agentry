@@ -93,6 +93,7 @@ export class ProhibitionEngine extends EventEmitter {
     try {
       this.db = new Database(this.dbPath);
       this.db.pragma('journal_mode = WAL');
+      this.db.pragma('synchronous = NORMAL');
 
       this.db.exec(CREATE_TABLE);
 

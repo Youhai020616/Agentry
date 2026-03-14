@@ -21,7 +21,7 @@ import {
   renameSync,
 } from 'node:fs';
 import { logger } from '../utils/logger';
-import type { EpisodicMemory } from '../../src/types/memory';
+import type { EpisodicMemory } from '@shared/types/memory';
 
 // ── Constants ────────────────────────────────────────────────────────
 

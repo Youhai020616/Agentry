@@ -8,7 +8,7 @@ import { app } from 'electron';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { logger } from '../utils/logger';
-import type { User, UserRole, CreateUserInput } from '../../src/types/user';
+import type { User, UserRole, CreateUserInput } from '@shared/types/user';
 
 // ── SQL Schema ───────────────────────────────────────────────────────
 
@@ -65,6 +65,7 @@ export class UserManager {
 
     this.db = new Database(dbPath);
     this.db.pragma('journal_mode = WAL');
+    this.db.pragma('synchronous = NORMAL');
     this.db.exec(CREATE_USERS_TABLE);
 
     // Seed default admin user on first run

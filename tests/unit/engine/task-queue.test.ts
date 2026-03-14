@@ -243,14 +243,15 @@ describe('TaskQueue', () => {
   describe('Lifecycle', () => {
     it('init() creates tables without error', () => {
       // init was already called in beforeEach — verify exec was called with table SQL
-      // 2 CREATE TABLE + 2 ALTER TABLE (rating, feedback columns)
-      expect(mockDb.exec).toHaveBeenCalledTimes(4);
+      // 2 CREATE TABLE + 4 CREATE INDEX + 2 ALTER TABLE (rating, feedback columns)
+      expect(mockDb.exec).toHaveBeenCalledTimes(8);
       expect(mockDb.exec.mock.calls[0][0]).toContain('CREATE TABLE IF NOT EXISTS tasks');
       expect(mockDb.exec.mock.calls[1][0]).toContain('CREATE TABLE IF NOT EXISTS projects');
     });
 
     it('init() sets WAL journal mode and foreign keys', () => {
       expect(mockDb.pragma).toHaveBeenCalledWith('journal_mode = WAL');
+      expect(mockDb.pragma).toHaveBeenCalledWith('synchronous = NORMAL');
       expect(mockDb.pragma).toHaveBeenCalledWith('foreign_keys = ON');
     });
 

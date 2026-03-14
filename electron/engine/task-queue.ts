@@ -18,7 +18,7 @@ import type {
   Project,
   ProjectStatus,
   CreateProjectInput,
-} from '../../src/types/task';
+} from '@shared/types/task';
 
 // ── SQL Schema ───────────────────────────────────────────────────────
 
@@ -140,10 +140,17 @@ export class TaskQueue extends EventEmitter {
     try {
       this.db = new Database(this.dbPath);
       this.db.pragma('journal_mode = WAL');
+      this.db.pragma('synchronous = NORMAL');
       this.db.pragma('foreign_keys = ON');
 
       this.db.exec(CREATE_TASKS_TABLE);
       this.db.exec(CREATE_PROJECTS_TABLE);
+
+      // Indexes for common query patterns
+      this.db.exec(`CREATE INDEX IF NOT EXISTS idx_tasks_projectId ON tasks(projectId)`);
+      this.db.exec(`CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)`);
+      this.db.exec(`CREATE INDEX IF NOT EXISTS idx_tasks_owner ON tasks(owner)`);
+      this.db.exec(`CREATE INDEX IF NOT EXISTS idx_tasks_wave ON tasks(projectId, wave)`);
 
       // Migration: add rating/feedback columns for existing databases
       try {
