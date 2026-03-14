@@ -7,15 +7,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, rmSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 
 // ── Mocks (must be declared before module import) ────────────────────
 
-// vi.hoisted runs before vi.mock hoisting, making TEST_DIR available in mock factories
+// vi.hoisted runs synchronously before vi.mock hoisting
+ 
 const { TEST_DIR } = vi.hoisted(() => {
-  const { join } = require('node:path');
-  const { tmpdir } = require('node:os');
-  return { TEST_DIR: join(tmpdir(), `agentry-memory-test-${process.pid}-${Date.now()}`) };
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const _path = require('node:path') as typeof import('node:path');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const _os = require('node:os') as typeof import('node:os');
+  return { TEST_DIR: _path.join(_os.tmpdir(), `agentry-memory-test-${process.pid}-${Date.now()}`) };
 });
 
 // Mock homedir BEFORE MemoryEngine reads it at module level
