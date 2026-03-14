@@ -61,21 +61,22 @@ export const ChatMessage = memo(function ChatMessage({
   const images = extractImages(message);
   const tools = extractToolUse(message);
   const visibleThinking = showThinking ? thinking : null;
-  const visibleTools = showThinking ? tools : [];
+  // Tool calls are always visible — they're core information users need to see
+  // (only the "thinking" block is controlled by the showThinking toggle)
+  const visibleTools = tools;
 
   const attachedFiles = message._attachedFiles || [];
   const errorMessage = message.errorMessage;
   const isErrorResponse = !isUser && (message.stopReason === 'error' || !!errorMessage);
 
-  // Tool statuses preserved from streaming phase — render on completed messages too
-  const savedToolStatuses: ToolStatus[] =
-    (showThinking && !isStreaming && message._toolStatuses) || [];
+  // Tool statuses preserved from streaming phase — always render on completed messages
+  const savedToolStatuses: ToolStatus[] = (!isStreaming && message._toolStatuses) || [];
 
   // Never render tool result messages in chat UI
   if (isToolResult) return null;
 
-  // Don't render empty messages (also keep messages with streaming tool status or errors)
-  const hasStreamingToolStatus = showThinking && isStreaming && streamingTools.length > 0;
+  // Don't render empty messages (also keep messages with tool status or errors)
+  const hasStreamingToolStatus = isStreaming && streamingTools.length > 0;
   const hasSavedToolStatus = savedToolStatuses.length > 0;
   if (
     !hasText &&
@@ -110,11 +111,13 @@ export const ChatMessage = memo(function ChatMessage({
           isUser ? 'items-end' : 'items-start'
         )}
       >
-        {/* Tool status bar — shown during streaming (live) or from saved snapshot (completed) */}
-        {showThinking && isStreaming && !isUser && streamingTools.length > 0 && (
+        {/* Tool status bar — always shown for assistant messages (live or completed) */}
+        {isStreaming && !isUser && streamingTools.length > 0 && (
           <ToolStatusBar tools={streamingTools} />
         )}
-        {!isUser && savedToolStatuses.length > 0 && <ToolStatusBar tools={savedToolStatuses} />}
+        {!isStreaming && !isUser && savedToolStatuses.length > 0 && (
+          <ToolStatusBar tools={savedToolStatuses} />
+        )}
 
         {/* Thinking section */}
         {visibleThinking && <ThinkingBlock content={visibleThinking} />}
@@ -260,6 +263,22 @@ function formatDuration(durationMs?: number): string | null {
   return `${(durationMs / 1000).toFixed(1)}s`;
 }
 
+function ToolStatusIcon({ status }: { status: 'running' | 'completed' | 'error' }) {
+  if (status === 'running') {
+    return (
+      <span className="relative flex h-2 w-2">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
+      </span>
+    );
+  }
+  if (status === 'error') {
+    return <AlertTriangle className="h-3 w-3 text-destructive" />;
+  }
+  // completed
+  return <Check className="h-3 w-3 text-emerald-500" />;
+}
+
 function ToolStatusBar({
   tools,
 }: {
@@ -273,30 +292,43 @@ function ToolStatusBar({
   }>;
 }) {
   return (
-    <div className="w-full rounded-lg glass-block-subtle px-3 py-2 text-xs text-muted-foreground">
+    <div className="w-full rounded-xl border border-border/40 bg-muted/30 backdrop-blur-sm px-3 py-2 text-xs">
+      <div className="flex items-center gap-1.5 mb-1.5 text-muted-foreground">
+        <Wrench className="h-3 w-3" />
+        <span className="font-medium text-[11px] uppercase tracking-wide">Tool Calls</span>
+      </div>
       <div className="space-y-1">
         {tools.map((tool) => {
           const duration = formatDuration(tool.durationMs);
-          const statusLabel =
-            tool.status === 'running' ? 'running' : tool.status === 'error' ? 'error' : 'done';
           return (
             <div
-              key={tool.toolCallId || tool.id || tool.name}
-              className="flex flex-wrap items-center gap-2"
+              key={tool.toolCallId || tool.id || `${tool.name}-${tool.status}`}
+              className={cn(
+                'flex items-center gap-2 rounded-lg px-2 py-1 transition-colors',
+                tool.status === 'running' && 'bg-blue-500/5',
+                tool.status === 'completed' && 'bg-emerald-500/5',
+                tool.status === 'error' && 'bg-destructive/5'
+              )}
             >
+              <ToolStatusIcon status={tool.status} />
               <span
                 className={cn(
-                  'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]',
-                  tool.status === 'error'
-                    ? 'bg-destructive/10 text-destructive'
-                    : 'bg-foreground/5 text-muted-foreground'
+                  'font-mono text-[11px] font-medium',
+                  tool.status === 'running' && 'text-blue-600 dark:text-blue-400',
+                  tool.status === 'completed' && 'text-emerald-600 dark:text-emerald-400',
+                  tool.status === 'error' && 'text-destructive'
                 )}
               >
-                <span className="font-mono">{tool.name}</span>
-                <span className="opacity-70">{statusLabel}</span>
+                {tool.name}
               </span>
-              {duration && <span className="text-[11px] opacity-70">{duration}</span>}
-              {tool.summary && <span className="truncate text-[11px]">{tool.summary}</span>}
+              {duration && (
+                <span className="text-[10px] text-muted-foreground/70">{duration}</span>
+              )}
+              {tool.summary && (
+                <span className="truncate text-[10px] text-muted-foreground/70 ml-auto max-w-[200px]">
+                  {tool.summary}
+                </span>
+              )}
             </div>
           );
         })}
@@ -412,9 +444,9 @@ function ThinkingBlock({ content }: { content: string }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="w-full rounded-lg glass-block-subtle text-sm">
+    <div className="w-full rounded-xl border border-amber-200/30 dark:border-amber-800/30 bg-amber-50/30 dark:bg-amber-950/10 text-sm">
       <button
-        className="flex items-center gap-2 w-full px-3 py-2 text-muted-foreground hover:text-foreground transition-colors"
+        className="flex items-center gap-2 w-full px-3 py-2 text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 transition-colors"
         onClick={() => setExpanded(!expanded)}
       >
         {expanded ? (
@@ -422,11 +454,17 @@ function ThinkingBlock({ content }: { content: string }) {
         ) : (
           <ChevronRight className="h-3.5 w-3.5" />
         )}
-        <span className="font-medium">Thinking</span>
+        <span className="font-medium text-xs">💭 Thinking</span>
+        {!expanded && (
+          <span className="text-[10px] text-amber-600/50 dark:text-amber-400/40 truncate max-w-[300px]">
+            {content.slice(0, 80)}
+            {content.length > 80 ? '…' : ''}
+          </span>
+        )}
       </button>
       {expanded && (
-        <div className="px-3 pb-3 text-muted-foreground">
-          <div className="prose prose-sm dark:prose-invert max-w-none opacity-75">
+        <div className="px-3 pb-3 text-muted-foreground border-t border-amber-200/20 dark:border-amber-800/20">
+          <div className="prose prose-sm dark:prose-invert max-w-none opacity-75 pt-2">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
           </div>
         </div>
@@ -485,24 +523,55 @@ function FileCard({ file }: { file: AttachedFileMeta }) {
 function ToolCard({ name, input }: { name: string; input: unknown }) {
   const [expanded, setExpanded] = useState(false);
 
+  // Format input for display — truncate long values
+  const formattedInput = (() => {
+    if (input == null) return null;
+    const raw = typeof input === 'string' ? input : JSON.stringify(input, null, 2);
+    return raw;
+  })();
+
+  // Short preview for collapsed state
+  const preview = (() => {
+    if (input == null) return '';
+    if (typeof input === 'object') {
+      const entries = Object.entries(input as Record<string, unknown>);
+      if (entries.length === 0) return '';
+      const first = entries[0];
+      const val = typeof first[1] === 'string' ? first[1] : JSON.stringify(first[1]);
+      const short = String(val).slice(0, 60);
+      return `${first[0]}=${short}${String(val).length > 60 ? '…' : ''}`;
+    }
+    const s = String(input);
+    return s.length > 60 ? s.slice(0, 60) + '…' : s;
+  })();
+
   return (
-    <div className="rounded-lg glass-block-subtle text-sm">
+    <div className="rounded-xl border border-border/40 bg-muted/20 backdrop-blur-sm text-sm overflow-hidden">
       <button
-        className="flex items-center gap-2 w-full px-3 py-1.5 text-muted-foreground hover:text-foreground transition-colors"
+        className="flex items-center gap-2 w-full px-3 py-2 text-muted-foreground hover:text-foreground transition-colors"
         onClick={() => setExpanded(!expanded)}
       >
-        <Wrench className="h-3.5 w-3.5" />
-        <span className="font-mono text-xs">{name}</span>
+        <div className="flex items-center justify-center h-5 w-5 rounded bg-violet-500/10">
+          <Wrench className="h-3 w-3 text-violet-500" />
+        </div>
+        <span className="font-mono text-xs font-medium">{name}</span>
+        {!expanded && preview && (
+          <span className="text-[10px] text-muted-foreground/60 truncate ml-1 max-w-[250px]">
+            {preview}
+          </span>
+        )}
         {expanded ? (
-          <ChevronDown className="h-3 w-3 ml-auto" />
+          <ChevronDown className="h-3 w-3 ml-auto shrink-0" />
         ) : (
-          <ChevronRight className="h-3 w-3 ml-auto" />
+          <ChevronRight className="h-3 w-3 ml-auto shrink-0" />
         )}
       </button>
-      {expanded && input != null && (
-        <pre className="px-3 pb-2 text-xs text-muted-foreground overflow-x-auto">
-          {typeof input === 'string' ? input : (JSON.stringify(input, null, 2) as string)}
-        </pre>
+      {expanded && formattedInput != null && (
+        <div className="border-t border-border/30">
+          <pre className="px-3 py-2 text-[11px] text-muted-foreground overflow-x-auto max-h-[200px] overflow-y-auto">
+            {formattedInput}
+          </pre>
+        </div>
       )}
     </div>
   );

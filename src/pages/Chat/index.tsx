@@ -293,10 +293,10 @@ export function Chat({
   const streamThinking = streamMsg ? extractThinking(streamMsg) : null;
   const hasStreamThinking = showThinking && !!streamThinking && streamThinking.trim().length > 0;
   const streamTools = streamMsg ? extractToolUse(streamMsg) : [];
-  const hasStreamTools = showThinking && streamTools.length > 0;
+  const hasStreamTools = streamTools.length > 0;
   const streamImages = streamMsg ? extractImages(streamMsg) : [];
   const hasStreamImages = streamImages.length > 0;
-  const hasStreamToolStatus = showThinking && streamingTools.length > 0;
+  const hasStreamToolStatus = streamingTools.length > 0;
   const shouldRenderStreaming =
     sending &&
     (hasStreamText ||
