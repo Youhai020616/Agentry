@@ -1092,14 +1092,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
           // Run is resolved if we have actual content OR it's an error response
           const isResolved = hasOutput || isErrorResponse;
 
-          // BUG FIX: Previously, non-tool messages used `run-${runId}` as ID,
-          // meaning multiple assistant messages within the same run would share
-          // the same ID. The `alreadyExists` check would then silently drop
-          // subsequent messages, causing content loss / "overwriting" behavior.
-          // Now every final message gets a unique ID to prevent any overwrites.
+          // BUG FIX (v2): Use a deterministic ID based on runId + content hash
+          // so that the same message delivered through both IPC channels produces
+          // the same ID. The alreadyExists check can then properly dedup.
+          //
+          // Previous fix used random suffixes which PREVENTED dedup entirely,
+          // causing the "message overwrite" bug in Supervisor chat where the
+          // same final response was added twice to messages[].
+          const contentForHash = extractTextFromContent(finalMsg.content);
+          const contentHash = contentForHash
+            ? Math.abs(
+                contentForHash.split('').reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0)
+              )
+                .toString(36)
+                .slice(0, 8)
+            : 'empty';
           const msgId =
-            finalMsg.id ||
-            `run-${runId || 'unknown'}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+            finalMsg.id || `run-${runId || 'unknown'}-${finalMsg.role || 'assistant'}-${contentHash}`;
           // Surface error message to the store
           if (isErrorResponse && finalMsg.errorMessage) {
             set({ error: String(finalMsg.errorMessage) });
@@ -1107,12 +1116,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
           set((s) => {
             const nextTools =
               updates.length > 0 ? upsertToolStatuses(s.streamingTools, updates) : s.streamingTools;
-            // Snapshot tool statuses BEFORE clearing — we attach them to the
-            // final message so ChatMessage can render ToolStatusBar even after
-            // streaming ends. Only attach if there are meaningful statuses.
             const toolSnapshot = nextTools.length > 0 ? nextTools : undefined;
             const streamingTools = isResolved ? [] : nextTools;
-            // Check if message already exists (prevent duplicates)
+            // Check if message already exists — now works reliably because
+            // msgId is deterministic (same content → same hash → same ID).
             const alreadyExists = s.messages.some((m) => m.id === msgId);
             if (alreadyExists) {
               // Just clear streaming state, don't add duplicate
@@ -1215,9 +1222,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
           }
           if (sm && typeof sm === 'object') {
             const promoted = sm as RawMessage;
+            // Deterministic ID — same content hash logic as the "final with body" path
+            const promoteContent = extractTextFromContent(promoted.content);
+            const promoteHash = promoteContent
+              ? Math.abs(
+                  promoteContent
+                    .split('')
+                    .reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0)
+                )
+                  .toString(36)
+                  .slice(0, 8)
+              : 'empty';
             const promotedId =
               promoted.id ||
-              `run-${runId || 'unknown'}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+              `run-${runId || 'unknown'}-${promoted.role || 'assistant'}-${promoteHash}`;
 
             clearPendingFinalTimers();
             // Mark run completed BEFORE the set() call so that any late events
