@@ -113,7 +113,12 @@ export function registerIpcHandlers(
   engineRef: EngineRef,
   starOfficeManager?: import('../../star-office/manager').StarOfficeManager
 ): void {
-  // Resolve EmployeeManager: prefer engine context, fallback to standalone
+  // Resolve EmployeeManager: prefer engine context, fallback to standalone.
+  // BUG FIX: registerIpcHandlers is called BEFORE bootstrapEngine completes,
+  // so engineRef.current is always null here. We create a standalone fallback,
+  // but also set up a lazy proxy: once engine bootstraps, all subsequent
+  // IPC calls use the engine's EmployeeManager (which has the compiler wired
+  // with the full team roster for Supervisor's {{TEAM_ROSTER}} variable).
   let employeeManager: EmployeeManager;
   if (engineRef.current?.employeeManager) {
     employeeManager = engineRef.current.employeeManager;
@@ -130,13 +135,18 @@ export function registerIpcHandlers(
     }
   });
 
-  // Build shared context
+  // Build shared context with a getter that upgrades to engine's EmployeeManager
+  // once bootstrap completes. This ensures activate() uses the fully-wired
+  // compiler (with ToolRegistry, MemoryEngine, and team roster support).
   const ctx: IpcContext = {
     gatewayManager,
     clawHubService,
     mainWindow,
     engineRef,
-    employeeManager,
+    get employeeManager(): EmployeeManager {
+      // After engine bootstraps, prefer engine's EmployeeManager
+      return engineRef.current?.employeeManager ?? employeeManager;
+    },
     starOfficeManager,
   };
 

@@ -239,6 +239,15 @@ async function initialize(): Promise<void> {
     engineRef.current = engineContext;
     logger.info('Skill Runtime Engine bootstrapped');
 
+    // Forward engine's EmployeeManager status events to renderer
+    // (the standalone fallback's listener was set up in registerIpcHandlers,
+    // but now that engine is ready, the getter returns engine's instance)
+    engineContext.employeeManager.on('status', (employeeId: string, status: string) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('employee:status-changed', { employeeId, status });
+      }
+    });
+
     // Attach Star Office sync bridge to employee manager
     starOfficeSyncBridge.attach(engineContext.employeeManager);
 
