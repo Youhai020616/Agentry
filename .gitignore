@@ -77,3 +77,10 @@ star-office-ui/
 
 # Local docs (not tracked in repo)
 docs/
+
+# External projects (have their own git repos)
+github/
+
+# Python virtual environments
+.venv/
+*.pyc

@@ -1,46 +1,56 @@
 {
   "name": "publisher-xhs",
-  "version": "1.0.0",
-  "description": "Xiaohongshu (小红书) automated publisher - publishes image/video notes via xiaohongshu-mcp service (Go + go-rod + stealth anti-detection)",
+  "version": "2.0.0",
+  "description": "小红书全能运营 — 发布图文/视频、搜索笔记、评论互动、点赞收藏、数据看板、通知抓取、多账号管理。双引擎 (MCP + CDP) 自动选择最优路径。",
   "author": "Agentry Team",
   "type": "execution",
   "employee": {
-    "role": "Xiaohongshu Publisher",
-    "roleZh": "小红书发布专员",
+    "role": "Xiaohongshu Operator",
+    "roleZh": "小红书运营专员",
     "avatar": "📕",
     "team": "publishing",
     "personality": {
-      "style": "precise, reliable, detail-oriented, automation-focused",
-      "greeting": "Hi! I'm your Xiaohongshu Publisher. Give me the content and images, and I'll publish them to your Xiaohongshu account automatically.",
-      "greetingZh": "你好！我是小红书发布专员。把文案和图片给我，我来帮你自动发布到小红书。"
+      "style": "precise, data-driven, creative, automation-focused, results-oriented",
+      "greeting": "Hi! I'm your Xiaohongshu operator. I can publish, search, engage, analyze data, and manage multiple accounts — everything you need for RED.",
+      "greetingZh": "你好！我是小红书运营专员。发布、搜索、互动、数据分析、多账号管理 — 小红书运营的一切我都能搞定。"
     }
   },
   "skills": [
-    {
-      "id": "publish-note",
-      "name": "Publish Xiaohongshu Note",
-      "prompt": "./SKILL.md"
-    }
+    { "id": "publish-note", "name": "Publish Notes", "prompt": "./SKILL.md" },
+    { "id": "search-notes", "name": "Search Notes", "prompt": "./SKILL.md" },
+    { "id": "engage", "name": "Comment/Like/Favorite", "prompt": "./SKILL.md" },
+    { "id": "analytics", "name": "Analytics Dashboard", "prompt": "./SKILL.md" }
   ],
   "capabilities": {
-    "inputs": ["text", "images", "video", "tags"],
-    "outputs": ["report"],
+    "inputs": ["text", "images", "video", "tags", "keyword", "feed-id", "url"],
+    "outputs": ["report", "analytics-data", "search-results", "publish-confirmation", "csv"],
     "runtime": {
       "requires": ["xiaohongshu-mcp", "python3"],
-      "packages": ["requests"]
+      "packages": ["requests", "click", "rich"]
     }
   },
   "tools": [
     {
       "name": "publish-xhs",
-      "cli": "python",
-      "requiredSecret": "XHS_COOKIES"
+      "description": "发布图文或视频笔记到小红书 (MCP/CDP 双引擎自动选择)"
+    },
+    {
+      "name": "search-xhs",
+      "description": "搜索小红书笔记、获取笔记详情"
+    },
+    {
+      "name": "engage-xhs",
+      "description": "评论、回复、点赞、收藏小红书笔记"
+    },
+    {
+      "name": "analytics-xhs",
+      "description": "创作者数据看板、通知抓取 (CDP)"
     }
   ],
   "secrets": {
     "XHS_COOKIES": {
       "required": false,
-      "description": "Xiaohongshu session cookies (managed by xiaohongshu-mcp service via QR code login)",
+      "description": "Xiaohongshu session cookies (managed automatically by xhs CLI via QR code login)",
       "obtainUrl": "https://www.xiaohongshu.com"
     }
   },

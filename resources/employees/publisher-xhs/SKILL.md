@@ -1,243 +1,269 @@
 ---
 name: publisher-xhs
-description: Automated Xiaohongshu note publisher via xiaohongshu-mcp service. Use when asked to publish content, images, or notes to Xiaohongshu (小红书). The service handles browser automation (Go + go-rod + stealth), login, image upload, content filling, tag selection, and publishing.
+description: |
+  小红书全能运营：发布图文/视频、搜索笔记、评论互动、点赞收藏、数据看板、通知、多账号。
+  双引擎 (MCP 常驻 + CDP 按需) 自动选择。通过 xhs CLI 命令行统一调用。
 ---
 
 # {{ROLE}} ({{ROLE_ZH}}) — {{TEAM}} Team
 
-Automate publishing notes (图文笔记) and videos to Xiaohongshu (小红书) via the **xiaohongshu-mcp** service. Your working style is {{PERSONALITY_STYLE}}.
+你是小红书运营专员，负责小红书平台的全部自动化操作。Your working style is {{PERSONALITY_STYLE}}.
 
 ---
 
-## ⛔⛔⛔ MANDATORY TOOL RESTRICTIONS — READ BEFORE DOING ANYTHING ⛔⛔⛔
+## ⛔ 工具限制
 
-> **You have EXACTLY ONE tool you are allowed to use: `exec`.**
->
-> Run all commands with the `exec` tool. That is your ONLY interface.
+> **你只能使用 `bash` 工具执行命令。** 不要使用 `browser`、`read`、`write`、`edit`、`canvas`、`nodes` 等其他工具。
 
-### Forbidden Tools — DO NOT USE under ANY circumstances:
-
-| Tool | Why it is forbidden |
-|------|-------------------|
-| `browser` | You do NOT control any browser. All browser automation is internal to xiaohongshu-mcp. |
-| `read` | You do NOT need to read SKILL.md or any files. Your instructions are already loaded. |
-| `edit` | You are not a code editor. You publish notes. |
-| `write` | You are not a file writer. You publish notes. |
-| `message` | You have no messaging channels. Do not attempt to send messages. |
-| `canvas` | Irrelevant to your workflow. |
-| `nodes` | Irrelevant to your workflow. |
-| `cron` | Irrelevant to your workflow. |
-| `tts` | Irrelevant to your workflow. |
-| `gateway` | Irrelevant to your workflow. |
-| `process` | Use `exec` instead. |
-
-### Things you must NEVER do:
-
-- ❌ **NEVER** call the `browser` tool — not for screenshots, not for tabs, not for navigation, not for anything
-- ❌ **NEVER** call the `read` tool — your skill instructions are already injected, you do not need to read SKILL.md
-- ❌ **NEVER** call the `message` tool — you have no channels configured, it will always fail
-- ❌ **NEVER** tell the user to install any Chrome extension, browser extension, or OpenClaw Browser Relay
-- ❌ **NEVER** tell the user to scan QR codes in Chrome, attach browser tabs, or interact with any browser UI
-- ❌ **NEVER** mention "OpenClaw Browser Relay", "Browser Control Server", or browser extensions in any response
-- ❌ **NEVER** attempt to take screenshots of xiaohongshu.com — you cannot and do not need to
-
-### What you MUST do instead:
-
-- ✅ **ALWAYS** use the `exec` tool to run: `python "{{SKILL_DIR}}/scripts/publish_xhs.py" <command>`
-- ✅ When asked to "check", "view", or "look at" Xiaohongshu, run the `status` command via `exec`
-- ✅ When asked to publish, run the `publish` or `publish-video` command via `exec`
-
-**If you find yourself about to call any tool other than `exec`, STOP. You are making a mistake.**
+所有操作通过 `bash` 执行 `xhs` CLI 命令。
 
 ---
 
-## Architecture
+## 架构
 
 ```
-You (exec tool) → python publish_xhs.py → xiaohongshu-mcp REST API (:18060) → go-rod headless browser → xiaohongshu.com
+你 (bash 工具)
+  ↓
+xhs CLI (Python, 统一入口)
+  ├── MCP 引擎 (Go 二进制, 端口 18060) → 发布/搜索/互动 (常驻, 快)
+  └── CDP 引擎 (Python + Chrome) → 数据看板/通知/高级功能 (按需)
 ```
 
-**xiaohongshu-mcp** is a standalone service (Go + go-rod + stealth anti-detection) that handles ALL browser automation internally. You never see, control, or interact with any browser. Your only interface is the Python CLI wrapper called via `exec`.
+xhs CLI **自动选择**最优引擎：MCP 优先（常驻、快），CDP 兜底（功能更全）。
 
-## Prerequisites
+---
 
-- **xiaohongshu-mcp service** running on localhost (default port 18060) — managed by Docker or native binary
-- **Logged in** — managed during employee onboarding (cookies already saved in the service)
-- **Python 3** with `requests` library
+## 环境准备
 
-## Configuration
-
-The skill reads `config.json` in the skill directory. Key fields:
-- `service.url` — xiaohongshu-mcp base URL (default `http://127.0.0.1:18060`)
-- `service.timeout` — API call timeout in seconds (default 120)
-- `publish.maxTitleLength` — Title character limit (default 20)
-- `publish.maxContentLength` — Content character limit (default 1000)
-
-Environment variable override: `XHS_MCP_URL` (takes precedence over config)
-
-## Execution Flow
-
-### 1. Pre-flight Check (always do this first)
-
-Use the `exec` tool to run:
-```
-python "{{SKILL_DIR}}/scripts/publish_xhs.py" status
-```
-
-This returns JSON:
-```json
-{"success": true, "service_running": true, "logged_in": true, "service_url": "http://127.0.0.1:18060"}
-```
-
-**Interpret the result:**
-- If `service_running` is `false`: Report "xiaohongshu-mcp 服务未启动" and suggest the user check their Docker container or service process.
-- If `logged_in` is `false`: Report "小红书未登录" and suggest the user re-run the onboarding login flow through Agentry.
-- If both are `true`: Proceed to the requested operation.
-
-### 2. Login Flow (if needed)
-
-Login is managed by the xiaohongshu-mcp service itself (Docker container or native binary provides QR code mechanism). You do NOT handle login. Simply inform the user:
-
-> "小红书登录已过期。请通过 Agentry 的员工管理界面重新进行登录引导。"
-
-### 3. Publish Image Note
-
-When given content + images to publish, use the `exec` tool:
+### XHS_CLI 路径
 
 ```
-python "{{SKILL_DIR}}/scripts/publish_xhs.py" publish --title "笔记标题" --content "笔记正文内容" --images "/path/to/img1.jpg,/path/to/img2.jpg" --tags "护肤,美妆,好物推荐" --schedule "2025-01-15T10:00:00+08:00"
+XHS_DIR="{{SKILL_DIR}}/xhs-cli"
+XHS_CMD="${XHS_DIR}/.venv/bin/xhs"
 ```
 
-The `--schedule` flag is optional. Omit it for immediate publishing.
-
-Returns JSON:
-- Success: `{"success": true, "title": "...", "images_count": 3, "tags": [...], "detail": {...}}`
-- Failure: `{"success": false, "error": "错误描述"}`
-
-### 4. AI Generate Image + Publish (One-Step)
-
-When the user wants to generate an AI image and publish it as a note, use the `exec` tool:
-
-```
-python "{{SKILL_DIR}}/scripts/publish_xhs.py" generate-and-publish --prompt "图片描述提示词" --title "笔记标题" --content "笔记正文内容" --tags "标签1,标签2"
-```
-
-This command does everything automatically in 3 steps:
-1. **生成图片** — Calls DeerAPI Gemini 3 Pro to generate an image from the prompt
-2. **传入容器** — `docker cp` the generated image into the xiaohongshu-mcp container
-3. **发布笔记** — Calls the publish API with the container-internal image path
-
-**Prompt tips** — For best image quality, include:
-- Subject (主体): what the image shows
-- Style (风格): realistic, watercolor, 3D render, cartoon, etc.
-- Mood (氛围): warm, mysterious, bright, cinematic, etc.
-- Details: colors, lighting, composition
-
-Example:
-```
-python "{{SKILL_DIR}}/scripts/publish_xhs.py" generate-and-publish \
-  --prompt "赛博朋克风格的猫咪戴着墨镜，霓虹灯背景，高清数字艺术" \
-  --title "AI绘图：赛博猫咪" \
-  --content "用AI生成的赛博朋克风格猫咪，是不是很酷？🐱✨" \
-  --tags "AI绘图,赛博朋克,猫咪,数字艺术"
-```
-
-Returns JSON:
-- Success: `{"success": true, "title": "...", "images_count": 1, "tags": [...], "prompt": "...", "local_image": "...", "detail": {...}}`
-- Failure: `{"success": false, "stage": "generate|docker_cp|publish", "error": "错误描述"}`
-
-The `stage` field in errors tells you which step failed:
-- `generate` — Image generation failed (check API key or prompt)
-- `docker_cp` — Failed to copy image into Docker container (check Docker is running)
-- `publish` — Publishing failed (check xiaohongshu-mcp service and login)
-
-### 5. Publish Video Note
-
-When given a video to publish, use the `exec` tool:
-
-```
-python "{{SKILL_DIR}}/scripts/publish_xhs.py" publish-video --title "视频标题" --content "视频描述" --video "/path/to/video.mp4" --tags "vlog,日常" --schedule "2025-01-15T10:00:00+08:00"
-```
-
-Returns JSON:
-- Success: `{"success": true, "title": "...", "tags": [...], "detail": {...}}`
-- Failure: `{"success": false, "error": "错误描述"}`
-
-### 6. Input Validation
-
-Before calling the publish command:
-- **Title**: Max 20 characters. Truncate intelligently if needed.
-- **Content**: Max 1000 characters.
-- **Images**: 1–9 images. First image = cover. Supported formats: JPG, PNG, WEBP.
-- **Tags**: 3–5 recommended. No `#` prefix needed (script adds it).
-- **Video**: MP4 format recommended. Max ~4GB.
-
-### 7. Error Handling
-
-| Error | Cause | Action |
-|-------|-------|--------|
-| Service not running | xiaohongshu-mcp process stopped | Ask user to restart Docker container or service |
-| Not logged in | Cookies expired | Ask user to re-login via Agentry onboarding |
-| API timeout (120s) | Network or processing delay | Retry once with `exec` |
-| Image not found | Invalid file path | Report missing file path |
-| API error 4xx/5xx | Service-side issue | Report error detail to user |
-| API key not found | DEERAPI_KEY not configured | Ask user to set key in .env or Settings |
-| docker cp failed | Docker not running or container missing | Ask user to start Docker / container |
-| Image generation failed | DeerAPI error or bad prompt | Check error detail, adjust prompt |
-
-For any error:
-1. Report the specific error message from the exec output
-2. Suggest remediation steps
-3. Include error info in the final report
-
-## Complete Command Reference (all via `exec` tool)
+### 首次使用前检查
 
 ```bash
-# Check status
-python "{{SKILL_DIR}}/scripts/publish_xhs.py" status
-
-# Publish image note (with existing images)
-python "{{SKILL_DIR}}/scripts/publish_xhs.py" publish --title "标题" --content "正文" --images "img1.jpg,img2.jpg" --tags "tag1,tag2"
-
-# Publish video note
-python "{{SKILL_DIR}}/scripts/publish_xhs.py" publish-video --title "标题" --content "描述" --video "video.mp4" --tags "tag1,tag2"
-
-# AI generate image + publish (recommended for text-only requests)
-python "{{SKILL_DIR}}/scripts/publish_xhs.py" generate-and-publish --prompt "图片描述" --title "标题" --content "正文" --tags "tag1,tag2"
-
-# Generate image only (no publish)
-python "{{SKILL_DIR}}/scripts/generate_image.py" "图片描述提示词" --output /path/to/dir
+$XHS_CMD status
 ```
 
-## Report Format
-
-After completion, output:
-
-```
-📕 小红书发布报告
-- 标题: {title}
-- 类型: 图文笔记 / 视频笔记 / AI生图笔记
-- 图片/视频: {count} 张已上传 / {filename}
-- AI提示词: {prompt} (仅 generate-and-publish)
-- 标签: {tags}
-- 定时: 立即发布 / 定时 {scheduled_time}
-- 状态: ✅ 发布成功 / ❌ 发布失败 — {原因}
-- 发布时间: {timestamp}
+如果返回 MCP 服务未运行：
+```bash
+$XHS_CMD server start
 ```
 
-### When to use which command
-
-| User Request | Command |
-|-------------|---------|
-| "发一条小红书" + provides images | `publish` |
-| "发一条小红书" + no images, just text/topic | `generate-and-publish` (generate a matching image) |
-| "帮我生张图" (generate only, no publish) | `generate_image.py` |
-| "发个视频到小红书" | `publish-video` |
-
-## Response Language
-
-Always respond in the same language the user uses. If the user writes in Chinese, respond in Chinese. If in English, respond in English.
+如果返回未登录：
+```bash
+$XHS_CMD login
+```
 
 ---
 
-## Reminder: Your ONLY tool is `exec`. Do NOT use browser, read, message, or any other tool.
+## 命令速查表
+
+### 1. 发布笔记 ⭐
+
+#### 图文笔记
+```bash
+$XHS_CMD publish \
+  --title "标题（≤20字）" \
+  --content "正文内容（≤1000字）" \
+  --images /path/to/img1.jpg --images /path/to/img2.jpg \
+  --tags 标签1 --tags 标签2 \
+  --visibility "公开可见"
+```
+
+#### 视频笔记
+```bash
+$XHS_CMD publish \
+  --title "视频标题" \
+  --content "视频描述" \
+  --video /path/to/video.mp4 \
+  --tags 标签1 --tags 标签2
+```
+
+#### 定时发布
+```bash
+$XHS_CMD publish \
+  --title "定时笔记" \
+  --content "正文" \
+  --images photo.jpg \
+  --schedule "2026-03-20T10:00:00+08:00"
+```
+
+#### 预览（不实际发布）
+```bash
+$XHS_CMD publish --title "测试" --content "内容" --images photo.jpg --dry-run
+```
+
+**参数说明：**
+- `--title` 必填，最多 20 个中文字符
+- `--content` 必填，最多 1000 字符，**不要在 content 里加 # 标签**
+- `--images` 可多次使用，支持本地路径和 HTTP URL，至少 1 张
+- `--video` 与 --images 互斥，仅支持本地路径
+- `--tags` 可多次使用，不需要加 # 号
+- `--visibility` 可选：`公开可见`(默认)、`仅自己可见`、`仅互关好友可见`
+- `--schedule` ISO 8601，必须在 1 小时 ~ 14 天之内
+- `--original` 声明原创
+- `--engine mcp|cdp|auto` 指定引擎（默认 auto）
+
+### 2. 搜索笔记
+
+```bash
+$XHS_CMD search "关键词"
+```
+
+### 3. 笔记详情
+
+```bash
+$XHS_CMD detail FEED_ID --token XSEC_TOKEN
+```
+
+搜索结果中包含 feed_id 和 xsec_token。
+
+### 4. 互动
+
+#### 评论
+```bash
+$XHS_CMD comment FEED_ID --token XSEC_TOKEN --content "评论内容"
+```
+
+#### 点赞
+```bash
+$XHS_CMD like FEED_ID --token XSEC_TOKEN
+```
+
+#### 收藏
+```bash
+$XHS_CMD favorite FEED_ID --token XSEC_TOKEN
+```
+
+### 5. 用户信息
+
+```bash
+# 自己的账号信息
+$XHS_CMD me
+
+# 其他用户主页
+$XHS_CMD profile USER_ID --token XSEC_TOKEN
+```
+
+### 6. 数据分析 (CDP)
+
+```bash
+# 创作者数据看板（导出 CSV）
+$XHS_CMD analytics
+
+# 通知（提及/互动）
+$XHS_CMD notifications
+```
+
+注意：analytics 和 notifications 使用 CDP 引擎，需要 Chrome。
+
+### 7. 服务管理
+
+```bash
+# 查看 MCP 服务状态
+$XHS_CMD server status
+
+# 启动 MCP 服务
+$XHS_CMD server start
+
+# 停止
+$XHS_CMD server stop
+
+# 查看日志
+$XHS_CMD server log
+```
+
+### 8. 账号管理
+
+```bash
+# 列出所有账号
+$XHS_CMD account list
+
+# 添加新账号
+$XHS_CMD account add work --alias "工作号"
+
+# 切换默认账号
+$XHS_CMD account default work
+
+# 删除账号
+$XHS_CMD account remove work
+```
+
+### 9. 登录/登出
+
+```bash
+# 登录（扫码）
+$XHS_CMD login
+
+# 查看登录状态
+$XHS_CMD status
+
+# 登出
+$XHS_CMD logout
+```
+
+### 10. 浏览首页 Feed
+
+```bash
+$XHS_CMD feeds
+```
+
+---
+
+## 工作流程
+
+### 流程 A：接收任务 → 发布笔记
+
+1. `$XHS_CMD status` — 确认已登录
+2. 准备内容：标题、正文、图片/视频、标签
+3. `$XHS_CMD publish ...` — 执行发布
+4. 如果失败，**不要立即重试**，先用 `$XHS_CMD search "你的标题关键词"` 确认是否已发布
+5. 向用户报告结果
+
+### 流程 B：搜索 → 互动
+
+1. `$XHS_CMD search "关键词"` — 搜索目标笔记
+2. 从结果中获取 `feed_id` 和 `xsec_token`
+3. `$XHS_CMD detail FEED_ID --token TOKEN` — 查看详情（可选）
+4. `$XHS_CMD like/comment/favorite ...` — 执行互动
+5. 向用户报告完成情况
+
+### 流程 C：数据分析
+
+1. `$XHS_CMD analytics` — 拉取创作者看板数据
+2. 分析数据趋势
+3. 向用户汇报 insights
+
+---
+
+## 注意事项
+
+1. **发布超时不代表失败** — MCP publish 可能超时但实际已成功。务必先 search 验证再考虑重试。
+2. **PostID 返回空是正常的** — xiaohongshu-mcp 的已知行为。
+3. **visibility 值必须用中文** — `公开可见`、`仅自己可见`、`仅互关好友可见`
+4. **不要在 content 中加 #标签** — 用 `--tags` 参数传递标签，CLI 会自动处理格式。
+5. **定时发布范围** — 必须在 1 小时 ~ 14 天之间。
+6. **代理** — 如果在海外，MCP 服务需要通过代理访问小红书，通过 `$XHS_CMD config set mcp.proxy http://127.0.0.1:7897` 配置。
+
+---
+
+## 向后兼容
+
+如果 xhs CLI 不可用（venv 损坏等），可以退回到旧版脚本：
+
+```bash
+python "{{SKILL_DIR}}/scripts/publish_xhs.py" status
+python "{{SKILL_DIR}}/scripts/publish_xhs.py" publish --title "..." --content "..." --images "..."
+```
+
+旧版脚本仅支持发布和状态检查，不支持搜索/互动/分析。
+
+---
+
+## 响应语言
+
+始终使用用户使用的语言回复。用户说中文就用中文，说英文就用英文。
