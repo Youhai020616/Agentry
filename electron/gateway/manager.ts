@@ -761,6 +761,29 @@ export class GatewayManager extends EventEmitter {
       }
     }
 
+    // Load tool-specific API keys from employee secrets.
+    // Employees store secrets like BRAVE_API_KEY, DEERAPI_KEY, etc. in electron-store.
+    // These need to be injected as env vars for the Gateway's built-in tools.
+    try {
+      const ElectronStore = (await import('electron-store')).default;
+      const secretsStore = new ElectronStore({ name: 'employee-secrets' });
+      const toolEnvKeys: Record<string, string> = {
+        BRAVE_API_KEY: 'browser-agent',
+        DEERAPI_KEY: 'new-media',
+      };
+      for (const [envKey, employeeId] of Object.entries(toolEnvKeys)) {
+        const val = secretsStore.get(`employee-secrets.${employeeId}.${envKey}`) as
+          | string
+          | undefined;
+        if (val) {
+          providerEnv[envKey] = val;
+          loadedProviderKeyCount++;
+        }
+      }
+    } catch (err) {
+      logger.warn('Failed to load tool API keys from employee secrets:', err);
+    }
+
     const uvEnv = await getUvMirrorEnv();
     logger.info(
       `Starting Gateway process (mode=${mode}, port=${this.status.port}, command="${command}", args="${this.sanitizeSpawnArgs(args).join(' ')}", cwd="${openclawDir}", bundledBin=${binPathExists ? 'yes' : 'no'}, providerKeys=${loadedProviderKeyCount})`

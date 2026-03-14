@@ -7,6 +7,7 @@ import type { GatewayManager } from '../../gateway/manager';
 import type { ClawHubService } from '../../gateway/clawhub';
 import type { EmployeeManager } from '../../engine/employee-manager';
 import type { EngineContext } from '../../engine/bootstrap';
+import type { StarOfficeManager } from '../../star-office/manager';
 
 /**
  * Mutable reference to EngineContext.
@@ -26,4 +27,6 @@ export interface IpcContext {
   engineRef: EngineRef;
   /** EmployeeManager instance — resolved from engine or standalone fallback */
   employeeManager: EmployeeManager;
+  /** Star Office manager (optional, only when Star Office module is present) */
+  starOfficeManager?: StarOfficeManager;
 }

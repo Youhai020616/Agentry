@@ -21,7 +21,10 @@
  */
 import { execFile, type ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import crypto from 'node:crypto';
+import { app } from 'electron';
 import { logger } from '../utils/logger';
 import { getOpenClawEntryPath, getOpenClawDir } from '../utils/paths';
 import type {
@@ -570,7 +573,6 @@ export class BrowserManager extends EventEmitter {
     };
 
     // In development, prefer the openclaw binary from node_modules/.bin
-    const { app } = require('electron');
     let command: string;
     const baseArgs: string[] = [];
 
@@ -579,8 +581,7 @@ export class BrowserManager extends EventEmitter {
       baseArgs.push(entryPath, 'browser');
     } else {
       // Development — try the node_modules/.bin/openclaw binary
-      const { existsSync } = require('node:fs');
-      const { dirname, join } = require('node:path');
+
       const openclawDir = getOpenClawDir();
       const nodeModulesDir = dirname(openclawDir);
       const binName = process.platform === 'win32' ? 'openclaw.cmd' : 'openclaw';

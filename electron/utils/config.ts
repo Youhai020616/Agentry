@@ -15,6 +15,9 @@ export const PORTS = {
 
   /** OpenClaw Gateway port (18790 to avoid conflict with standalone OpenClaw on 18789) */
   OPENCLAW_GATEWAY: 18790,
+
+  /** Star Office UI backend port */
+  STAR_OFFICE: 19000,
 } as const;
 
 /**

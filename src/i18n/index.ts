@@ -18,6 +18,7 @@ import enBilling from './locales/en/billing.json';
 import enBrowser from './locales/en/browser.json';
 import enMediaStudio from './locales/en/media-studio.json';
 import enProjects from './locales/en/projects.json';
+import enOffice from './locales/en/office.json';
 
 // ZH
 import zhCommon from './locales/zh/common.json';
@@ -36,6 +37,7 @@ import zhBilling from './locales/zh/billing.json';
 import zhBrowser from './locales/zh/browser.json';
 import zhMediaStudio from './locales/zh/media-studio.json';
 import zhProjects from './locales/zh/projects.json';
+import zhOffice from './locales/zh/office.json';
 
 // JA
 import jaCommon from './locales/ja/common.json';
@@ -54,6 +56,7 @@ import jaBilling from './locales/ja/billing.json';
 import jaBrowser from './locales/ja/browser.json';
 import jaMediaStudio from './locales/ja/media-studio.json';
 import jaProjects from './locales/ja/projects.json';
+import jaOffice from './locales/ja/office.json';
 
 export const SUPPORTED_LANGUAGES = [
   { code: 'en', label: 'English' },
@@ -81,6 +84,7 @@ const resources = {
     browser: enBrowser,
     'media-studio': enMediaStudio,
     projects: enProjects,
+    office: enOffice,
   },
   zh: {
     common: zhCommon,
@@ -99,6 +103,7 @@ const resources = {
     browser: zhBrowser,
     'media-studio': zhMediaStudio,
     projects: zhProjects,
+    office: zhOffice,
   },
   ja: {
     common: jaCommon,
@@ -117,6 +122,7 @@ const resources = {
     browser: jaBrowser,
     'media-studio': jaMediaStudio,
     projects: jaProjects,
+    office: jaOffice,
   },
 };
 
@@ -142,6 +148,7 @@ i18n.use(initReactI18next).init({
     'browser',
     'media-studio',
     'projects',
+    'office',
   ],
   interpolation: {
     escapeValue: false, // React already escapes

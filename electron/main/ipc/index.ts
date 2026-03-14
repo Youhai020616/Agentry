@@ -50,6 +50,7 @@ import { register as conversation } from './conversation';
 import { register as chatMessage } from './chat-message';
 import { register as browser } from './browser';
 import { register as studio } from './studio';
+import { register as starOffice } from './star-office';
 
 /**
  * All handler modules in registration order.
@@ -98,6 +99,7 @@ const allModules = [
   chatMessage,
   browser,
   studio,
+  starOffice,
 ];
 
 /**
@@ -108,7 +110,8 @@ export function registerIpcHandlers(
   gatewayManager: GatewayManager,
   clawHubService: ClawHubService,
   mainWindow: BrowserWindow,
-  engineRef: EngineRef
+  engineRef: EngineRef,
+  starOfficeManager?: import('../../star-office/manager').StarOfficeManager
 ): void {
   // Resolve EmployeeManager: prefer engine context, fallback to standalone
   let employeeManager: EmployeeManager;
@@ -134,6 +137,7 @@ export function registerIpcHandlers(
     mainWindow,
     engineRef,
     employeeManager,
+    starOfficeManager,
   };
 
   // Register all modules

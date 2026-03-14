@@ -7,6 +7,20 @@ import { join } from 'path';
 import { existsSync, mkdirSync, appendFileSync, readFileSync, readdirSync, statSync } from 'fs';
 
 /**
+ * Safe console wrapper — swallows EPIPE errors that occur when stdout/stderr
+ * pipes are closed (common in packaged Electron apps launched via .app bundle
+ * where stdout is not connected to a terminal).
+ */
+function safeConsole(method: 'debug' | 'info' | 'warn' | 'error', message: string): void {
+  try {
+    console[method](message);
+  } catch {
+    // EPIPE or other write errors to stdout/stderr — silently ignore.
+    // The log is still written to the ring buffer and log file by writeLog().
+  }
+}
+
+/**
  * Log levels
  */
 export enum LogLevel {
@@ -130,7 +144,7 @@ function writeLog(formatted: string): void {
 export function debug(message: string, ...args: unknown[]): void {
   if (currentLevel <= LogLevel.DEBUG) {
     const formatted = formatMessage('DEBUG', message, ...args);
-    console.debug(formatted);
+    safeConsole('debug', formatted);
     writeLog(formatted);
   }
 }
@@ -141,7 +155,7 @@ export function debug(message: string, ...args: unknown[]): void {
 export function info(message: string, ...args: unknown[]): void {
   if (currentLevel <= LogLevel.INFO) {
     const formatted = formatMessage('INFO', message, ...args);
-    console.info(formatted);
+    safeConsole('info', formatted);
     writeLog(formatted);
   }
 }
@@ -152,7 +166,7 @@ export function info(message: string, ...args: unknown[]): void {
 export function warn(message: string, ...args: unknown[]): void {
   if (currentLevel <= LogLevel.WARN) {
     const formatted = formatMessage('WARN', message, ...args);
-    console.warn(formatted);
+    safeConsole('warn', formatted);
     writeLog(formatted);
   }
 }
@@ -163,7 +177,7 @@ export function warn(message: string, ...args: unknown[]): void {
 export function error(message: string, ...args: unknown[]): void {
   if (currentLevel <= LogLevel.ERROR) {
     const formatted = formatMessage('ERROR', message, ...args);
-    console.error(formatted);
+    safeConsole('error', formatted);
     writeLog(formatted);
   }
 }

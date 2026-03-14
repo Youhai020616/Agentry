@@ -461,6 +461,27 @@ function markRunCompleted(runId: string): void {
   }
 }
 
+// ── Resolved run tracking ───────────────────────────────────────
+// Tracks runs where a final event with actual content (isResolved=true)
+// has been processed. This closes the gap between when a resolved final
+// event clears sending/activeRunId and when lifecycle:end calls
+// markRunCompleted(). Without this, late-arriving deltas (duplicate
+// delivery via the other IPC channel) can slip through and re-enable
+// streaming, causing the promoted message to overwrite the final one.
+const recentResolvedRunIds = new Set<string>();
+let _resolvedRunCleanupTimer: ReturnType<typeof setTimeout> | null = null;
+
+function markRunResolved(runId: string): void {
+  if (!runId) return;
+  recentResolvedRunIds.add(runId);
+  if (!_resolvedRunCleanupTimer) {
+    _resolvedRunCleanupTimer = setTimeout(() => {
+      recentResolvedRunIds.clear();
+      _resolvedRunCleanupTimer = null;
+    }, COMPLETED_RUN_TTL_MS);
+  }
+}
+
 // ── pendingFinal safety net ──────────────────────────────────────
 // If pendingFinal stays true (loadHistory didn't find a resolving message),
 // retry loadHistory after a delay, then hard-reset sending state as a last resort.
@@ -1007,10 +1028,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
         // if both old and new are objects with text content, we keep the longer
         // / more recent one (Gateway sends cumulative deltas, not incremental).
         //
+        // RESOLVED-RUN GUARD: Drop late deltas for runs that already have a
+        // resolved final message. Without this, late deltas arriving via the
+        // other IPC channel re-enable sending, and the subsequent lifecycle:end
+        // promotes streamingMessage as a duplicate message.
+        if (runId && recentResolvedRunIds.has(runId)) {
+          return;
+        }
+        //
         // MULTI-MESSAGE FIX: If a previous final message in the same run already
         // set sending=false, but the run is still producing more messages (e.g.,
         // supervisor mode), re-enable sending so the streaming UI renders.
-        if (!get().sending && event.message && typeof event.message === 'object') {
+        // Only re-enable if the run hasn't been resolved (activeRunId still set).
+        if (
+          !get().sending &&
+          get().activeRunId &&
+          event.message &&
+          typeof event.message === 'object'
+        ) {
           set({ sending: true });
         }
         const updates = collectToolUpdates(event.message, resolvedState);
@@ -1138,6 +1173,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
           // Instead, markRunCompleted() is called only when lifecycle:end
           // arrives (the no-message-body branch below), which is the true
           // end-of-run signal from the Gateway.
+          //
+          // However, mark the run as RESOLVED so that late-arriving deltas
+          // (duplicate delivery via the other IPC channel) are dropped by
+          // the resolved-run guard in the delta handler. This prevents the
+          // "streaming overwrites final" bug where a late delta re-enables
+          // sending and lifecycle:end then promotes a duplicate message.
+          if (isResolved && runId) {
+            markRunResolved(runId);
+          }
           // If still pending after set, schedule safety net
           if (get().pendingFinal) {
             schedulePendingFinalSafetyNet(get, set);
