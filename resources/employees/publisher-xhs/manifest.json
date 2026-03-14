@@ -30,22 +30,9 @@
     }
   },
   "tools": [
-    {
-      "name": "publish-xhs",
-      "description": "发布图文或视频笔记到小红书 (MCP/CDP 双引擎自动选择)"
-    },
-    {
-      "name": "search-xhs",
-      "description": "搜索小红书笔记、获取笔记详情"
-    },
-    {
-      "name": "engage-xhs",
-      "description": "评论、回复、点赞、收藏小红书笔记"
-    },
-    {
-      "name": "analytics-xhs",
-      "description": "创作者数据看板、通知抓取 (CDP)"
-    }
+    { "name": "bash", "description": "Execute xhs CLI commands for all Xiaohongshu operations" },
+    { "name": "read", "description": "Read config files, output CSVs, cookies" },
+    { "name": "write", "description": "Write draft content, configs" }
   ],
   "secrets": {
     "XHS_COOKIES": {

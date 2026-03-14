@@ -734,22 +734,37 @@ export class EmployeeManager extends EventEmitter {
       return null;
     }
 
-    // OpenClaw built-in tool names that can be controlled via agent policy.
-    // Includes session tools (sessions_spawn, sessions_send, etc.) for multi-agent orchestration.
+    // OpenClaw Gateway built-in tool names (extracted from openclaw control-ui source).
+    // Only tools in this set are written to agents.list[].tools.allow in openclaw.json.
+    // Any tool name in manifest.tools[] that matches this set is passed through;
+    // custom/unknown names are ignored (they may be prompt-only tool descriptions).
     const OPENCLAW_BUILTIN_TOOLS = new Set([
-      'web_search',
-      'web_fetch',
+      // Core filesystem & shell
+      'bash',
       'read',
       'write',
-      'exec',
+      'edit',
+      'attach',
+      // Browser & web
       'browser',
-      'mcp',
-      // Session tools — enable agent-to-agent communication & sub-agent spawn
+      'web_search',
+      'web_fetch',
+      // Process & scheduling
+      'process',
+      'cron',
+      // Agent-to-agent (multi-agent orchestration)
+      'sessions_spawn',
+      'sessions_send',
       'sessions_list',
       'sessions_history',
-      'sessions_send',
-      'sessions_spawn',
       'session_status',
+      // MCP tool proxy
+      'mcp',
+      // UI & device
+      'canvas',
+      'nodes',
+      // Gateway control
+      'gateway',
     ]);
 
     const allow: string[] = [];
