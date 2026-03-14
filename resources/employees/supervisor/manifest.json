@@ -25,6 +25,34 @@
   },
   "tools": [
     {
+      "name": "bash",
+      "description": "Execute shell commands on the host machine (full system access)"
+    },
+    {
+      "name": "read",
+      "description": "Read files from any path on the host filesystem"
+    },
+    {
+      "name": "write",
+      "description": "Write files to any path on the host filesystem"
+    },
+    {
+      "name": "edit",
+      "description": "Edit files with surgical find-and-replace"
+    },
+    {
+      "name": "browser",
+      "description": "Full browser automation via Chrome DevTools Protocol (open URLs, click, type, screenshot, extract data)"
+    },
+    {
+      "name": "web_search",
+      "description": "Search the internet via Brave Search"
+    },
+    {
+      "name": "web_fetch",
+      "description": "Fetch and extract readable content from any URL"
+    },
+    {
       "name": "sessions_spawn",
       "description": "Spawn a sub-agent to execute a task asynchronously in parallel"
     },
@@ -35,8 +63,14 @@
     { "name": "sessions_list", "description": "List active sessions across all agents" },
     { "name": "sessions_history", "description": "Read chat history from another session" },
     { "name": "session_status", "description": "Check the status of a session or sub-agent run" },
-    { "name": "read", "description": "Read files from workspace" },
-    { "name": "write", "description": "Write files to workspace" }
+    {
+      "name": "cron",
+      "description": "Manage scheduled tasks (list, add, update, remove, trigger)"
+    },
+    {
+      "name": "process",
+      "description": "Manage child processes"
+    }
   ],
   "pricing": { "model": "included" }
 }
