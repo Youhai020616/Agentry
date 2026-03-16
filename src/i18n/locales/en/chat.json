@@ -5,12 +5,45 @@
     "title": "Agentry Chat",
     "subtitle": "Your AI assistant is ready. Start a conversation below.",
     "employeeSubtitle": "Feel free to ask me anything, I'll serve you with my professional skills.",
+    "startConversation": "Start a conversation with {{name}}",
+    "greeting": {
+      "goodMorning": "Good morning",
+      "goodAfternoon": "Good afternoon",
+      "goodEvening": "Good evening"
+    },
+    "suggestions": {
+      "askAnything": "Ask me anything you're curious about...",
+      "writeCode": "Help me write or debug code...",
+      "brainstorm": "Let's brainstorm ideas together...",
+      "analyzeData": "Analyze data or summarize content..."
+    },
     "askQuestions": "Ask Questions",
     "askQuestionsDesc": "Get answers on any topic",
     "creativeTasks": "Creative Tasks",
     "creativeTasksDesc": "Writing, brainstorming, ideas"
   },
+  "error": {
+    "title": "Error",
+    "showMore": "Show more",
+    "showLess": "Show less",
+    "notSaved": "This message was not saved. Please try again."
+  },
+  "typing": {
+    "thinking": "Thinking..."
+  },
   "noLogs": "(No logs available yet)",
+  "message": {
+    "copy": "Copy",
+    "edit": "Edit",
+    "delete": "Delete",
+    "regenerate": "Regenerate",
+    "showMore": "Show more",
+    "showLess": "Show less",
+    "thinking": "Thinking",
+    "editPlaceholder": "Edit your message...",
+    "saveEdit": "Save",
+    "cancelEdit": "Cancel"
+  },
   "toolbar": {
     "newSession": "New Chat",
     "refresh": "Refresh chat",
@@ -37,5 +70,28 @@
     "deleteConfirm": "Are you sure you want to delete this conversation?",
     "conversations": "conversations",
     "conversation": "conversation"
+  },
+  "tool": {
+    "input": "Input",
+    "output": "Output",
+    "copy": "Copy",
+    "copied": "Copied",
+    "noData": "No data",
+    "results": "Results",
+    "searchResults": "Search Results",
+    "searchingFor": "Searching for",
+    "searchError": "Search failed",
+    "noResults": "No results found",
+    "code": "Code",
+    "noOutput": "No output",
+    "summary": "Summary",
+    "rawOutput": "Raw Output",
+    "browserClick": "Click",
+    "browserType": "Type",
+    "browserNavigate": "Navigate",
+    "browserScreenshot": "Screenshot",
+    "browserScroll": "Scroll",
+    "browserObserve": "Observe",
+    "browserBrowse": "Browse"
   }
 }

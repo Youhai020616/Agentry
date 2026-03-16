@@ -5,12 +5,45 @@
     "title": "Agentry 聊天",
     "subtitle": "您的 AI 助手已就绪。在下方开始对话。",
     "employeeSubtitle": "随时向我提问，我会用专业技能为你服务。",
+    "startConversation": "和 {{name}} 开始对话",
+    "greeting": {
+      "goodMorning": "早上好",
+      "goodAfternoon": "下午好",
+      "goodEvening": "晚上好"
+    },
+    "suggestions": {
+      "askAnything": "问我任何你好奇的事情...",
+      "writeCode": "帮我编写或调试代码...",
+      "brainstorm": "一起来头脑风暴...",
+      "analyzeData": "分析数据或总结内容..."
+    },
     "askQuestions": "提问",
     "askQuestionsDesc": "获取任何话题的答案",
     "creativeTasks": "创意任务",
     "creativeTasksDesc": "写作、头脑风暴、创意"
   },
+  "error": {
+    "title": "错误",
+    "showMore": "展开更多",
+    "showLess": "收起",
+    "notSaved": "此消息未保存，请重试。"
+  },
+  "typing": {
+    "thinking": "思考中..."
+  },
   "noLogs": "（暂无日志）",
+  "message": {
+    "copy": "复制",
+    "edit": "编辑",
+    "delete": "删除",
+    "regenerate": "重新生成",
+    "showMore": "展开更多",
+    "showLess": "收起",
+    "thinking": "思考中",
+    "editPlaceholder": "编辑消息...",
+    "saveEdit": "保存",
+    "cancelEdit": "取消"
+  },
   "toolbar": {
     "newSession": "新对话",
     "refresh": "刷新聊天",
@@ -37,5 +70,28 @@
     "deleteConfirm": "确定要删除这个对话吗？",
     "conversations": "个对话",
     "conversation": "个对话"
+  },
+  "tool": {
+    "input": "输入",
+    "output": "输出",
+    "copy": "复制",
+    "copied": "已复制",
+    "noData": "无数据",
+    "results": "结果",
+    "searchResults": "搜索结果",
+    "searchingFor": "正在搜索",
+    "searchError": "搜索失败",
+    "noResults": "未找到结果",
+    "code": "代码",
+    "noOutput": "无输出",
+    "summary": "摘要",
+    "rawOutput": "原始输出",
+    "browserClick": "点击",
+    "browserType": "输入",
+    "browserNavigate": "导航",
+    "browserScreenshot": "截图",
+    "browserScroll": "滚动",
+    "browserObserve": "观察",
+    "browserBrowse": "浏览"
   }
 }

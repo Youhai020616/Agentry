@@ -633,9 +633,9 @@ export function ConversationList({
             <MessageSquarePlus className="h-3.5 w-3.5" />
           </Button>
         )}
-        <div className="flex-1" />
-        <div className="flex flex-col items-center gap-1">
-          {conversations.slice(0, 5).map((conv) => (
+        <div className="my-1 h-px w-5 bg-border/60" />
+        <div className="flex flex-col items-center gap-1 overflow-y-auto flex-1 no-scrollbar py-1">
+          {conversations.slice(0, 10).map((conv) => (
             <button
               key={conv.id}
               className={cn(
