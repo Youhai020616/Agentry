@@ -36,6 +36,9 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
+# Local reference projects
+github/
+
 # Test coverage
 coverage/
 

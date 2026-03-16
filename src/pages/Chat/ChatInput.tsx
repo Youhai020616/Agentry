@@ -1,21 +1,22 @@
 /**
  * Chat Input Component
- * Redesigned with AIInput-inspired layout:
- *   - Full-width textarea on top (borderless, auto-resize)
- *   - Toolbar below with divider (attach left, send/stop right)
- *   - Attachment previews inside container above textarea
+ * Glassmorphism design inspired by better-chatbot:
+ *   - 4-layer glass effect (blur → tint → highlight → content)
+ *   - rounded-4xl pill shape
+ *   - Toolbar: attach + thinking toggle (left), send/stop (right)
+ *   - Attachment previews inside the glass container
  *
  * Enter to send, Shift+Enter for new line.
  * Supports: native file picker, clipboard paste, drag & drop.
- * Files are staged to disk via IPC — only lightweight path references
- * are sent with the message (no base64 over WebSocket).
  */
 import { useState, useRef, useCallback, useEffect } from 'react';
 import {
-  ArrowUp,
+  CornerRightUp,
   Square,
   X,
   Paperclip,
+  LightbulbIcon,
+  ImageIcon,
   FileText,
   Film,
   Music,
@@ -24,6 +25,9 @@ import {
   Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useChatStore } from '@/stores/chat';
+import { GlassFilter } from '@/components/ui/liquid-glass';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -145,6 +149,11 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const isComposingRef = useRef(false);
   const { textareaRef, adjustHeight } = useAutoResizeTextarea(36, 200);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Thinking toggle from store
+  const showThinking = useChatStore((s) => s.showThinking);
+  const toggleThinking = useChatStore((s) => s.toggleThinking);
 
   // ── File staging via native dialog ─────────────────────────────
 
@@ -347,6 +356,18 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
     [stageBufferFiles]
   );
 
+  // Handle image file select from hidden input
+  const handleImageSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (!files || files.length === 0) return;
+      stageBufferFiles(Array.from(files));
+      // Reset so the same file can be selected again
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    },
+    [stageBufferFiles]
+  );
+
   return (
     <div
       className="px-4 pt-2 pb-3"
@@ -354,123 +375,209 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <div className="chat-glass-wrapper max-w-3xl mx-auto">
-        <div
-          className={cn(
-            'relative overflow-hidden rounded-3xl transition-all duration-200',
-            dragOver && 'ring-2 ring-primary'
-          )}
-          style={{
-            boxShadow: '0 6px 6px rgba(0, 0, 0, 0.15), 0 0 20px rgba(0, 0, 0, 0.08)',
-          }}
-        >
-          {/* Layer 1: Backdrop blur */}
+      {/* SVG filter definition — must be in DOM for url(#glass-distortion) to work */}
+      <GlassFilter />
+
+      <div className="max-w-4xl mx-auto">
+        <fieldset className="flex w-full min-w-0 max-w-full flex-col">
           <div
-            className="absolute inset-0 z-0 overflow-hidden rounded-3xl"
-            style={{
-              backdropFilter: 'blur(12px) saturate(1.6)',
-              WebkitBackdropFilter: 'blur(12px) saturate(1.6)',
-              isolation: 'isolate',
-            }}
-          />
-          {/* Layer 2: Tint */}
-          <div className="absolute inset-0 z-[1] rounded-3xl bg-muted/60 transition-all duration-200" />
-          {/* Layer 3: Inner highlight */}
-          <div
-            className="absolute inset-0 z-[2] rounded-3xl overflow-hidden pointer-events-none"
-            style={{
-              boxShadow:
-                'inset 1px 1px 1px 0 rgba(255, 255, 255, 0.3), inset -1px -1px 1px 0 rgba(255, 255, 255, 0.2)',
-            }}
-          />
-          {/* Layer 4: Content */}
-          <div className="relative z-[3] flex w-full flex-col items-stretch focus-within:bg-muted/40 hover:bg-muted/40 rounded-3xl transition-all duration-200">
-            {/* Attachment Previews */}
-            {attachments.length > 0 && (
-              <div className="flex gap-2 flex-wrap px-3 pt-3 pb-0">
-                {attachments.map((att) => (
-                  <AttachmentPreview
-                    key={att.id}
-                    attachment={att}
-                    onRemove={() => removeAttachment(att.id)}
-                  />
-                ))}
-              </div>
+            className={cn(
+              'relative overflow-hidden rounded-4xl transition-all duration-200 flex w-full flex-col cursor-text z-10 items-stretch',
+              dragOver && 'ring-2 ring-primary'
             )}
-
-            {/* Textarea — compact, clean */}
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                adjustHeight();
+            style={{
+              boxShadow: '0 6px 6px rgba(0, 0, 0, 0.15), 0 0 20px rgba(0, 0, 0, 0.08)',
+            }}
+          >
+            {/* Layer 1: Glass distortion — blur + SVG optical filter */}
+            <div
+              className="absolute inset-0 z-0 overflow-hidden rounded-4xl"
+              style={{
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                filter: 'url(#glass-distortion)',
+                isolation: 'isolate',
               }}
-              onKeyDown={handleKeyDown}
-              onCompositionStart={() => {
-                isComposingRef.current = true;
-              }}
-              onCompositionEnd={() => {
-                isComposingRef.current = false;
-              }}
-              onPaste={handlePaste}
-              placeholder={disabled ? 'Gateway not connected...' : 'Ask anything...'}
-              disabled={disabled}
-              className={cn(
-                'w-full resize-none border-0 bg-transparent px-4 pt-3 pb-1 text-[15px] leading-relaxed outline-none',
-                'text-foreground placeholder:text-muted-foreground/40',
-                'focus:ring-0 focus-visible:outline-none min-h-[36px] no-scrollbar',
-                'disabled:cursor-not-allowed disabled:opacity-50'
-              )}
-              rows={1}
             />
+            {/* Layer 2: Glass tint */}
+            <div className="absolute inset-0 z-[1] rounded-4xl bg-muted/60 transition-all duration-200" />
+            {/* Layer 3: Inner highlight (edge refraction) */}
+            <div
+              className="absolute inset-0 z-[2] rounded-4xl overflow-hidden pointer-events-none"
+              style={{
+                boxShadow:
+                  'inset 1px 1px 1px 0 rgba(255, 255, 255, 0.3), inset -1px -1px 1px 0 rgba(255, 255, 255, 0.2)',
+              }}
+            />
+            {/* Layer 4: Content */}
+            <div className="relative z-[3] flex w-full flex-col items-stretch focus-within:bg-muted/40 hover:bg-muted/40 rounded-4xl transition-all duration-200">
+              {/* Attachment Previews */}
+              {attachments.length > 0 && (
+                <div className="bg-input rounded-b-sm rounded-t-3xl p-3 flex flex-wrap gap-2 mx-2 my-2">
+                  {attachments.map((att) => (
+                    <AttachmentPreview
+                      key={att.id}
+                      attachment={att}
+                      onRemove={() => removeAttachment(att.id)}
+                    />
+                  ))}
+                </div>
+              )}
 
-            {/* Bottom toolbar — attach left, send right */}
-            <div className="flex items-center justify-between px-2.5 pb-2 pt-0.5">
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={pickFiles}
-                  disabled={disabled || sending}
-                  className={cn(
-                    'flex h-8 w-8 items-center justify-center rounded-lg',
-                    'text-muted-foreground/60 transition-colors',
-                    'hover:bg-foreground/5 hover:text-foreground/80',
-                    'focus-visible:outline-none',
-                    'disabled:pointer-events-none disabled:opacity-30'
+              {/* Textarea + Toolbar */}
+              <div className="flex flex-col gap-1.5 px-5 pt-2 pb-2.5">
+                {/* Textarea — auto-resize, borderless */}
+                <div className="relative min-h-[2rem] overflow-hidden">
+                  <textarea
+                    ref={textareaRef}
+                    value={input}
+                    onChange={(e) => {
+                      setInput(e.target.value);
+                      adjustHeight();
+                    }}
+                    onKeyDown={handleKeyDown}
+                    onCompositionStart={() => {
+                      isComposingRef.current = true;
+                    }}
+                    onCompositionEnd={() => {
+                      isComposingRef.current = false;
+                    }}
+                    onPaste={handlePaste}
+                    placeholder={disabled ? 'Gateway not connected...' : 'Ask anything...'}
+                    disabled={disabled}
+                    className={cn(
+                      'w-full resize-none border-0 bg-transparent text-sm leading-relaxed outline-none',
+                      'text-foreground placeholder:text-muted-foreground/50',
+                      'focus:ring-0 focus-visible:outline-none min-h-[2rem] no-scrollbar',
+                      'disabled:cursor-not-allowed disabled:opacity-50'
+                    )}
+                    rows={1}
+                  />
+                </div>
+
+                {/* Bottom toolbar — matches better-chatbot layout */}
+                <div className="flex w-full items-center z-30">
+                  {/* Hidden file input for image upload */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageSelect}
+                    multiple
+                  />
+
+                  {/* Image upload button */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={disabled || sending}
+                        className={cn(
+                          'rounded-full p-2 transition-colors',
+                          'text-muted-foreground',
+                          'hover:bg-muted/40 hover:text-foreground',
+                          'disabled:pointer-events-none disabled:opacity-30'
+                        )}
+                      >
+                        <ImageIcon className="size-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">Upload image</TooltipContent>
+                  </Tooltip>
+
+                  {/* Thinking toggle */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          toggleThinking();
+                          textareaRef.current?.focus();
+                        }}
+                        className={cn(
+                          'rounded-full p-2 transition-colors',
+                          'text-muted-foreground',
+                          'hover:bg-muted/40',
+                          showThinking && 'bg-muted/40 text-yellow-500'
+                        )}
+                      >
+                        <LightbulbIcon
+                          className={cn(
+                            'size-4 transition-colors duration-200',
+                            showThinking && 'text-yellow-500 fill-yellow-500'
+                          )}
+                        />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="flex items-center gap-2" side="top">
+                      <span>Thinking</span>
+                      <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                        <span className="text-xs">
+                          {navigator.platform.includes('Mac') ? '\u2318' : 'Ctrl'}
+                        </span>
+                        E
+                      </kbd>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  {/* Attach files (native dialog) */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={pickFiles}
+                        disabled={disabled || sending}
+                        className={cn(
+                          'rounded-full p-2 transition-colors',
+                          'text-muted-foreground',
+                          'hover:bg-muted/40 hover:text-foreground',
+                          'disabled:pointer-events-none disabled:opacity-30'
+                        )}
+                      >
+                        <Paperclip className="size-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">Attach files</TooltipContent>
+                  </Tooltip>
+
+                  {/* Spacer */}
+                  <div className="flex-1" />
+
+                  {/* Send / Stop button */}
+                  {sending ? (
+                    <button
+                      type="button"
+                      onClick={handleStop}
+                      disabled={!canStop}
+                      className={cn(
+                        'rounded-full p-2 transition-all duration-200 cursor-pointer',
+                        'bg-destructive text-destructive-foreground',
+                        'hover:bg-destructive/90',
+                        'disabled:opacity-50 disabled:pointer-events-none'
+                      )}
+                    >
+                      <Square className="size-4" fill="currentColor" />
+                    </button>
+                  ) : (
+                    <div
+                      onClick={handleSend}
+                      className={cn(
+                        'cursor-pointer rounded-full p-2 transition-all duration-200',
+                        'text-muted-foreground bg-secondary',
+                        'hover:bg-accent-foreground hover:text-accent',
+                        !canSend && 'opacity-30 pointer-events-none'
+                      )}
+                    >
+                      <CornerRightUp className="size-4" />
+                    </div>
                   )}
-                  title="Attach files"
-                >
-                  <Paperclip className="h-4 w-4" />
-                </button>
+                </div>
               </div>
-
-              <button
-                type="button"
-                onClick={sending ? handleStop : handleSend}
-                disabled={sending ? !canStop : !canSend}
-                className={cn(
-                  'flex h-8 w-8 items-center justify-center rounded-full transition-all duration-150',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  sending
-                    ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50'
-                    : cn(
-                        'bg-foreground text-background',
-                        'hover:opacity-85',
-                        'disabled:opacity-20 disabled:pointer-events-none'
-                      )
-                )}
-                title={sending ? 'Stop' : 'Send'}
-              >
-                {sending ? (
-                  <Square className="h-3 w-3" fill="currentColor" />
-                ) : (
-                  <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
-                )}
-              </button>
             </div>
           </div>
-        </div>
+        </fieldset>
       </div>
     </div>
   );
@@ -488,15 +595,13 @@ function AttachmentPreview({
   const isImage = attachment.mimeType.startsWith('image/') && attachment.preview;
 
   return (
-    <div className="relative group rounded-lg overflow-hidden border border-border bg-muted/30">
+    <div className="relative group rounded-lg overflow-hidden border border-border">
       {isImage ? (
-        <div className="w-16 h-16">
-          <img
-            src={attachment.preview!}
-            alt={attachment.fileName}
-            className="w-full h-full object-cover"
-          />
-        </div>
+        <img
+          src={attachment.preview!}
+          alt={attachment.fileName}
+          className="h-20 w-20 object-cover"
+        />
       ) : (
         <div className="flex items-center gap-2 px-3 py-2 max-w-[200px]">
           <FileIcon
@@ -526,12 +631,12 @@ function AttachmentPreview({
         </div>
       )}
 
-      {/* Remove button */}
+      {/* Remove button — ghost circle on hover */}
       <button
         onClick={onRemove}
-        className="absolute -top-1 -right-1 bg-foreground/80 text-background rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="absolute top-1 right-1 size-6 rounded-full bg-background/80 hover:bg-background flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
       >
-        <X className="h-3 w-3" />
+        <X className="size-3" />
       </button>
     </div>
   );
