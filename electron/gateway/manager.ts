@@ -1247,7 +1247,7 @@ export class GatewayManager extends EventEmitter {
     }
 
     // Emit generic notification for all OTHER types (agent events, tool events, etc.)
-    // Listeners: ipc-handlers → renderer gateway:notification, BrowserEventDetector
+    // Listeners: ipc/gateway.ts → renderer gateway:notification, BrowserEventDetector
     this.emit('notification', notification);
   }
 

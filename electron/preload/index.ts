@@ -228,6 +228,8 @@ const INVOKE_CHANNELS = [
   'credits:dailySummary',
   'credits:byEmployee',
   'credits:byType',
+  'credits:historyByEmployee',
+  'credits:historyByType',
   // Prohibition (Rules & Restrictions)
   'prohibition:list',
   'prohibition:create',

@@ -295,8 +295,8 @@ async function initialize(): Promise<void> {
     refreshTray();
 
     // NOTE: employee:status-changed forwarding to renderer is handled by
-    // the `forwardStatus` listener in ipc-handlers.ts (via getEmployeeManager()
-    // migration). Do NOT add a duplicate listener here — it would cause the
+    // the `forwardStatus` listener in ipc/employee.ts (via getEmployeeManager()).
+    // Do NOT add a duplicate listener here — it would cause the
     // renderer to receive every status change event twice.
   }
 }
