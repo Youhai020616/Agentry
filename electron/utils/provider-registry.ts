@@ -99,9 +99,9 @@ const REGISTRY: Record<string, ProviderBackendMeta> = {
   },
   dashscope: {
     envVar: 'DASHSCOPE_API_KEY',
-    defaultModel: 'dashscope/qwen-coder-plus',
+    defaultModel: 'dashscope/qwen3-coder-plus',
     providerConfig: {
-      baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+      baseUrl: 'https://coding.dashscope.aliyuncs.com/v1',
       api: 'openai-completions',
       apiKeyEnv: 'DASHSCOPE_API_KEY',
       models: [
