@@ -17,6 +17,7 @@
       "brainstorm": "一緒にアイデアをブレストしましょう...",
       "analyzeData": "データ分析やコンテンツの要約..."
     },
+    "helpPrompt": "何かお手伝いできることはありますか？",
     "askQuestions": "質問する",
     "askQuestionsDesc": "あらゆるトピックについて回答を得る",
     "creativeTasks": "クリエイティブタスク",
@@ -70,6 +71,11 @@
     "deleteConfirm": "この会話を削除してもよろしいですか？",
     "conversations": "件の会話",
     "conversation": "件の会話"
+  },
+  "input": {
+    "uploadImage": "画像をアップロード",
+    "thinking": "思考",
+    "attachFiles": "ファイルを添付"
   },
   "tool": {
     "input": "入力",

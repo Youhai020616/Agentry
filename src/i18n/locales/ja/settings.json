@@ -132,28 +132,6 @@
     "save": "保存",
     "saved": "ブランドコンテキストを保存しました"
   },
-  "mediaStudio": {
-    "title": "メディアスタジオ",
-    "description": "メディアスタジオのコンテンツ制作パイプラインに必要な API キーとモデルを設定",
-    "imageApi": "画像生成 API",
-    "imageApiDesc": "AI 画像生成用の API キー（DeerAPI / Gemini）",
-    "imageModel": "画像モデル",
-    "imageModelPlaceholder": "例: gemini-3-pro-image",
-    "videoApi": "動画生成 API",
-    "videoApiDesc": "AI 動画生成用の API キー",
-    "videoModel": "動画モデル",
-    "videoModelPlaceholder": "例: veo-2.0-generate-001",
-    "videoApiUrl": "動画 API URL",
-    "videoApiUrlPlaceholder": "例: https://api.deerapi.com/v1/chat/completions",
-    "apiKey": "API キー",
-    "apiKeyPlaceholder": "API キーを入力",
-    "apiKeyStored": "API キーはローカルマシンに安全に保存されます。",
-    "save": "保存",
-    "saved": "メディアスタジオの設定を保存しました",
-    "saveFailed": "メディアスタジオの設定の保存に失敗しました",
-    "reset": "デフォルトに戻す",
-    "resetDone": "設定をデフォルトに戻しました"
-  },
   "about": {
     "title": "バージョン情報",
     "appName": "Agentry",
@@ -162,5 +140,108 @@
     "version": "バージョン {{version}}",
     "docs": "公式サイト",
     "github": "GitHub"
+  },
+  "ollama": {
+    "checking": "Ollama の状態を確認中...",
+    "installed": "Ollama インストール済み",
+    "notInstalled": "Ollama 未インストール",
+    "running": "Ollama 実行中",
+    "stopped": "Ollama 停止中",
+    "install": "Ollama をインストール",
+    "pullModel": "モデルをプル",
+    "pullPlaceholder": "例: llama3, mistral, codellama",
+    "pull": "プル",
+    "pullSuccess": "{{name}} のプルに成功しました",
+    "pullFailed": "モデルのプルに失敗しました",
+    "deleteSuccess": "{{name}} を削除しました",
+    "deleteFailed": "モデルの削除に失敗しました",
+    "installedModels": "インストール済みモデル",
+    "noModels": "モデルがインストールされていません。モデルをプルして開始してください。"
+  },
+  "teamMembers": {
+    "title": "チームメンバー",
+    "description": "この Agentry インスタンスにアクセスできるユーザーを管理",
+    "add": "メンバーを追加",
+    "noUsers": "チームメンバーがいません",
+    "current": "現在のユーザー",
+    "lastLogin": "最終ログイン",
+    "switchTo": "このユーザーに切り替え",
+    "edit": "メンバーを編集",
+    "delete": "メンバーを削除",
+    "addDialog": {
+      "title": "チームメンバーを追加",
+      "description": "この Agentry インスタンスに新しいユーザーを追加"
+    },
+    "editDialog": {
+      "title": "チームメンバーを編集",
+      "description": "メンバー情報を更新"
+    },
+    "deleteDialog": {
+      "title": "チームメンバーを削除",
+      "description": "{{name}} を削除してもよろしいですか？この操作は元に戻せません。"
+    },
+    "fields": {
+      "name": "名前",
+      "namePlaceholder": "名前を入力",
+      "email": "メールアドレス",
+      "emailPlaceholder": "メールアドレスを入力（任意）",
+      "role": "ロール"
+    },
+    "role": {
+      "admin": "管理者",
+      "manager": "マネージャー",
+      "member": "メンバー"
+    },
+    "toast": {
+      "added": "チームメンバーを追加しました",
+      "failedAdd": "チームメンバーの追加に失敗しました",
+      "updated": "チームメンバーを更新しました",
+      "failedUpdate": "チームメンバーの更新に失敗しました",
+      "deleted": "チームメンバーを削除しました",
+      "failedDelete": "チームメンバーの削除に失敗しました",
+      "switched": "ユーザーを切り替えました",
+      "failedSwitch": "ユーザーの切り替えに失敗しました"
+    }
+  },
+  "license": {
+    "tier": {
+      "free": "無料",
+      "pro": "プロ",
+      "team": "チーム"
+    },
+    "status": {
+      "valid": "有効",
+      "expired": "期限切れ",
+      "invalid": "無効",
+      "none": "ライセンスなし"
+    },
+    "invalidKey": "無効なライセンスキー",
+    "activated": "ライセンスが有効化されました",
+    "deactivated": "ライセンスが無効化されました",
+    "expiresAt": "有効期限 {{date}}",
+    "perpetual": "永久ライセンス",
+    "deactivate": "無効化",
+    "inputLabel": "ライセンスキー",
+    "inputPlaceholder": "AGENTRY-XXXX-XXXX-XXXX",
+    "activate": "有効化"
+  },
+  "prohibitions": {
+    "description": "AI従業員のルールと制限を定義",
+    "add": "ルールを追加",
+    "edit": "ルールを編集",
+    "delete": "ルールを削除",
+    "deleteConfirm": "このルールを削除してもよろしいですか？この操作は元に戻せません。",
+    "created": "ルールが作成されました",
+    "updated": "ルールが更新されました",
+    "deleted": "ルールが削除されました",
+    "noRules": "ルールがまだ定義されていません。AI従業員を導くルールを追加してください。",
+    "hard": "ハードルール",
+    "hardDescription": "絶対に違反してはいけない",
+    "soft": "ソフトルール",
+    "softDescription": "推奨だがオーバーライド可能",
+    "level": "ルールレベル",
+    "rule": "ルール内容",
+    "ruleDescription": "説明",
+    "enabled": "ルールの切り替え"
   }
 }

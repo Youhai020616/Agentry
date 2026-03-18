@@ -12,12 +12,16 @@ import { ipcHandle } from './helpers';
 import { getEmployeeSecretsStore } from './shared-stores';
 import type { IpcContext } from './types';
 
-export function register({ employeeManager }: IpcContext): void {
+export function register(ctx: IpcContext): void {
+  // Access employeeManager LAZILY via ctx getter — NOT via destructuring.
+  // At registration time engineRef.current is null, so the getter would throw.
+  // Each handler accesses ctx.employeeManager inside try-catch for graceful degradation.
+
   // employee:list — special: returns [] before engine is ready (no error)
   ipcMain.handle('employee:list', async (_event, params?: { status?: string }) => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return { success: true, result: employeeManager.list(params?.status as any) };
+      return { success: true, result: ctx.employeeManager.list(params?.status as any) };
     } catch {
       return { success: true, result: [] };
     }
@@ -26,7 +30,7 @@ export function register({ employeeManager }: IpcContext): void {
   // employee:get — special: returns "not initialized" before engine is ready
   ipcMain.handle('employee:get', async (_event, id: string) => {
     try {
-      const employee = employeeManager.get(id);
+      const employee = ctx.employeeManager.get(id);
       if (!employee) return { success: false, error: `Employee not found: ${id}` };
       return { success: true, result: employee };
     } catch {
@@ -35,23 +39,23 @@ export function register({ employeeManager }: IpcContext): void {
   });
 
   ipcHandle('employee:activate', async (id: string) => {
-    return employeeManager.activate(id);
+    return ctx.employeeManager.activate(id);
   });
 
   ipcHandle('employee:deactivate', async (id: string) => {
-    return employeeManager.deactivate(id);
+    return ctx.employeeManager.deactivate(id);
   });
 
   ipcHandle('employee:status', (id: string) => {
-    return employeeManager.getStatus(id);
+    return ctx.employeeManager.getStatus(id);
   });
 
   ipcHandle('employee:scan', async () => {
-    return employeeManager.scan();
+    return ctx.employeeManager.scan();
   });
 
   ipcHandle('employee:getManifest', (id: string) => {
-    return employeeManager.getManifest(id);
+    return ctx.employeeManager.getManifest(id);
   });
 
   ipcHandle('employee:setSecret', async (employeeId: string, key: string, value: string) => {
@@ -75,7 +79,7 @@ export function register({ employeeManager }: IpcContext): void {
     }
 
     // Sync to openclaw.json if employee is activated
-    const employee = employeeManager.get(employeeId);
+    const employee = ctx.employeeManager.get(employeeId);
     if (employee?.gatewaySessionKey) {
       try {
         await configUpdateQueue.enqueue(async () => {
@@ -109,6 +113,6 @@ export function register({ employeeManager }: IpcContext): void {
   });
 
   ipcHandle('employee:checkDeps', async (employeeId: string) => {
-    return employeeManager.checkRuntimeRequirements(employeeId);
+    return ctx.employeeManager.checkRuntimeRequirements(employeeId);
   });
 }

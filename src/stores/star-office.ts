@@ -44,6 +44,9 @@ export const useStarOfficeStore = create<StarOfficeStore>((set, get) => ({
   init: () => {
     if (get().initialized) return;
 
+    // Remove any stale listeners first (HMR safety — previous init may have left orphans)
+    window.electron.ipcRenderer.off('star-office:status-changed');
+
     // Subscribe to status changes from main process
     window.electron.ipcRenderer.on(
       'star-office:status-changed',

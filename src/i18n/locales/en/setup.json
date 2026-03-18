@@ -42,6 +42,7 @@
     "nodejs": "Node.js Runtime",
     "openclaw": "OpenClaw Package",
     "gateway": "Gateway Service",
+    "gatewayService": "Gateway Service",
     "startGateway": "Start Gateway",
     "status": {
       "checking": "Checking...",

@@ -259,7 +259,7 @@ export function Supervisor() {
       <LightRays className="z-0" />
 
       {/* Top bar: character indicator + panel toggle */}
-      <div className="relative z-[1] flex shrink-0 items-center justify-between gap-2 px-4 py-3 border-b border-border/40">
+      <div className="relative z-[2] flex shrink-0 items-center justify-between gap-2 px-4 py-3 border-b border-border/40 bg-background/60 backdrop-blur-xl">
         <div className="flex items-center gap-2">
           {selectedId === SUPERVISOR_ID ? (
             <>
@@ -302,6 +302,7 @@ export function Supervisor() {
           <Chat
             externalSession
             hideToolbar
+            hideBackground
             employeeName={
               selectedId === SUPERVISOR_ID ? t('supervisor.title') : selectedEmployee?.name
             }
@@ -335,7 +336,7 @@ export function Supervisor() {
       )}
 
       {/* MessageDock */}
-      <div className="relative z-[1] shrink-0 flex justify-center py-2 border-t border-border/40">
+      <div className="relative z-[2] shrink-0 flex justify-center py-2 border-t border-border/40 bg-background/60 backdrop-blur-xl">
         <MessageDock
           characters={dockCharacters}
           selectedId={selectedId}

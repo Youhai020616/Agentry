@@ -6,16 +6,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  Activity,
   Users,
   Crown,
-  ClipboardList,
   FolderKanban,
   Radio,
   Wrench,
-  Clock,
   Settings,
-  Monitor,
+  Globe,
   ChevronLeft,
   ChevronRight,
   Terminal,
@@ -217,29 +214,16 @@ export function Sidebar() {
   // ── Primary navigation (always visible) ──
   const primaryItems = [
     { to: '/', icon: <Crown className="h-5 w-5" />, label: t('nav.supervisor') },
-    { to: '/office', icon: <Monitor className="h-5 w-5" />, label: t('nav.office') },
     { to: '/employees', icon: <Users className="h-5 w-5" />, label: t('nav.employees') },
-    {
-      to: '/projects',
-      icon: <FolderKanban className="h-5 w-5" />,
-      label: t('nav.projects'),
-      badge: 'Beta' as const,
-    },
+    { to: '/projects', icon: <FolderKanban className="h-5 w-5" />, label: t('nav.projects') },
     { to: '/channels', icon: <Radio className="h-5 w-5" />, label: t('nav.channels') },
-    { to: '/cron', icon: <Clock className="h-5 w-5" />, label: t('nav.cron') },
-    { to: '/skills', icon: <Wrench className="h-5 w-5" />, label: t('nav.skills') },
     { to: '/settings', icon: <Settings className="h-5 w-5" />, label: t('nav.settings') },
   ];
 
   // ── Secondary navigation (collapsed by default) ──
   const secondaryItems = [
-    { to: '/dashboard', icon: <Activity className="h-5 w-5" />, label: t('nav.dashboard') },
-    {
-      to: '/tasks',
-      icon: <ClipboardList className="h-5 w-5" />,
-      label: t('nav.tasks'),
-      badge: 'Beta' as const,
-    },
+    { to: '/skills', icon: <Wrench className="h-5 w-5" />, label: t('nav.skills') },
+    { to: '/browser', icon: <Globe className="h-5 w-5" />, label: t('nav.browser') },
   ];
 
   const [showSecondary, setShowSecondary] = useState(false);

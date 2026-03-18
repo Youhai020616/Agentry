@@ -201,7 +201,7 @@ function ActivityItem({ event }: { event: ActivityEvent }) {
 
 // ── Activity Timeline ─────────────────────────────────────────────
 
-function ActivityTimeline() {
+export function ActivityTimeline({ compact: _compact = false }: { compact?: boolean }) {
   const { t } = useTranslation('dashboard');
   const { events, loading, hasMore, loadMore } = useActivityStore();
 

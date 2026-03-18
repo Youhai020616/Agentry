@@ -1,4 +1,8 @@
 {
+  "viewMode": {
+    "cards": "カードビュー",
+    "office": "ピクセルオフィス"
+  },
   "hub": {
     "title": "マイ従業員",
     "subtitle": "AI チームを管理",

@@ -6,7 +6,9 @@
     "channels": "チャンネル",
     "dashboard": "アクティビティ",
     "settings": "設定",
-    "devConsole": "開発者コンソール"
+    "devConsole": "開発者コンソール",
+    "more": "もっと見る",
+    "less": "折りたたむ"
   },
   "actions": {
     "save": "保存",
@@ -55,7 +57,6 @@
     "supervisor": "スーパーバイザー",
     "projects": "プロジェクト",
     "browser": "ブラウザ",
-    "mediaStudio": "メディアスタジオ",
     "office": "ピクセルオフィス"
   },
   "gateway": {
@@ -73,5 +74,16 @@
     "disabled": "スーパーバイザーモードが無効になりました",
     "enableFailed": "スーパーバイザーモードの有効化に失敗しました",
     "disableFailed": "スーパーバイザーモードの無効化に失敗しました"
+  },
+  "error": {
+    "title": "問題が発生しました",
+    "description": "予期しないエラーが発生しました。もう一度お試しください。",
+    "tryAgain": "再試行"
+  },
+  "window": {
+    "minimize": "最小化",
+    "maximize": "最大化",
+    "restore": "元に戻す",
+    "close": "閉じる"
   }
 }

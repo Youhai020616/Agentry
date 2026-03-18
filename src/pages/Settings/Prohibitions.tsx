@@ -162,7 +162,7 @@ export function Prohibitions() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <p className="text-sm text-muted-foreground">{t('common:loading')}</p>
+        <p className="text-sm text-muted-foreground">{t('common:status.loading')}</p>
       </div>
     );
   }

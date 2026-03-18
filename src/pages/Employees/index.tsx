@@ -6,8 +6,19 @@
 import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Users, UserPlus, Play, Pause, MessageSquare, Settings, Globe } from 'lucide-react';
+import {
+  Users,
+  UserPlus,
+  Play,
+  Pause,
+  MessageSquare,
+  Settings,
+  Globe,
+  LayoutGrid,
+  Monitor,
+} from 'lucide-react';
 import { motion } from 'framer-motion';
+import Office from '@/pages/Office';
 import { HireDialog } from './HireDialog';
 import { EmployeeSecrets } from './EmployeeSecrets';
 import { cn } from '@/lib/utils';
@@ -649,6 +660,7 @@ export function Employees() {
   const fetchTasks = useTasksStore((s) => s.fetchTasks);
   const fetchProjects = useTasksStore((s) => s.fetchProjects);
   const [showHire, setShowHire] = useState(false);
+  const [viewMode, setViewMode] = useState<'cards' | 'office'>('cards');
 
   useEffect(() => {
     init();
@@ -669,10 +681,32 @@ export function Employees() {
           <h1 className="font-pixel text-xl font-bold tracking-wide">{t('hub.title')}</h1>
           <p className="text-xs text-muted-foreground mt-1">{t('hub.subtitle')}</p>
         </div>
-        <Button onClick={() => setShowHire(true)} className="gap-1.5 rounded-xl">
-          <UserPlus className="h-4 w-4" />
-          {t('create.title')}
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-lg border border-border/50 p-0.5">
+            <Button
+              variant={viewMode === 'cards' ? 'default' : 'ghost'}
+              size="icon"
+              className="h-7 w-7 rounded-md"
+              onClick={() => setViewMode('cards')}
+              title={t('viewMode.cards')}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'office' ? 'default' : 'ghost'}
+              size="icon"
+              className="h-7 w-7 rounded-md"
+              onClick={() => setViewMode('office')}
+              title={t('viewMode.office')}
+            >
+              <Monitor className="h-4 w-4" />
+            </Button>
+          </div>
+          <Button onClick={() => setShowHire(true)} className="gap-1.5 rounded-xl">
+            <UserPlus className="h-4 w-4" />
+            {t('create.title')}
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -681,39 +715,47 @@ export function Employees() {
         </div>
       )}
 
-      {!loading && employees.length === 0 && (
-        <div className="flex flex-1 flex-col items-center justify-center gap-5 text-center">
-          <div
-            className="relative flex items-end justify-center rounded-2xl overflow-hidden"
-            style={{
-              width: 200,
-              height: 140,
-              background: 'linear-gradient(180deg, hsl(220 15% 10%), hsl(220 12% 14%))',
-            }}
-          >
-            <div className="mb-4 flex flex-col items-center">
-              <MiniMonitor status="offline" />
-              <div style={{ marginTop: -4 }}>
-                <MiniDesk />
+      {viewMode === 'cards' ? (
+        <>
+          {!loading && employees.length === 0 && (
+            <div className="flex flex-1 flex-col items-center justify-center gap-5 text-center">
+              <div
+                className="relative flex items-end justify-center rounded-2xl overflow-hidden"
+                style={{
+                  width: 200,
+                  height: 140,
+                  background: 'linear-gradient(180deg, hsl(220 15% 10%), hsl(220 12% 14%))',
+                }}
+              >
+                <div className="mb-4 flex flex-col items-center">
+                  <MiniMonitor status="offline" />
+                  <div style={{ marginTop: -4 }}>
+                    <MiniDesk />
+                  </div>
+                </div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Users className="h-10 w-10 text-muted-foreground/20" />
+                </div>
               </div>
+              <p className="font-pixel text-sm text-muted-foreground">{t('hub.empty')}</p>
+              <Button onClick={() => setShowHire(true)} className="gap-1.5 rounded-xl">
+                <UserPlus className="h-4 w-4" />
+                {t('create.title')}
+              </Button>
             </div>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Users className="h-10 w-10 text-muted-foreground/20" />
-            </div>
-          </div>
-          <p className="font-pixel text-sm text-muted-foreground">{t('hub.empty')}</p>
-          <Button onClick={() => setShowHire(true)} className="gap-1.5 rounded-xl">
-            <UserPlus className="h-4 w-4" />
-            {t('create.title')}
-          </Button>
-        </div>
-      )}
+          )}
 
-      {employees.length > 0 && (
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {employees.map((employee) => (
-            <EmployeeCard key={employee.id} employee={employee} />
-          ))}
+          {employees.length > 0 && (
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {employees.map((employee) => (
+                <EmployeeCard key={employee.id} employee={employee} />
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="flex-1 min-h-0 rounded-xl overflow-hidden border">
+          <Office />
         </div>
       )}
 

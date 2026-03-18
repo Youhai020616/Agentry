@@ -343,7 +343,7 @@ function ProjectGroup({
 
 // ── Main Page ──────────────────────────────────────────────────────
 
-export function Tasks() {
+export function Tasks({ embedded = false }: { embedded?: boolean }) {
   const { t } = useTranslation('tasks');
   const { tasks, projects, loading, error, fetchTasks, fetchProjects, init } = useTasksStore();
   const fetchEmployees = useEmployeesStore((s) => s.fetchEmployees);
@@ -394,53 +394,55 @@ export function Tasks() {
 
   return (
     <div className="flex h-full flex-col gap-6 overflow-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="font-pixel text-xl font-bold tracking-wide">{t('board.title')}</h1>
-          <p className="text-xs text-muted-foreground mt-1">
-            {t('board.subtitle', { taskCount: tasks.length, projectCount: projects.length })}
-          </p>
-        </div>
+      {/* Header — hidden when embedded inside Projects page */}
+      {!embedded && (
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h1 className="font-pixel text-xl font-bold tracking-wide">{t('board.title')}</h1>
+            <p className="text-xs text-muted-foreground mt-1">
+              {t('board.subtitle', { taskCount: tasks.length, projectCount: projects.length })}
+            </p>
+          </div>
 
-        <div className="flex items-center gap-2">
-          {/* Project filter */}
-          {projects.length > 0 && (
-            <select
-              value={filterProjectId ?? ''}
-              onChange={(e) => setFilterProjectId(e.target.value || null)}
-              className="h-7 rounded-lg border border-border/50 bg-card px-2 text-xs text-foreground"
-            >
-              <option value="">{t('board.allProjects')}</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.goal.length > 30 ? p.goal.slice(0, 30) + '...' : p.goal}
-                </option>
-              ))}
-            </select>
-          )}
+          <div className="flex items-center gap-2">
+            {/* Project filter */}
+            {projects.length > 0 && (
+              <select
+                value={filterProjectId ?? ''}
+                onChange={(e) => setFilterProjectId(e.target.value || null)}
+                className="h-7 rounded-lg border border-border/50 bg-card px-2 text-xs text-foreground"
+              >
+                <option value="">{t('board.allProjects')}</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.goal.length > 30 ? p.goal.slice(0, 30) + '...' : p.goal}
+                  </option>
+                ))}
+              </select>
+            )}
 
-          {/* View toggle */}
-          <div className="flex items-center rounded-lg border border-border/50 p-0.5">
-            <Button
-              variant={viewMode === 'projects' ? 'default' : 'ghost'}
-              size="icon"
-              className="h-6 w-6 rounded-md"
-              onClick={() => setViewMode('projects')}
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant={viewMode === 'kanban' ? 'default' : 'ghost'}
-              size="icon"
-              className="h-6 w-6 rounded-md"
-              onClick={() => setViewMode('kanban')}
-            >
-              <List className="h-3.5 w-3.5" />
-            </Button>
+            {/* View toggle */}
+            <div className="flex items-center rounded-lg border border-border/50 p-0.5">
+              <Button
+                variant={viewMode === 'projects' ? 'default' : 'ghost'}
+                size="icon"
+                className="h-6 w-6 rounded-md"
+                onClick={() => setViewMode('projects')}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+                size="icon"
+                className="h-6 w-6 rounded-md"
+                onClick={() => setViewMode('kanban')}
+              >
+                <List className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Error */}
       {error && (

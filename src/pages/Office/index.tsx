@@ -53,8 +53,13 @@ export default function Office() {
     const restore = () => {
       overlay.style.pointerEvents = 'auto';
       window.removeEventListener('mouseup', restore);
+      window.removeEventListener('mouseleave', restore);
     };
     window.addEventListener('mouseup', restore);
+    // Fallback: restore if mouse leaves the window (e.g. released inside iframe)
+    window.addEventListener('mouseleave', restore);
+    // Safety net: always restore after 5s to prevent permanent lock
+    setTimeout(restore, 5000);
   }, []);
 
   const isRunning = status.state === 'running';
@@ -153,8 +158,8 @@ export default function Office() {
                 transform: `scale(${scale})`,
                 transformOrigin: 'top left',
               }}
-              title="Star Office UI"
-              sandbox="allow-scripts allow-same-origin allow-popups"
+              title={t('iframeTitle')}
+              sandbox="allow-scripts allow-same-origin allow-popups allow-modals allow-forms"
             />
           </div>
         ) : (

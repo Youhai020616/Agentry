@@ -8,12 +8,12 @@ import { ManifestParser } from '../../engine/manifest-parser';
 import { logger } from '../../utils/logger';
 import type { IpcContext } from './types';
 
-export function register({ employeeManager }: IpcContext): void {
+export function register(ctx: IpcContext): void {
   const parser = new ManifestParser();
 
   ipcMain.handle('skill:listBuiltin', async () => {
     try {
-      const builtinDir = employeeManager.getBuiltinDirPath();
+      const builtinDir = ctx.employeeManager.getBuiltinDirPath();
 
       if (!existsSync(builtinDir)) {
         return { success: true, result: [] };

@@ -260,5 +260,9 @@
             ]
         }
     },
-    "viewDocs": "查看文档"
+    "viewDocs": "查看文档",
+    "configured": "已配置的频道",
+    "configuredDesc": "已激活的消息频道连接",
+    "configuredBadge": "已配置",
+    "deleteConfirm": "确定要删除此频道吗？"
 }

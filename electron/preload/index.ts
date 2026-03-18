@@ -276,13 +276,6 @@ const INVOKE_CHANNELS = [
   'star-office:restart',
   'star-office:status',
   'star-office:get-url',
-  // Studio Pipeline
-  'studio:brand-analysis',
-  'studio:text-generation',
-  'studio:image-generation',
-  'studio:video-generation',
-  'studio:publish',
-  'studio:cancel',
 ] as const;
 
 /** Channels allowed for event listening (on/once/off) */
@@ -315,7 +308,6 @@ const EVENT_CHANNELS = [
   'message:new',
   'ollama:pull-progress',
   'extension:install-progress',
-  'studio:log',
   'star-office:status-changed',
 ] as const;
 

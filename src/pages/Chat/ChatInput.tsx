@@ -24,6 +24,7 @@ import {
   File,
   Loader2,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { useChatStore } from '@/stores/chat';
 import { GlassFilter } from '@/components/ui/liquid-glass';
@@ -145,6 +146,7 @@ function useAutoResizeTextarea(minHeight: number, maxHeight: number) {
 // ── Component ────────────────────────────────────────────────────
 
 export function ChatInput({ onSend, onStop, disabled = false, sending = false }: ChatInputProps) {
+  const { t } = useTranslation('chat');
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const isComposingRef = useRef(false);
@@ -484,7 +486,7 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
                         <ImageIcon className="size-4" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="top">Upload image</TooltipContent>
+                    <TooltipContent side="top">{t('input.uploadImage')}</TooltipContent>
                   </Tooltip>
 
                   {/* Thinking toggle */}
@@ -512,7 +514,7 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
                       </button>
                     </TooltipTrigger>
                     <TooltipContent className="flex items-center gap-2" side="top">
-                      <span>Thinking</span>
+                      <span>{t('input.thinking')}</span>
                       <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
                         <span className="text-xs">
                           {navigator.platform.includes('Mac') ? '\u2318' : 'Ctrl'}
@@ -539,7 +541,7 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
                         <Paperclip className="size-4" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="top">Attach files</TooltipContent>
+                    <TooltipContent side="top">{t('input.attachFiles')}</TooltipContent>
                   </Tooltip>
 
                   {/* Spacer */}

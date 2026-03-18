@@ -260,5 +260,9 @@
             ]
         }
     },
-    "viewDocs": "View Documentation"
+    "viewDocs": "View Documentation",
+    "configured": "Configured Channels",
+    "configuredDesc": "Your active messaging channel connections",
+    "configuredBadge": "Configured",
+    "deleteConfirm": "Are you sure you want to delete this channel?"
 }

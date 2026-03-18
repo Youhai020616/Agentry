@@ -1,6 +1,10 @@
 {
   "title": "Projects",
   "subtitle": "All team collaboration projects orchestrated by supervisor",
+  "tabs": {
+    "projects": "Projects",
+    "tasks": "Tasks"
+  },
   "filters": {
     "all": "All",
     "executing": "Executing",

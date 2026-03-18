@@ -17,6 +17,7 @@
       "brainstorm": "一起来头脑风暴...",
       "analyzeData": "分析数据或总结内容..."
     },
+    "helpPrompt": "有什么我可以帮你的吗？",
     "askQuestions": "提问",
     "askQuestionsDesc": "获取任何话题的答案",
     "creativeTasks": "创意任务",
@@ -70,6 +71,11 @@
     "deleteConfirm": "确定要删除这个对话吗？",
     "conversations": "个对话",
     "conversation": "个对话"
+  },
+  "input": {
+    "uploadImage": "上传图片",
+    "thinking": "思考",
+    "attachFiles": "附加文件"
   },
   "tool": {
     "input": "输入",

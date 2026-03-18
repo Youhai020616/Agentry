@@ -11,6 +11,8 @@ import { FolderKanban, CheckCircle2, Circle, Loader2, Lock, Inbox, Clock } from 
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tasks as TasksView } from '@/pages/Tasks';
 import { useTasksStore } from '@/stores/tasks';
 import { useEmployeesStore } from '@/stores/employees';
 import type { Project, Task, ProjectStatus } from '@/types/task';
@@ -302,7 +304,7 @@ export function Projects() {
   }, [filtered]);
 
   return (
-    <div className="flex h-full flex-col gap-6 overflow-auto">
+    <div className="flex h-full flex-col gap-4 overflow-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -311,55 +313,73 @@ export function Projects() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        {FILTER_KEYS.map((key) => {
-          const count =
-            key === 'all' ? projects.length : projects.filter((p) => p.status === key).length;
-          return (
-            <Button
-              key={key}
-              variant={filter === key ? 'default' : 'ghost'}
-              size="sm"
-              className={cn('rounded-lg text-xs h-7 px-2.5', filter === key && 'shadow-sm')}
-              onClick={() => setFilter(key)}
-            >
-              {t(`filters.${key}`)}
-              {count > 0 && (
-                <Badge
-                  variant="outline"
-                  className="ml-1.5 text-[10px] px-1 py-0 h-4 min-w-4 justify-center"
-                >
-                  {count}
-                </Badge>
-              )}
-            </Button>
-          );
-        })}
-      </div>
+      <Tabs defaultValue="projects" className="flex flex-col flex-1 min-h-0 gap-4">
+        <TabsList className="w-fit">
+          <TabsTrigger value="projects">{t('tabs.projects')}</TabsTrigger>
+          <TabsTrigger value="tasks">{t('tabs.tasks')}</TabsTrigger>
+        </TabsList>
 
-      {/* Content */}
-      {sorted.length === 0 ? (
-        <EmptyState />
-      ) : (
-        <motion.div
-          variants={gridVariants}
-          initial="hidden"
-          animate="show"
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-        >
-          <AnimatePresence mode="popLayout">
-            {sorted.map((project, i) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                tasks={tasksByProject.get(project.id) ?? []}
-                span={i === 0 && sorted.length > 2 ? 'wide' : 'normal'}
-              />
-            ))}
-          </AnimatePresence>
-        </motion.div>
-      )}
+        <TabsContent value="projects" className="mt-0 flex-1 flex flex-col gap-4 overflow-auto">
+          {/* Filters */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {FILTER_KEYS.map((key) => {
+              const count =
+                key === 'all'
+                  ? projects.length
+                  : projects.filter((p) => p.status === key).length;
+              return (
+                <Button
+                  key={key}
+                  variant={filter === key ? 'default' : 'ghost'}
+                  size="sm"
+                  className={cn(
+                    'rounded-lg text-xs h-7 px-2.5',
+                    filter === key && 'shadow-sm'
+                  )}
+                  onClick={() => setFilter(key)}
+                >
+                  {t(`filters.${key}`)}
+                  {count > 0 && (
+                    <Badge
+                      variant="outline"
+                      className="ml-1.5 text-[10px] px-1 py-0 h-4 min-w-4 justify-center"
+                    >
+                      {count}
+                    </Badge>
+                  )}
+                </Button>
+              );
+            })}
+          </div>
+
+          {/* Project grid */}
+          {sorted.length === 0 ? (
+            <EmptyState />
+          ) : (
+            <motion.div
+              variants={gridVariants}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+            >
+              <AnimatePresence mode="popLayout">
+                {sorted.map((project, i) => (
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    tasks={tasksByProject.get(project.id) ?? []}
+                    span={i === 0 && sorted.length > 2 ? 'wide' : 'normal'}
+                  />
+                ))}
+              </AnimatePresence>
+            </motion.div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="tasks" className="mt-0 flex-1 overflow-auto">
+          <TasksView embedded />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

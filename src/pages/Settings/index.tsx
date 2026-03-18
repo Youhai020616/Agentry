@@ -16,7 +16,7 @@ import {
   Copy,
   FileText,
   Users,
-  Clapperboard,
+  Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,7 +31,7 @@ import { useGatewayStore } from '@/stores/gateway';
 import { useUpdateStore } from '@/stores/update';
 import { ProvidersSettings } from '@/components/settings/ProvidersSettings';
 import { UpdateSettings } from '@/components/settings/UpdateSettings';
-import { MediaStudioSettings } from '@/components/settings/MediaStudioSettings';
+import { Cron } from '@/pages/Cron';
 import { useTranslation } from 'react-i18next';
 import { SUPPORTED_LANGUAGES } from '@/i18n';
 type ControlUiInfo = {
@@ -354,19 +354,6 @@ export function Settings() {
         </CardContent>
       </Card>
 
-      {/* Media Studio */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clapperboard className="h-5 w-5" />
-            {t('mediaStudio.title')}
-          </CardTitle>
-          <CardDescription>{t('mediaStudio.description')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <MediaStudioSettings />
-        </CardContent>
-      </Card>
 
       {/* Gateway */}
       <Card>
@@ -470,6 +457,19 @@ export function Settings() {
               disabled={supervisorLoading}
             />
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Scheduled Tasks (Cron) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="h-5 w-5" />
+            {t('common:nav.cron')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Cron embedded />
         </CardContent>
       </Card>
 

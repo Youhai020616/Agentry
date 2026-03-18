@@ -6,6 +6,7 @@ import { Component, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import i18n from '@/i18n';
 
 interface Props {
   children: ReactNode;
@@ -47,10 +48,10 @@ export class ErrorBoundary extends Component<Props, State> {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-6 w-6 text-destructive" />
-                <CardTitle>Something went wrong</CardTitle>
+                <CardTitle>{i18n.t('common:error.title')}</CardTitle>
               </div>
               <CardDescription>
-                An unexpected error occurred. Please try again.
+                {i18n.t('common:error.description')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -61,7 +62,7 @@ export class ErrorBoundary extends Component<Props, State> {
               )}
               <Button onClick={this.handleReset} className="w-full">
                 <RefreshCw className="mr-2 h-4 w-4" />
-                Try Again
+                {i18n.t('common:error.tryAgain')}
               </Button>
             </CardContent>
           </Card>

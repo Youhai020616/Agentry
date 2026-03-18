@@ -25,7 +25,7 @@ import { configUpdateQueue } from '../../engine/config-update-queue';
 import { logger } from '../../utils/logger';
 import type { IpcContext } from './types';
 
-export function register({ employeeManager }: IpcContext): void {
+export function register(ctx: IpcContext): void {
   ipcMain.handle('openclaw:status', () => {
     const status = getOpenClawStatus();
     logger.info('openclaw:status IPC called', status);
@@ -75,7 +75,7 @@ export function register({ employeeManager }: IpcContext): void {
           saveChannelConfig(channelType, config);
         });
         try {
-          await employeeManager.syncChannelBindings();
+          await ctx.employeeManager.syncChannelBindings();
         } catch (err) {
           logger.warn(`Failed to sync channel bindings after saveConfig: ${err}`);
         }
@@ -131,7 +131,7 @@ export function register({ employeeManager }: IpcContext): void {
     try {
       await configUpdateQueue.enqueue(async () => setChannelEnabled(channelType, enabled));
       try {
-        await employeeManager.syncChannelBindings();
+        await ctx.employeeManager.syncChannelBindings();
       } catch (err) {
         logger.warn(`Failed to sync channel bindings after setEnabled: ${err}`);
       }

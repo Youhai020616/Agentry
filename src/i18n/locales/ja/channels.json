@@ -260,5 +260,9 @@
       "docsUrl": "https://docs.openclaw.ai/channels/mattermost"
     }
   },
-  "viewDocs": "ドキュメントを表示"
+  "viewDocs": "ドキュメントを表示",
+  "configured": "構成済みチャンネル",
+  "configuredDesc": "アクティブなメッセージングチャンネル接続",
+  "configuredBadge": "構成済み",
+  "deleteConfirm": "このチャンネルを削除してもよろしいですか？"
 }

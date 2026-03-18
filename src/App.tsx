@@ -21,7 +21,6 @@ import { Supervisor } from './pages/Supervisor';
 import { Tasks } from './pages/Tasks';
 import { Projects } from './pages/Projects';
 import { Browser } from './pages/Browser';
-import { MediaStudio } from './pages/MediaStudio';
 import Office from './pages/Office';
 import { ProjectDetail } from './pages/Projects/ProjectDetail';
 import { useSettingsStore } from './stores/settings';
@@ -178,7 +177,6 @@ function App() {
             <Route path="/skills" element={<Skills />} />
             <Route path="/cron" element={<Cron />} />
             <Route path="/browser" element={<Browser />} />
-            <Route path="/media-studio" element={<MediaStudio />} />
             <Route path="/office" element={<Office />} />
             <Route path="/settings/*" element={<Settings />} />
           </Route>

@@ -17,6 +17,7 @@
       "brainstorm": "Let's brainstorm ideas together...",
       "analyzeData": "Analyze data or summarize content..."
     },
+    "helpPrompt": "How can I help you today?",
     "askQuestions": "Ask Questions",
     "askQuestionsDesc": "Get answers on any topic",
     "creativeTasks": "Creative Tasks",
@@ -70,6 +71,11 @@
     "deleteConfirm": "Are you sure you want to delete this conversation?",
     "conversations": "conversations",
     "conversation": "conversation"
+  },
+  "input": {
+    "uploadImage": "Upload image",
+    "thinking": "Thinking",
+    "attachFiles": "Attach files"
   },
   "tool": {
     "input": "Input",

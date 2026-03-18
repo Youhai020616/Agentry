@@ -48,7 +48,6 @@ import { register as supervisor } from './supervisor';
 import { register as conversation } from './conversation';
 import { register as chatMessage } from './chat-message';
 import { register as browser } from './browser';
-import { register as studio } from './studio';
 import { register as starOffice } from './star-office';
 
 /**
@@ -97,7 +96,6 @@ const allModules = [
   conversation,
   chatMessage,
   browser,
-  studio,
   starOffice,
 ];
 
@@ -133,10 +131,17 @@ export function registerIpcHandlers(
     starOfficeManager,
   };
 
-  // Register all modules
+  // Register all modules — catch per-module errors so one failure doesn't
+  // prevent subsequent modules from registering their handlers.
+  let registered = 0;
   for (const register of allModules) {
-    register(ctx);
+    try {
+      register(ctx);
+      registered++;
+    } catch (error) {
+      logger.error('IPC handler module registration failed:', error);
+    }
   }
 
-  logger.info(`Registered ${allModules.length} IPC handler modules`);
+  logger.info(`Registered ${registered}/${allModules.length} IPC handler modules`);
 }

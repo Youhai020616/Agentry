@@ -132,28 +132,6 @@
     "save": "Save",
     "saved": "Brand context saved"
   },
-  "mediaStudio": {
-    "title": "Media Studio",
-    "description": "Configure API keys and models for the Media Studio content pipeline",
-    "imageApi": "Image Generation API",
-    "imageApiDesc": "API key for AI image generation (DeerAPI / Gemini)",
-    "imageModel": "Image Model",
-    "imageModelPlaceholder": "e.g. gemini-3-pro-image",
-    "videoApi": "Video Generation API",
-    "videoApiDesc": "API key for AI video generation",
-    "videoModel": "Video Model",
-    "videoModelPlaceholder": "e.g. veo-2.0-generate-001",
-    "videoApiUrl": "Video API URL",
-    "videoApiUrlPlaceholder": "e.g. https://api.deerapi.com/v1/chat/completions",
-    "apiKey": "API Key",
-    "apiKeyPlaceholder": "Enter API key",
-    "apiKeyStored": "API keys are stored securely on your local machine.",
-    "save": "Save",
-    "saved": "Media Studio settings saved",
-    "saveFailed": "Failed to save Media Studio settings",
-    "reset": "Reset to Defaults",
-    "resetDone": "Settings reset to defaults"
-  },
   "about": {
     "title": "About",
     "appName": "Agentry",
@@ -162,5 +140,108 @@
     "version": "Version {{version}}",
     "docs": "Website",
     "github": "GitHub"
+  },
+  "ollama": {
+    "checking": "Checking Ollama status...",
+    "installed": "Ollama installed",
+    "notInstalled": "Ollama not installed",
+    "running": "Ollama running",
+    "stopped": "Ollama stopped",
+    "install": "Install Ollama",
+    "pullModel": "Pull Model",
+    "pullPlaceholder": "e.g. llama3, mistral, codellama",
+    "pull": "Pull",
+    "pullSuccess": "Successfully pulled {{name}}",
+    "pullFailed": "Failed to pull model",
+    "deleteSuccess": "Deleted {{name}}",
+    "deleteFailed": "Failed to delete model",
+    "installedModels": "Installed Models",
+    "noModels": "No models installed. Pull a model to get started."
+  },
+  "teamMembers": {
+    "title": "Team Members",
+    "description": "Manage users who can access this Agentry instance",
+    "add": "Add Member",
+    "noUsers": "No team members yet",
+    "current": "Current",
+    "lastLogin": "Last login",
+    "switchTo": "Switch to this user",
+    "edit": "Edit member",
+    "delete": "Delete member",
+    "addDialog": {
+      "title": "Add Team Member",
+      "description": "Add a new user to this Agentry instance"
+    },
+    "editDialog": {
+      "title": "Edit Team Member",
+      "description": "Update member information"
+    },
+    "deleteDialog": {
+      "title": "Delete Team Member",
+      "description": "Are you sure you want to delete {{name}}? This action cannot be undone."
+    },
+    "fields": {
+      "name": "Name",
+      "namePlaceholder": "Enter name",
+      "email": "Email",
+      "emailPlaceholder": "Enter email (optional)",
+      "role": "Role"
+    },
+    "role": {
+      "admin": "Admin",
+      "manager": "Manager",
+      "member": "Member"
+    },
+    "toast": {
+      "added": "Team member added",
+      "failedAdd": "Failed to add team member",
+      "updated": "Team member updated",
+      "failedUpdate": "Failed to update team member",
+      "deleted": "Team member deleted",
+      "failedDelete": "Failed to delete team member",
+      "switched": "Switched user",
+      "failedSwitch": "Failed to switch user"
+    }
+  },
+  "license": {
+    "tier": {
+      "free": "Free",
+      "pro": "Pro",
+      "team": "Team"
+    },
+    "status": {
+      "valid": "Active",
+      "expired": "Expired",
+      "invalid": "Invalid",
+      "none": "No License"
+    },
+    "invalidKey": "Invalid license key",
+    "activated": "License activated successfully",
+    "deactivated": "License deactivated",
+    "expiresAt": "Expires {{date}}",
+    "perpetual": "Perpetual license",
+    "deactivate": "Deactivate",
+    "inputLabel": "License Key",
+    "inputPlaceholder": "AGENTRY-XXXX-XXXX-XXXX",
+    "activate": "Activate"
+  },
+  "prohibitions": {
+    "description": "Define rules and restrictions for your AI employees",
+    "add": "Add Rule",
+    "edit": "Edit Rule",
+    "delete": "Delete Rule",
+    "deleteConfirm": "Are you sure you want to delete this rule? This action cannot be undone.",
+    "created": "Rule created",
+    "updated": "Rule updated",
+    "deleted": "Rule deleted",
+    "noRules": "No rules defined yet. Add rules to guide your AI employees.",
+    "hard": "Hard Rule",
+    "hardDescription": "Must never be violated",
+    "soft": "Soft Rule",
+    "softDescription": "Preferred but can be overridden",
+    "level": "Rule Level",
+    "rule": "Rule",
+    "ruleDescription": "Description",
+    "enabled": "Toggle rule"
   }
 }

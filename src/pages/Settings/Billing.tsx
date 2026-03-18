@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { Crown, Zap, Users, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { CreditsChart } from '@/pages/Dashboard/CreditsChart';
 
 type Tier = 'free' | 'pro' | 'team';
 
@@ -155,6 +156,9 @@ export function Billing() {
           );
         })}
       </div>
+
+      {/* Credits Analytics */}
+      <CreditsChart />
     </div>
   );
 }

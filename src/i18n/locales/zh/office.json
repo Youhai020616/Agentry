@@ -1,6 +1,7 @@
 {
   "title": "像素办公室",
   "description": "将你的 AI 员工可视化为像素角色，在虚拟办公室中工作",
+  "iframeTitle": "Star Office 界面",
   "start": "启动办公室",
   "stop": "停止办公室",
   "restart": "重启",

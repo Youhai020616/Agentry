@@ -652,10 +652,10 @@ function RuntimeContent({ onStatusChange }: RuntimeContentProps) {
         </div>
         <div className="grid grid-cols-[1fr_auto] items-center gap-4 p-3 rounded-lg bg-muted/50">
           <div className="flex items-center gap-2 text-left">
-            <span>Gateway Service</span>
+            <span>{t('runtime.gatewayService')}</span>
             {checks.gateway.status === 'error' && (
               <Button variant="outline" size="sm" onClick={handleStartGateway}>
-                Start Gateway
+                {t('runtime.startGateway')}
               </Button>
             )}
           </div>
@@ -681,11 +681,11 @@ function RuntimeContent({ onStatusChange }: RuntimeContentProps) {
       {showLogs && (
         <div className="mt-4 p-4 rounded-lg bg-black/40 border border-border">
           <div className="flex items-center justify-between mb-2">
-            <p className="font-medium text-foreground text-sm">Application Logs</p>
+            <p className="font-medium text-foreground text-sm">{t('runtime.logs.title')}</p>
             <div className="flex gap-2">
               <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleOpenLogDir}>
                 <ExternalLink className="h-3 w-3 mr-1" />
-                Open Log Folder
+                {t('runtime.logs.openFolder')}
               </Button>
               <Button
                 variant="ghost"
@@ -693,12 +693,12 @@ function RuntimeContent({ onStatusChange }: RuntimeContentProps) {
                 className="h-7 text-xs"
                 onClick={() => setShowLogs(false)}
               >
-                Close
+                {t('runtime.logs.close')}
               </Button>
             </div>
           </div>
           <pre className="text-xs text-slate-300 bg-black/50 p-3 rounded max-h-60 overflow-auto whitespace-pre-wrap font-mono">
-            {logContent || '(No logs available yet)'}
+            {logContent || t('runtime.logs.noLogs')}
           </pre>
         </div>
       )}

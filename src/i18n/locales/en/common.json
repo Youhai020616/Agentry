@@ -6,7 +6,9 @@
     "channels": "Channels",
     "dashboard": "Activity",
     "settings": "Settings",
-    "devConsole": "Developer Console"
+    "devConsole": "Developer Console",
+    "more": "More",
+    "less": "Less"
   },
   "actions": {
     "save": "Save",
@@ -55,7 +57,6 @@
     "supervisor": "Supervisor",
     "projects": "Projects",
     "browser": "Browser",
-    "mediaStudio": "Media Studio",
     "office": "Pixel Office"
   },
   "gateway": {
@@ -73,5 +74,16 @@
     "disabled": "Supervisor mode disabled",
     "enableFailed": "Failed to enable Supervisor mode",
     "disableFailed": "Failed to disable Supervisor mode"
+  },
+  "error": {
+    "title": "Something went wrong",
+    "description": "An unexpected error occurred. Please try again.",
+    "tryAgain": "Try Again"
+  },
+  "window": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close": "Close"
   }
 }

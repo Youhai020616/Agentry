@@ -1,6 +1,7 @@
 {
   "title": "ピクセルオフィス",
   "description": "AI従業員をピクセルキャラクターとしてバーチャルオフィスで可視化",
+  "iframeTitle": "Star Office UI",
   "start": "オフィスを起動",
   "stop": "オフィスを停止",
   "restart": "再起動",

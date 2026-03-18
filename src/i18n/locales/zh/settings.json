@@ -132,28 +132,6 @@
     "save": "保存",
     "saved": "品牌上下文已保存"
   },
-  "mediaStudio": {
-    "title": "新媒体工作台",
-    "description": "配置新媒体工作台内容制作管线所需的 API 密钥和模型",
-    "imageApi": "图片生成 API",
-    "imageApiDesc": "AI 图片生成所需的 API 密钥（DeerAPI / Gemini）",
-    "imageModel": "图片模型",
-    "imageModelPlaceholder": "例如 gemini-3-pro-image",
-    "videoApi": "视频生成 API",
-    "videoApiDesc": "AI 视频生成所需的 API 密钥",
-    "videoModel": "视频模型",
-    "videoModelPlaceholder": "例如 veo-2.0-generate-001",
-    "videoApiUrl": "视频 API 地址",
-    "videoApiUrlPlaceholder": "例如 https://api.deerapi.com/v1/chat/completions",
-    "apiKey": "API 密钥",
-    "apiKeyPlaceholder": "请输入 API 密钥",
-    "apiKeyStored": "API 密钥安全地存储在您的本地机器上。",
-    "save": "保存",
-    "saved": "新媒体工作台设置已保存",
-    "saveFailed": "保存新媒体工作台设置失败",
-    "reset": "恢复默认",
-    "resetDone": "设置已恢复默认"
-  },
   "about": {
     "title": "关于",
     "appName": "Agentry",
@@ -162,5 +140,108 @@
     "version": "版本 {{version}}",
     "docs": "官网",
     "github": "GitHub"
+  },
+  "ollama": {
+    "checking": "正在检查 Ollama 状态...",
+    "installed": "Ollama 已安装",
+    "notInstalled": "Ollama 未安装",
+    "running": "Ollama 运行中",
+    "stopped": "Ollama 已停止",
+    "install": "安装 Ollama",
+    "pullModel": "拉取模型",
+    "pullPlaceholder": "例如 llama3, mistral, codellama",
+    "pull": "拉取",
+    "pullSuccess": "成功拉取 {{name}}",
+    "pullFailed": "拉取模型失败",
+    "deleteSuccess": "已删除 {{name}}",
+    "deleteFailed": "删除模型失败",
+    "installedModels": "已安装的模型",
+    "noModels": "暂未安装模型。拉取一个模型以开始使用。"
+  },
+  "teamMembers": {
+    "title": "团队成员",
+    "description": "管理可以访问此 Agentry 实例的用户",
+    "add": "添加成员",
+    "noUsers": "暂无团队成员",
+    "current": "当前用户",
+    "lastLogin": "上次登录",
+    "switchTo": "切换到此用户",
+    "edit": "编辑成员",
+    "delete": "删除成员",
+    "addDialog": {
+      "title": "添加团队成员",
+      "description": "向此 Agentry 实例添加新用户"
+    },
+    "editDialog": {
+      "title": "编辑团队成员",
+      "description": "更新成员信息"
+    },
+    "deleteDialog": {
+      "title": "删除团队成员",
+      "description": "确定要删除 {{name}} 吗？此操作无法撤销。"
+    },
+    "fields": {
+      "name": "姓名",
+      "namePlaceholder": "请输入姓名",
+      "email": "邮箱",
+      "emailPlaceholder": "请输入邮箱（可选）",
+      "role": "角色"
+    },
+    "role": {
+      "admin": "管理员",
+      "manager": "经理",
+      "member": "成员"
+    },
+    "toast": {
+      "added": "团队成员已添加",
+      "failedAdd": "添加团队成员失败",
+      "updated": "团队成员已更新",
+      "failedUpdate": "更新团队成员失败",
+      "deleted": "团队成员已删除",
+      "failedDelete": "删除团队成员失败",
+      "switched": "已切换用户",
+      "failedSwitch": "切换用户失败"
+    }
+  },
+  "license": {
+    "tier": {
+      "free": "免费版",
+      "pro": "专业版",
+      "team": "团队版"
+    },
+    "status": {
+      "valid": "已激活",
+      "expired": "已过期",
+      "invalid": "无效",
+      "none": "未授权"
+    },
+    "invalidKey": "无效的许可证密钥",
+    "activated": "许可证激活成功",
+    "deactivated": "许可证已停用",
+    "expiresAt": "到期时间 {{date}}",
+    "perpetual": "永久许可证",
+    "deactivate": "停用",
+    "inputLabel": "许可证密钥",
+    "inputPlaceholder": "AGENTRY-XXXX-XXXX-XXXX",
+    "activate": "激活"
+  },
+  "prohibitions": {
+    "description": "定义 AI 员工的行为规则和限制",
+    "add": "添加规则",
+    "edit": "编辑规则",
+    "delete": "删除规则",
+    "deleteConfirm": "确定要删除此规则吗？此操作无法撤销。",
+    "created": "规则已创建",
+    "updated": "规则已更新",
+    "deleted": "规则已删除",
+    "noRules": "暂未定义规则。添加规则来指导 AI 员工的行为。",
+    "hard": "硬性规则",
+    "hardDescription": "绝不可违反",
+    "soft": "软性规则",
+    "softDescription": "建议遵守，但可覆盖",
+    "level": "规则等级",
+    "rule": "规则内容",
+    "ruleDescription": "描述",
+    "enabled": "切换规则状态"
   }
 }

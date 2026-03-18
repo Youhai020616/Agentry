@@ -35,5 +35,18 @@
     "minutesAgo": "{{count}} 分钟前",
     "hoursAgo": "{{count}} 小时前",
     "daysAgo": "{{count}} 天前"
+  },
+  "creditsChart": {
+    "title": "积分分析",
+    "dailyUsage": "每日用量",
+    "days7": "7天",
+    "days14": "14天",
+    "days30": "30天",
+    "credits": "{{count}} 积分",
+    "noData": "暂无数据",
+    "byEmployee": "按员工",
+    "byType": "按类型",
+    "forecast": "余额预测",
+    "daysRemaining": "天（按当前速率）"
   }
 }
