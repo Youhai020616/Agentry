@@ -1,25 +1,62 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { Play, Square, RotateCw, ExternalLink, Monitor, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useStarOfficeStore } from '@/stores/star-office';
+import { useChatStore } from '@/stores/chat';
+import { useGatewayStore } from '@/stores/gateway';
 import { cn } from '@/lib/utils';
 
 /** Original Star Office design dimensions */
 const DESIGN_WIDTH = 1280;
-const DESIGN_HEIGHT = 760; // 720 canvas + 40 padding (bottom panels now in floating drawers)
+const DESIGN_HEIGHT = 820; // 720 canvas + 60 chat bar + 40 padding
+
+/** Max text length sent to iframe for display (truncated in bubble) */
+const MAX_BUBBLE_TEXT = 500;
 
 export default function Office() {
   const { t } = useTranslation('office');
+  const navigate = useNavigate();
   const { status, init, start, stop, restart } = useStarOfficeStore();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
+  const iframReadyRef = useRef(false);
+
+  // Chat store bindings (Supervisor session)
+  const messages = useChatStore((s) => s.messages);
+  const sending = useChatStore((s) => s.sending);
+  const streamingMessage = useChatStore((s) => s.streamingMessage);
+  const sendMessage = useChatStore((s) => s.sendMessage);
+  const loadSessions = useChatStore((s) => s.loadSessions);
+  const loadHistory = useChatStore((s) => s.loadHistory);
+  const currentSessionKey = useChatStore((s) => s.currentSessionKey);
+  const gatewayStatus = useGatewayStore((s) => s.status);
+  const isGatewayRunning = gatewayStatus.state === 'running';
+
+  // Track last message count to detect new messages
+  const lastMessageCountRef = useRef(0);
+  const lastStreamTextRef = useRef('');
 
   useEffect(() => {
     init();
   }, [init]);
+
+  // Load supervisor session when gateway is running
+  useEffect(() => {
+    if (isGatewayRunning) {
+      void loadSessions();
+    }
+  }, [isGatewayRunning, loadSessions]);
+
+  // Load history when session changes
+  useEffect(() => {
+    if (currentSessionKey) {
+      void loadHistory();
+    }
+  }, [currentSessionKey, loadHistory]);
 
   const updateScale = useCallback(() => {
     if (containerRef.current) {
@@ -36,6 +73,125 @@ export default function Office() {
     }
     return () => observer.disconnect();
   }, [updateScale]);
+
+  // ── PostMessage helpers ──
+  const postToIframe = useCallback(
+    (type: string, payload: unknown) => {
+      iframeRef.current?.contentWindow?.postMessage({ type, payload }, '*');
+    },
+    []
+  );
+
+  // ── Listen to iframe messages ──
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      const data = event.data;
+      if (!data || typeof data.type !== 'string') return;
+
+      switch (data.type) {
+        case 'office:chat:ready':
+          iframReadyRef.current = true;
+          // Send history to iframe
+          _syncHistoryToIframe();
+          break;
+
+        case 'office:chat:send': {
+          const text = data.payload?.text;
+          if (text && !sending) {
+            void sendMessage(text);
+          }
+          break;
+        }
+
+        case 'office:chat:navigate':
+          // Navigate to supervisor chat page
+          navigate('/chat');
+          break;
+      }
+    };
+
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sending, navigate]);
+
+  // Helper to extract plain text from a message
+  const _extractText = useCallback((msg: { content?: unknown }): string => {
+    const content = msg.content;
+    if (typeof content === 'string') return content;
+    if (Array.isArray(content)) {
+      return content
+        .filter((p: { type?: string }) => p.type === 'text')
+        .map((p: { text?: string }) => p.text || '')
+        .join('\n');
+    }
+    return '';
+  }, []);
+
+  // Sync full history to iframe
+  const _syncHistoryToIframe = useCallback(() => {
+    if (!iframReadyRef.current) return;
+    const history = messages
+      .filter((m) => m.role === 'user' || m.role === 'assistant')
+      .slice(-20) // last 20 messages
+      .map((m) => ({
+        role: m.role,
+        content: _extractText(m).substring(0, MAX_BUBBLE_TEXT),
+        timestamp: m.timestamp || Date.now(),
+      }));
+    postToIframe('office:chat:history', { messages: history });
+  }, [messages, postToIframe, _extractText]);
+
+  // ── Forward new messages to iframe ──
+  useEffect(() => {
+    if (!iframReadyRef.current) return;
+
+    const currentCount = messages.length;
+    if (currentCount > lastMessageCountRef.current) {
+      // New messages added
+      const newMessages = messages.slice(lastMessageCountRef.current);
+      for (const msg of newMessages) {
+        if (msg.role === 'user' || msg.role === 'assistant') {
+          postToIframe('office:chat:message', {
+            id: msg.id || Date.now().toString(),
+            role: msg.role,
+            content: _extractText(msg).substring(0, MAX_BUBBLE_TEXT),
+            timestamp: msg.timestamp || Date.now(),
+          });
+        }
+      }
+    }
+    lastMessageCountRef.current = currentCount;
+  }, [messages, postToIframe, _extractText]);
+
+  // ── Forward streaming to iframe ──
+  useEffect(() => {
+    if (!iframReadyRef.current) return;
+
+    if (streamingMessage) {
+      const text = _extractText(streamingMessage as Record<string, unknown>);
+      const msg = streamingMessage as Record<string, unknown>;
+      const delta = text.substring(lastStreamTextRef.current.length);
+      if (delta) {
+        postToIframe('office:chat:stream', {
+          id: (msg.id as string) || 'stream',
+          delta,
+        });
+      }
+      lastStreamTextRef.current = text;
+    } else if (lastStreamTextRef.current) {
+      // Streaming ended
+      postToIframe('office:chat:stream:end', { id: 'stream' });
+      lastStreamTextRef.current = '';
+    }
+  }, [streamingMessage, postToIframe, _extractText]);
+
+  // ── Forward sending status ──
+  useEffect(() => {
+    if (iframReadyRef.current) {
+      postToIframe('office:chat:status', { sending });
+    }
+  }, [sending, postToIframe]);
 
   const isRunning = status.state === 'running';
   const isStarting = status.state === 'starting';
