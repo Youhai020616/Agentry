@@ -765,8 +765,8 @@ export class GatewayManager extends EventEmitter {
     // Employees store secrets like BRAVE_API_KEY, DEERAPI_KEY, etc. in electron-store.
     // These need to be injected as env vars for the Gateway's built-in tools.
     try {
-      const ElectronStore = (await import('electron-store')).default;
-      const secretsStore = new ElectronStore({ name: 'employee-secrets' });
+      const { getStore: getStoreFactory } = await import('../utils/store-factory');
+      const secretsStore = await getStoreFactory('employee-secrets');
       const toolEnvKeys: Record<string, string> = {
         BRAVE_API_KEY: 'browser-agent',
         DEERAPI_KEY: 'new-media',

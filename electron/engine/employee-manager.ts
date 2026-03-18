@@ -864,35 +864,13 @@ export class EmployeeManager extends EventEmitter {
 
   // ── Lazy-loaded electron-store instances ─────────────────────────
 
-  private _secretsStore: unknown = null;
-
-  private async getSecretsStore(): Promise<{
-    get: (key: string) => unknown;
-    set: (key: string, value: unknown) => void;
-  }> {
-    if (!this._secretsStore) {
-      const ElectronStore = (await import('electron-store')).default;
-      this._secretsStore = new ElectronStore({ name: 'employee-secrets' });
-    }
-    return this._secretsStore as {
-      get: (key: string) => unknown;
-      set: (key: string, value: unknown) => void;
-    };
+  private async getSecretsStore() {
+    const { getStore } = await import('../utils/store-factory');
+    return getStore('employee-secrets');
   }
 
-  private _onboardingStore: unknown = null;
-
-  private async getOnboardingStore(): Promise<{
-    get: (key: string) => unknown;
-    set: (key: string, value: unknown) => void;
-  }> {
-    if (!this._onboardingStore) {
-      const ElectronStore = (await import('electron-store')).default;
-      this._onboardingStore = new ElectronStore({ name: 'employee-onboarding' });
-    }
-    return this._onboardingStore as {
-      get: (key: string) => unknown;
-      set: (key: string, value: unknown) => void;
-    };
+  private async getOnboardingStore() {
+    const { getStore } = await import('../utils/store-factory');
+    return getStore('employee-onboarding');
   }
 }

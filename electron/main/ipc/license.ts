@@ -5,22 +5,11 @@ import { ipcMain } from 'electron';
 import { LicenseValidator } from '../../utils/license-validator';
 import type { LicenseInfo } from '../../utils/license-validator';
 import { logger } from '../../utils/logger';
+import { getStore } from '../../utils/store-factory';
 import type { IpcContext } from './types';
 
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _licenseStoreInstance: any = null;
-
-async function getLicenseStore(): Promise<{
-  get: (key: string, defaultValue?: unknown) => unknown;
-  set: (key: string, value: unknown) => void;
-  delete: (key: string) => void;
-}> {
-  if (!_licenseStoreInstance) {
-    const ElectronStore = (await import('electron-store')).default;
-    _licenseStoreInstance = new ElectronStore({ name: 'agentry-license' });
-  }
-  return _licenseStoreInstance;
+async function getLicenseStore() {
+  return getStore('agentry-license');
 }
 
 export function register(_ctx: IpcContext): void {

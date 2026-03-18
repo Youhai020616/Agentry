@@ -4,16 +4,13 @@
 import { ipcMain } from 'electron';
 import crypto from 'node:crypto';
 import { logger } from '../../utils/logger';
+import { getStore } from '../../utils/store-factory';
 import type { IpcContext } from './types';
 
 
 // ---------------------------------------------------------------------------
 // Conversation (Chat History) Handlers
 // ---------------------------------------------------------------------------
-
-/** Lazy-loaded electron-store for conversation persistence */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _conversationStore: any = null;
 
 interface ConversationRecord {
   id: string;
@@ -32,16 +29,7 @@ interface ConversationRecord {
 }
 
 async function getConversationStore() {
-  if (!_conversationStore) {
-    const ElectronStore = (await import('electron-store')).default;
-    _conversationStore = new ElectronStore<{ conversations: ConversationRecord[] }>({
-      name: 'agentry-conversations',
-      defaults: {
-        conversations: [],
-      },
-    });
-  }
-  return _conversationStore;
+  return getStore('agentry-conversations', { defaults: { conversations: [] } });
 }
 
 export function register(_ctx: IpcContext): void {
@@ -49,7 +37,7 @@ export function register(_ctx: IpcContext): void {
   ipcMain.handle('conversation:listAll', async () => {
     try {
       const store = await getConversationStore();
-      const conversations: ConversationRecord[] = store.get('conversations', []);
+      const conversations: ConversationRecord[] = (store.get('conversations', []) as ConversationRecord[]) as ConversationRecord[];
       return { success: true, result: conversations };
     } catch (error) {
       logger.error('conversation:listAll failed:', error);
@@ -72,7 +60,7 @@ export function register(_ctx: IpcContext): void {
     ) => {
       try {
         const store = await getConversationStore();
-        let conversations: ConversationRecord[] = store.get('conversations', []);
+        let conversations: ConversationRecord[] = (store.get('conversations', []) as ConversationRecord[]) as ConversationRecord[];
 
         if (filter) {
           if (filter.participantType) {
@@ -121,7 +109,7 @@ export function register(_ctx: IpcContext): void {
   ipcMain.handle('conversation:get', async (_, id: string) => {
     try {
       const store = await getConversationStore();
-      const conversations: ConversationRecord[] = store.get('conversations', []);
+      const conversations: ConversationRecord[] = (store.get('conversations', []) as ConversationRecord[]) as ConversationRecord[];
       const conversation = conversations.find((c) => c.id === id);
       if (!conversation) {
         return { success: false, error: `Conversation not found: ${id}` };
@@ -149,7 +137,7 @@ export function register(_ctx: IpcContext): void {
     ) => {
       try {
         const store = await getConversationStore();
-        const conversations: ConversationRecord[] = store.get('conversations', []);
+        const conversations: ConversationRecord[] = (store.get('conversations', []) as ConversationRecord[]) as ConversationRecord[];
 
         const now = Date.now();
         const record: ConversationRecord = {
@@ -197,7 +185,7 @@ export function register(_ctx: IpcContext): void {
     ) => {
       try {
         const store = await getConversationStore();
-        const conversations: ConversationRecord[] = store.get('conversations', []);
+        const conversations: ConversationRecord[] = (store.get('conversations', []) as ConversationRecord[]) as ConversationRecord[];
         const idx = conversations.findIndex((c) => c.id === params.id);
         if (idx === -1) {
           return { success: false, error: `Conversation not found: ${params.id}` };
@@ -222,7 +210,7 @@ export function register(_ctx: IpcContext): void {
   ipcMain.handle('conversation:delete', async (_, id: string) => {
     try {
       const store = await getConversationStore();
-      const conversations: ConversationRecord[] = store.get('conversations', []);
+      const conversations: ConversationRecord[] = (store.get('conversations', []) as ConversationRecord[]) as ConversationRecord[];
       const filtered = conversations.filter((c) => c.id !== id);
       store.set('conversations', filtered);
 
