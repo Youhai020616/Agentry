@@ -55,7 +55,10 @@ export default function Office() {
   const updateScale = useCallback(() => {
     if (containerRef.current) {
       const cw = containerRef.current.clientWidth;
-      setScale(Math.min(1, cw / DESIGN_WIDTH));
+      const ch = containerRef.current.clientHeight;
+      const scaleX = cw / DESIGN_WIDTH;
+      const scaleY = ch / DESIGN_HEIGHT;
+      setScale(Math.min(1, scaleX, scaleY));
     }
   }, []);
 
@@ -231,10 +234,10 @@ export default function Office() {
       </div>
 
       {/* Content */}
-      <div ref={containerRef} className="flex-1 overflow-hidden">
+      <div ref={containerRef} className="flex-1 overflow-hidden flex items-center justify-center">
         {isRunning && status.url ? (
           <div
-            className="relative mx-auto"
+            className="relative"
             style={{
               width: Math.ceil(DESIGN_WIDTH * scale),
               height: Math.ceil(DESIGN_HEIGHT * scale),
