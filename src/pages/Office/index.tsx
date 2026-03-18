@@ -39,6 +39,10 @@ export default function Office() {
   // Track last message count to detect new messages
   const lastMessageCountRef = useRef(0);
   const lastStreamTextRef = useRef('');
+  // When streaming ends, the finalized message will appear in messages[].
+  // Skip forwarding it to avoid duplicate bubbles.
+  const skipNextAssistantRef = useRef(false);
+  const skipNextUserRef = useRef(false);
 
   useEffect(() => {
     init();
@@ -98,6 +102,8 @@ export default function Office() {
         case 'office:chat:send': {
           const text = data.payload?.text;
           if (text && !sending) {
+            // Skip the next user message from messages[] — iframe already rendered it
+            skipNextUserRef.current = true;
             void sendMessage(text);
           }
           break;
@@ -151,6 +157,17 @@ export default function Office() {
       // New messages added
       const newMessages = messages.slice(lastMessageCountRef.current);
       for (const msg of newMessages) {
+        // Skip messages already rendered in iframe to avoid duplicates:
+        // - User messages: iframe renders immediately on send
+        // - Assistant messages: iframe renders via streaming
+        if (msg.role === 'user' && skipNextUserRef.current) {
+          skipNextUserRef.current = false;
+          continue;
+        }
+        if (msg.role === 'assistant' && skipNextAssistantRef.current) {
+          skipNextAssistantRef.current = false;
+          continue;
+        }
         if (msg.role === 'user' || msg.role === 'assistant') {
           postToIframe('office:chat:message', {
             id: msg.id || Date.now().toString(),
@@ -180,7 +197,9 @@ export default function Office() {
       }
       lastStreamTextRef.current = text;
     } else if (lastStreamTextRef.current) {
-      // Streaming ended
+      // Streaming ended — mark to skip the next assistant message from messages[]
+      // to avoid duplicate bubbles (stream already rendered it)
+      skipNextAssistantRef.current = true;
       postToIframe('office:chat:stream:end', { id: 'stream' });
       lastStreamTextRef.current = '';
     }
