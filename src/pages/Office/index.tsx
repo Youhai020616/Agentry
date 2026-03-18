@@ -8,14 +8,13 @@ import { cn } from '@/lib/utils';
 
 /** Original Star Office design dimensions */
 const DESIGN_WIDTH = 1280;
-const DESIGN_HEIGHT = 1100; // 720 canvas + 300 bottom panels + 80 paddings/gaps
+const DESIGN_HEIGHT = 760; // 720 canvas + 40 padding (bottom panels now in floating drawers)
 
 export default function Office() {
   const { t } = useTranslation('office');
   const { status, init, start, stop, restart } = useStarOfficeStore();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 
   useEffect(() => {
@@ -25,7 +24,6 @@ export default function Office() {
   const updateScale = useCallback(() => {
     if (containerRef.current) {
       const cw = containerRef.current.clientWidth;
-      // Scale to fill container width; vertical overflow handled by scrolling
       setScale(Math.min(1, cw / DESIGN_WIDTH));
     }
   }, []);
@@ -38,40 +36,6 @@ export default function Office() {
     }
     return () => observer.disconnect();
   }, [updateScale]);
-
-  // Overlay handler: wheel scrolls parent container, not the iframe.
-  // Must use native addEventListener with { passive: false } because React
-  // registers wheel listeners as passive, making preventDefault() a no-op.
-  useEffect(() => {
-    const overlay = overlayRef.current;
-    const container = containerRef.current;
-    if (!overlay || !container) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      container.scrollBy({ top: e.deltaY });
-    };
-
-    overlay.addEventListener('wheel', handleWheel, { passive: false });
-    return () => overlay.removeEventListener('wheel', handleWheel);
-  }, []);
-
-  const handleOverlayMouseDown = useCallback(() => {
-    const overlay = overlayRef.current;
-    if (!overlay) return;
-    // Hide overlay so pointer events reach the iframe underneath
-    overlay.style.pointerEvents = 'none';
-    const restore = () => {
-      overlay.style.pointerEvents = 'auto';
-      window.removeEventListener('mouseup', restore);
-      window.removeEventListener('mouseleave', restore);
-    };
-    window.addEventListener('mouseup', restore);
-    // Fallback: restore if mouse leaves the window (e.g. released inside iframe)
-    window.addEventListener('mouseleave', restore);
-    // Safety net: always restore after 5s to prevent permanent lock
-    setTimeout(restore, 5000);
-  }, []);
 
   const isRunning = status.state === 'running';
   const isStarting = status.state === 'starting';
@@ -142,7 +106,7 @@ export default function Office() {
       </div>
 
       {/* Content */}
-      <div ref={containerRef} className="flex-1 overflow-auto">
+      <div ref={containerRef} className="flex-1 overflow-hidden">
         {isRunning && status.url ? (
           <div
             className="relative mx-auto"
@@ -152,12 +116,6 @@ export default function Office() {
               overflow: 'hidden',
             }}
           >
-            {/* Transparent overlay: captures wheel → scrolls parent, passes clicks → iframe */}
-            <div
-              ref={overlayRef}
-              className="absolute inset-0 z-10"
-              onMouseDown={handleOverlayMouseDown}
-            />
             <iframe
               ref={iframeRef}
               src={status.url}
