@@ -24,7 +24,7 @@ type IpcResult<T> = IpcSuccess<T> | IpcError;
  * Returns `{ success: true, result: T }` on success,
  * `{ success: false, error: string }` on failure.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export function ipcHandle<T>(
   channel: string,
   fn: (...args: any[]) => Promise<T> | T
