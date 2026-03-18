@@ -281,18 +281,23 @@ async function initialize(): Promise<void> {
   // Bind employee status changes to system tray and forward to renderer
   if (engineContext) {
     const engine = engineContext;
-    const refreshTray = () => {
-      if (!mainWindow || mainWindow.isDestroyed()) return;
-      const employees = engine.employeeManager.list();
-      const trayInfos: EmployeeTrayInfo[] = employees.map((e) => ({
-        id: e.id,
-        name: e.name,
-        status: e.status,
-      }));
-      updateTrayMenu(mainWindow!, trayInfos);
+    let trayRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+    const debouncedRefreshTray = () => {
+      if (trayRefreshTimer) clearTimeout(trayRefreshTimer);
+      trayRefreshTimer = setTimeout(() => {
+        trayRefreshTimer = null;
+        if (!mainWindow || mainWindow.isDestroyed()) return;
+        const employees = engine.employeeManager.list();
+        const trayInfos: EmployeeTrayInfo[] = employees.map((e) => ({
+          id: e.id,
+          name: e.name,
+          status: e.status,
+        }));
+        updateTrayMenu(mainWindow!, trayInfos);
+      }, 300);
     };
-    engine.employeeManager.on('status', refreshTray);
-    refreshTray();
+    engine.employeeManager.on('status', debouncedRefreshTray);
+    debouncedRefreshTray();
 
     // NOTE: employee:status-changed forwarding to renderer is handled by
     // the `forwardStatus` listener in ipc/employee.ts (via getEmployeeManager()).
@@ -323,6 +328,9 @@ app.on('window-all-closed', () => {
 
 let cleanupDone = false;
 
+/** Maximum time (ms) to wait for async cleanup before force-quitting. */
+const QUIT_TIMEOUT_MS = 10_000;
+
 app.on('before-quit', (event) => {
   isQuitting = true;
 
@@ -330,6 +338,13 @@ app.on('before-quit', (event) => {
 
   // Prevent immediate quit to allow async cleanup
   event.preventDefault();
+
+  // Safety net: force quit if cleanup takes too long
+  const forceQuitTimer = setTimeout(() => {
+    logger.warn(`Cleanup timeout (${QUIT_TIMEOUT_MS}ms) — forcing quit`);
+    cleanupDone = true;
+    app.exit(0);
+  }, QUIT_TIMEOUT_MS);
 
   (async () => {
     // Clean up extension child processes
@@ -376,6 +391,7 @@ app.on('before-quit', (event) => {
     starOfficeSyncBridge.destroy();
     await starOfficeManager.destroy();
     await gatewayManager.stop();
+    clearTimeout(forceQuitTimer);
     cleanupDone = true;
     app.quit(); // Re-trigger quit now that cleanup is done
   })();
