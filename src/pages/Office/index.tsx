@@ -9,8 +9,10 @@ import { useChatStore } from '@/stores/chat';
 import { useGatewayStore } from '@/stores/gateway';
 import { cn } from '@/lib/utils';
 
-const DESIGN_WIDTH = 1280;
-const DESIGN_HEIGHT = 820; // 720 canvas + 60 chat bar + 40 padding
+const _DESIGN_WIDTH = 1280;
+const _DESIGN_HEIGHT = 820; // 720 canvas + 60 chat bar + 40 padding
+// Aspect ratio used for sizing, not for CSS transform
+const ASPECT_RATIO = _DESIGN_WIDTH / _DESIGN_HEIGHT;
 const SUPERVISOR_SESSION_KEY = 'agent:supervisor:main';
 const MAX_BUBBLE_TEXT = 500;
 const MAX_HISTORY = 30;
@@ -21,7 +23,7 @@ export default function Office() {
   const { status, init, start } = useStarOfficeStore();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
+  const [iframeSize, setIframeSize] = useState({ width: 0, height: 0 });
   const iframeReadyRef = useRef(false);
 
   // Chat store
@@ -59,24 +61,29 @@ export default function Office() {
     });
   }, [isGatewayRunning, loadSessions, switchSession]);
 
-  const updateScale = useCallback(() => {
+  // Calculate iframe size to fill container while maintaining aspect ratio
+  const updateSize = useCallback(() => {
     if (containerRef.current) {
       const cw = containerRef.current.clientWidth;
       const ch = containerRef.current.clientHeight;
-      const scaleX = cw / DESIGN_WIDTH;
-      const scaleY = ch / DESIGN_HEIGHT;
-      setScale(Math.min(1, scaleX, scaleY));
+      if (cw / ch > ASPECT_RATIO) {
+        // Container is wider — constrain by height
+        setIframeSize({ width: Math.floor(ch * ASPECT_RATIO), height: ch });
+      } else {
+        // Container is taller — constrain by width
+        setIframeSize({ width: cw, height: Math.floor(cw / ASPECT_RATIO) });
+      }
     }
   }, []);
 
   useEffect(() => {
-    updateScale();
-    const observer = new ResizeObserver(updateScale);
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
     if (containerRef.current) {
       observer.observe(containerRef.current);
     }
     return () => observer.disconnect();
-  }, [updateScale]);
+  }, [updateSize]);
 
   // ── PostMessage helper ──
   const postToIframe = useCallback((type: string, payload: unknown) => {
@@ -221,28 +228,17 @@ export default function Office() {
       {/* Content */}
       <div ref={containerRef} className="flex-1 overflow-hidden flex items-center justify-center">
         {isRunning && status.url ? (
-          <div
-            className="relative"
+          <iframe
+            ref={iframeRef}
+            src={status.url}
+            className="border-0"
             style={{
-              width: Math.ceil(DESIGN_WIDTH * scale),
-              height: Math.ceil(DESIGN_HEIGHT * scale),
-              overflow: 'hidden',
+              width: iframeSize.width || '100%',
+              height: iframeSize.height || '100%',
             }}
-          >
-            <iframe
-              ref={iframeRef}
-              src={status.url}
-              className="border-0"
-              style={{
-                width: DESIGN_WIDTH,
-                height: DESIGN_HEIGHT,
-                transform: `scale(${scale})`,
-                transformOrigin: 'top left',
-              }}
-              title={t('iframeTitle')}
-              sandbox="allow-scripts allow-same-origin allow-popups allow-modals allow-forms"
-            />
-          </div>
+            title={t('iframeTitle')}
+            sandbox="allow-scripts allow-same-origin allow-popups allow-modals allow-forms"
+          />
         ) : (
           <EmptyState state={status.state} error={status.error} onStart={start} t={t} />
         )}
