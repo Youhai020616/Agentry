@@ -41,8 +41,9 @@ jobs:
       - name: Test
         run: pnpm run test
 
-  # ── Build verification (multi-platform) ──────────────────────
+  # ── Build verification (multi-platform, main only) ────────────
   build:
+    if: github.ref == 'refs/heads/main'
     needs: check
     strategy:
       fail-fast: false
