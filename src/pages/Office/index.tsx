@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Play, RotateCw, ExternalLink, Monitor, Loader2 } from 'lucide-react';
+import { Play, Square, RotateCw, ExternalLink, Monitor, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useStarOfficeStore } from '@/stores/star-office';
@@ -20,7 +20,7 @@ const MAX_HISTORY = 30;
 export default function Office() {
   const { t } = useTranslation('office');
   const navigate = useNavigate();
-  const { status, init, start } = useStarOfficeStore();
+  const { status, init, start, stop, restart } = useStarOfficeStore();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [iframeSize, setIframeSize] = useState({ width: 0, height: 0 });
@@ -181,6 +181,7 @@ export default function Office() {
 
   const isRunning = status.state === 'running';
   const isStarting = status.state === 'starting';
+  const isStopped = status.state === 'stopped';
   const hasError = status.state === 'error';
 
   const handleOpenExternal = () => {
@@ -198,29 +199,44 @@ export default function Office() {
         <Monitor className="h-4 w-4 text-muted-foreground" />
         <h1 className="text-sm font-medium">{t('title')}</h1>
 
-        {(isStarting || hasError) && (
-          <Badge variant={statusVariant} className="ml-1">
-            {isStarting && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
-            {t(`status.${status.state}`)}
-          </Badge>
-        )}
+        <Badge variant={statusVariant} className="ml-1">
+          {isStarting && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+          {t(`status.${status.state}`)}
+        </Badge>
 
         <div className="flex-1" />
 
-        {isRunning && (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={handleOpenExternal}
-            title={t('openExternal')}
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
+        {isStopped && (
+          <Button size="sm" variant="default" onClick={start}>
+            <Play className="mr-1.5 h-3.5 w-3.5" />
+            {t('start')}
           </Button>
         )}
 
+        {isRunning && (
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleOpenExternal}
+              title={t('openExternal')}
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+            </Button>
+            <Button size="sm" variant="ghost" onClick={restart}>
+              <RotateCw className="h-3.5 w-3.5" />
+            </Button>
+            <Button size="sm" variant="destructive" onClick={stop}>
+              <Square className="mr-1.5 h-3.5 w-3.5" />
+              {t('stop')}
+            </Button>
+          </>
+        )}
+
         {hasError && (
-          <Button size="sm" variant="ghost" onClick={start} title={t('restart')}>
-            <RotateCw className="h-3.5 w-3.5" />
+          <Button size="sm" variant="default" onClick={start}>
+            <RotateCw className="mr-1.5 h-3.5 w-3.5" />
+            {t('restart')}
           </Button>
         )}
       </div>
