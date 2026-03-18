@@ -100,10 +100,11 @@ describe('ConfigUpdateQueue', () => {
     it('should continue processing after a failed operation', async () => {
       const order: string[] = [];
 
+      // Use 0 retries so the first op fails immediately without retry noise
       const p1 = queue.enqueue(async () => {
         order.push('first-start');
         throw new Error('first fails');
-      });
+      }, 0);
 
       const p2 = queue.enqueue(async () => {
         order.push('second-ok');
@@ -160,6 +161,55 @@ describe('ConfigUpdateQueue', () => {
       // During execution: first saw 2 pending, second saw 1 pending
       expect(sizes[0]).toBe(2);
       expect(sizes[1]).toBe(1);
+    });
+  });
+
+  describe('retry', () => {
+    it('should retry failed operations up to the specified count', async () => {
+      let attempts = 0;
+      const result = await queue.enqueue(async () => {
+        attempts++;
+        if (attempts < 3) throw new Error('transient failure');
+        return 'ok';
+      });
+
+      expect(result).toBe('ok');
+      expect(attempts).toBe(3); // 1 initial + 2 retries
+    });
+
+    it('should throw after all retries are exhausted', async () => {
+      let attempts = 0;
+      await expect(
+        queue.enqueue(async () => {
+          attempts++;
+          throw new Error('persistent failure');
+        })
+      ).rejects.toThrow('persistent failure');
+
+      expect(attempts).toBe(3); // 1 initial + 2 retries (default)
+    });
+
+    it('should respect custom retry count', async () => {
+      let attempts = 0;
+      await expect(
+        queue.enqueue(async () => {
+          attempts++;
+          throw new Error('fail');
+        }, 0) // 0 retries = single attempt
+      ).rejects.toThrow('fail');
+
+      expect(attempts).toBe(1);
+    });
+
+    it('should not retry if first attempt succeeds', async () => {
+      let attempts = 0;
+      const result = await queue.enqueue(async () => {
+        attempts++;
+        return 'immediate';
+      });
+
+      expect(result).toBe('immediate');
+      expect(attempts).toBe(1);
     });
   });
 

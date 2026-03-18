@@ -2,10 +2,26 @@
  * Message Bus
  * SQLite-backed cross-employee messaging system for the Agentry AI Employee Platform.
  *
- * @deprecated Real-time inter-agent communication is migrating to OpenClaw native
- * `sessions_send` via `tools.agentToAgent` config in openclaw.json.
- * MessageBus is retained as an offline audit log / history store.
- * New real-time messaging should use Gateway-native agent-to-agent communication.
+ * @deprecated Migration Roadmap:
+ *
+ * **Phase A (current):** MessageBus retained as offline audit log + plan_approval workflow.
+ *   SupervisorEngine.handleStuckTask() and submitPlan/approvePlan/rejectPlan still use it.
+ *   deliverPendingMessages() bridges offline→online transitions (Issue #7).
+ *
+ * **Phase B:** Replace plan_approval flow with Gateway-native `sessions_send`.
+ *   - Supervisor sends approval requests via `sessions_send` to employee agents
+ *   - Employee agents respond via `sessions_send`
+ *   - MessageBus becomes read-only (historical queries only)
+ *   - Remove `send()` method, keep `getHistory()` / `getInbox()`
+ *
+ * **Phase C:** Remove MessageBus entirely.
+ *   - Migrate historical data to MessageStore (already exists in `message-store.ts`)
+ *   - Remove `messages` table from agentry-tasks.db
+ *   - Remove MessageBus from bootstrap.ts `getLazy()`
+ *   - Remove `message:*` IPC channels from preload whitelist
+ *
+ * **DO NOT** add new features to MessageBus. New inter-agent communication
+ * should use `tools.agentToAgent` + `sessions_send` in openclaw.json.
  *
  * Events:
  *  - 'new-message' (message: Message) — emitted when a message is inserted
