@@ -3,7 +3,7 @@
  * Writes API keys to ~/.openclaw/agents/main/agent/auth-profiles.json
  * so the OpenClaw Gateway can load them for AI provider calls.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { getProviderEnvVar, getProviderDefaultModel, getProviderConfig } from './provider-registry';
@@ -133,7 +133,6 @@ export function saveProviderKeyToOpenClaw(
     try {
       const agentsBase = join(homedir(), '.openclaw', 'agents');
       if (existsSync(agentsBase)) {
-        const { readdirSync } = require('fs') as typeof import('fs');
         for (const dir of readdirSync(agentsBase)) {
           if (dir === 'main') continue;
           const otherAuthPath = join(agentsBase, dir, 'agent', AUTH_PROFILE_FILENAME);
