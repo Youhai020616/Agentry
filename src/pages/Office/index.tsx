@@ -39,10 +39,21 @@ export default function Office() {
     return () => observer.disconnect();
   }, [updateScale]);
 
-  // Overlay handlers: wheel scrolls parent, click passes through to iframe
-  const handleOverlayWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    containerRef.current?.scrollBy({ top: e.deltaY });
+  // Overlay handler: wheel scrolls parent container, not the iframe.
+  // Must use native addEventListener with { passive: false } because React
+  // registers wheel listeners as passive, making preventDefault() a no-op.
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    const container = containerRef.current;
+    if (!overlay || !container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      container.scrollBy({ top: e.deltaY });
+    };
+
+    overlay.addEventListener('wheel', handleWheel, { passive: false });
+    return () => overlay.removeEventListener('wheel', handleWheel);
   }, []);
 
   const handleOverlayMouseDown = useCallback(() => {
@@ -145,7 +156,6 @@ export default function Office() {
             <div
               ref={overlayRef}
               className="absolute inset-0 z-10"
-              onWheel={handleOverlayWheel}
               onMouseDown={handleOverlayMouseDown}
             />
             <iframe
