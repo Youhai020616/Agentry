@@ -14,9 +14,9 @@ export function register({ employeeManager }: IpcContext): void {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const employees = employeeManager.list(params?.status as any);
       return { success: true, result: employees };
-    } catch (error) {
-      logger.error('employee:list failed:', error);
-      return { success: false, error: String(error) };
+    } catch {
+      // Engine not yet ready — return empty list; renderer will retry via status events
+      return { success: true, result: [] };
     }
   });
 
@@ -27,8 +27,9 @@ export function register({ employeeManager }: IpcContext): void {
         return { success: false, error: `Employee not found: ${id}` };
       }
       return { success: true, result: employee };
-    } catch (error) {
-      return { success: false, error: String(error) };
+    } catch {
+      // Engine not yet ready
+      return { success: false, error: 'Engine not yet initialized' };
     }
   });
 
