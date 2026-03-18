@@ -1,7 +1,9 @@
 /**
  * Project IPC Handlers
+ *
+ * Migrated to ipcHandle() wrapper for automatic error handling + perf tracking.
  */
-import { ipcMain } from 'electron';
+import { ipcHandle } from './helpers';
 import type { IpcContext } from './types';
 
 export function register({ engineRef, gatewayManager }: IpcContext): void {
@@ -10,45 +12,25 @@ export function register({ engineRef, gatewayManager }: IpcContext): void {
     return engineRef.current.getLazy(gatewayManager);
   };
 
-  ipcMain.handle('project:create', async (_, input: unknown) => {
-    try {
-      const lazy = await getLazy();
-      const project = lazy.taskQueue.createProject(
-        input as Parameters<typeof lazy.taskQueue.createProject>[0]
-      );
-      return { success: true, result: project };
-    } catch (error) {
-      return { success: false, error: String(error) };
-    }
+  ipcHandle('project:create', async (input: unknown) => {
+    const lazy = await getLazy();
+    return lazy.taskQueue.createProject(
+      input as Parameters<typeof lazy.taskQueue.createProject>[0]
+    );
   });
 
-  ipcMain.handle('project:list', async () => {
-    try {
-      const lazy = await getLazy();
-      const projects = lazy.taskQueue.listProjects();
-      return { success: true, result: projects };
-    } catch (error) {
-      return { success: false, error: String(error) };
-    }
+  ipcHandle('project:list', async () => {
+    const lazy = await getLazy();
+    return lazy.taskQueue.listProjects();
   });
 
-  ipcMain.handle('project:get', async (_, id: string) => {
-    try {
-      const lazy = await getLazy();
-      const project = lazy.taskQueue.getProject(id);
-      return { success: true, result: project ?? null };
-    } catch (error) {
-      return { success: false, error: String(error) };
-    }
+  ipcHandle('project:get', async (id: string) => {
+    const lazy = await getLazy();
+    return lazy.taskQueue.getProject(id) ?? null;
   });
 
-  ipcMain.handle('project:execute', async (_, projectId: string) => {
-    try {
-      const lazy = await getLazy();
-      await lazy.supervisor.executeProject(projectId);
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: String(error) };
-    }
+  ipcHandle('project:execute', async (projectId: string) => {
+    const lazy = await getLazy();
+    await lazy.supervisor.executeProject(projectId);
   });
 }

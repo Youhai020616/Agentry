@@ -1,9 +1,11 @@
 /**
  * Memory IPC Handlers
+ *
+ * Migrated to ipcHandle() wrapper for automatic error handling + perf tracking.
  */
-import { ipcMain, app } from 'electron';
+import { app } from 'electron';
 import { join } from 'node:path';
-import { logger } from '../../utils/logger';
+import { ipcHandle } from './helpers';
 import type { IpcContext } from './types';
 
 export function register({ engineRef }: IpcContext): void {
@@ -12,97 +14,48 @@ export function register({ engineRef }: IpcContext): void {
     return engineRef.current.memoryEngine;
   };
 
-  ipcMain.handle(
+  ipcHandle(
     'memory:store',
     async (
-      _event,
       employeeId: string,
       content: string,
       tags?: string[],
       importance?: number,
       taskId?: string
     ) => {
-      try {
-        const id = getMemoryEngine().storeEpisodic(
-          employeeId,
-          content,
-          tags ?? [],
-          importance ?? 3,
-          taskId
-        );
-        return { success: true, result: id };
-      } catch (error) {
-        logger.error('memory:store failed:', error);
-        return { success: false, error: String(error) };
-      }
+      return getMemoryEngine().storeEpisodic(
+        employeeId,
+        content,
+        tags ?? [],
+        importance ?? 3,
+        taskId
+      );
     }
   );
 
-  ipcMain.handle('memory:recall', async (_event, employeeId: string, limit?: number) => {
-    try {
-      const memories = getMemoryEngine().recall(employeeId, limit ?? 10);
-      return { success: true, result: memories };
-    } catch (error) {
-      logger.error('memory:recall failed:', error);
-      return { success: false, error: String(error) };
-    }
+  ipcHandle('memory:recall', (employeeId: string, limit?: number) => {
+    return getMemoryEngine().recall(employeeId, limit ?? 10);
   });
 
-  ipcMain.handle('memory:count', async (_event, employeeId: string) => {
-    try {
-      const count = getMemoryEngine().getEpisodicCount(employeeId);
-      return { success: true, result: count };
-    } catch (error) {
-      logger.error('memory:count failed:', error);
-      return { success: false, error: String(error) };
-    }
+  ipcHandle('memory:count', (employeeId: string) => {
+    return getMemoryEngine().getEpisodicCount(employeeId);
   });
 
-  // ── Brand Context Handlers ──────────────────────────────────────
-
-  ipcMain.handle('memory:setBrand', async (_event, markdown: string) => {
-    try {
-      getMemoryEngine().setBrandContext(markdown);
-      return { success: true };
-    } catch (error) {
-      logger.error('memory:setBrand failed:', error);
-      return { success: false, error: String(error) };
-    }
+  ipcHandle('memory:setBrand', (markdown: string) => {
+    getMemoryEngine().setBrandContext(markdown);
   });
 
-  ipcMain.handle('memory:getBrand', async () => {
-    try {
-      const content = getMemoryEngine().getBrandContext();
-      return { success: true, result: content };
-    } catch (error) {
-      logger.error('memory:getBrand failed:', error);
-      return { success: false, error: String(error) };
-    }
+  ipcHandle('memory:getBrand', () => {
+    return getMemoryEngine().getBrandContext();
   });
 
-  // ── File Access Handler ─────────────────────────────────────────
-
-  ipcMain.handle('memory:getMemoryFile', async (_event, employeeId: string) => {
-    try {
-      const content = getMemoryEngine().getMemoryFile(employeeId);
-      return { success: true, result: content };
-    } catch (error) {
-      logger.error('memory:getMemoryFile failed:', error);
-      return { success: false, error: String(error) };
-    }
+  ipcHandle('memory:getMemoryFile', (employeeId: string) => {
+    return getMemoryEngine().getMemoryFile(employeeId);
   });
 
-  // ── Migration Handler ───────────────────────────────────────────
-
-  ipcMain.handle('memory:migrate', async (_event, dbPath?: string) => {
-    try {
-      const path = dbPath ?? join(app.getPath('userData'), 'agentry-memory.db');
-      const { MemoryEngine } = await import('../../engine/memory');
-      const result = await MemoryEngine.migrateFromSQLite(path, getMemoryEngine());
-      return { success: true, result };
-    } catch (error) {
-      logger.error('memory:migrate failed:', error);
-      return { success: false, error: String(error) };
-    }
+  ipcHandle('memory:migrate', async (dbPath?: string) => {
+    const path = dbPath ?? join(app.getPath('userData'), 'agentry-memory.db');
+    const { MemoryEngine } = await import('../../engine/memory');
+    return MemoryEngine.migrateFromSQLite(path, getMemoryEngine());
   });
 }
