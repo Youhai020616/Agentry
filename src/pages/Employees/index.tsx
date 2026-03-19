@@ -436,7 +436,7 @@ function CardScene({ employee }: { employee: Employee }) {
     <div
       className="relative flex flex-col items-center justify-end overflow-hidden rounded-t-xl"
       style={{
-        height: 160,
+        height: 190,
         background: 'linear-gradient(180deg, hsl(220 15% 10%), hsl(220 12% 14%))',
       }}
     >
@@ -575,12 +575,15 @@ function EmployeeCard({ employee }: { employee: Employee }) {
         <CardScene employee={employee} />
 
         {/* Info section */}
-        <div className="flex flex-col gap-2.5 p-4">
+        <div className="flex flex-col gap-2 p-3">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <h3 className="truncate font-pixel text-sm font-semibold tracking-wide">
-                {employee.name}
-              </h3>
+            <div className="flex items-center gap-2 min-w-0">
+              <p className="truncate text-xs text-muted-foreground">{employee.role}</p>
+              {employee.team && (
+                <Badge variant="outline" className="shrink-0 rounded-full px-2.5 text-[10px]">
+                  {employee.team}
+                </Badge>
+              )}
               {employee.browserActive && (
                 <span
                   className="shrink-0 animate-pulse text-blue-500"
@@ -602,15 +605,6 @@ function EmployeeCard({ employee }: { employee: Employee }) {
             >
               {t(`status.${employee.status}`)}
             </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <p className="truncate text-xs text-muted-foreground">{employee.role}</p>
-            {employee.team && (
-              <Badge variant="outline" className="shrink-0 rounded-full px-2.5 text-[10px]">
-                {employee.team}
-              </Badge>
-            )}
           </div>
 
           <WorkingContext employeeId={employee.id} status={employee.status} />
