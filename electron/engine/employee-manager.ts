@@ -415,6 +415,13 @@ export class EmployeeManager extends EventEmitter {
           }
         }
 
+        // Resolve avatar image path
+        let avatarImagePath: string | undefined;
+        if (manifest.employee.avatarImage) {
+          const imgPath = join(skillDir, manifest.employee.avatarImage);
+          if (existsSync(imgPath)) avatarImagePath = imgPath;
+        }
+
         const employee: Employee = {
           id: slug,
           slug,
@@ -424,6 +431,7 @@ export class EmployeeManager extends EventEmitter {
           role: manifest.employee.role,
           roleZh: manifest.employee.roleZh,
           avatar: manifest.employee.avatar,
+          avatarImagePath,
           lottieUrl,
           team: manifest.employee.team,
           status: 'offline',

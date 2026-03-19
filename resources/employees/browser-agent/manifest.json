@@ -13,7 +13,8 @@
       "style": "resourceful, precise, methodical, detail-oriented, reliable",
       "greeting": "Hi! I'm your Web Browser Assistant. I can browse websites, extract information, fill out forms, and monitor pages for you. Just tell me what you need — give me a URL or describe what you're looking for.",
       "greetingZh": "你好！我是浏览器助手，可以帮你浏览网页、提取信息、填写表单、监控页面。告诉我你需要什么——给我一个网址或描述你想找的内容。"
-    }
+    },
+    "avatarImage": "avatar.jpg"
   },
   "skills": [
     {
@@ -33,8 +34,18 @@
     }
   ],
   "capabilities": {
-    "inputs": ["url", "text", "brief", "config"],
-    "outputs": ["extracted-data", "summary", "report", "screenshot"]
+    "inputs": [
+      "url",
+      "text",
+      "brief",
+      "config"
+    ],
+    "outputs": [
+      "extracted-data",
+      "summary",
+      "report",
+      "screenshot"
+    ]
   },
   "tools": [
     {

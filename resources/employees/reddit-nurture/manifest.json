@@ -13,7 +13,8 @@
       "style": "strategic, patient, community-aware, anti-detection focused",
       "greeting": "Hey! I'm your Reddit Growth Specialist. I'll nurture your Reddit account by engaging naturally in communities - upvoting, commenting, and building karma organically.",
       "greetingZh": "你好！我是 Reddit 养号专家。我会通过在社区自然互动来养护你的 Reddit 账号——点赞、评论、有机地积累 karma。"
-    }
+    },
+    "avatarImage": "avatar.jpg"
   },
   "skills": [
     {
@@ -23,8 +24,12 @@
     }
   ],
   "capabilities": {
-    "inputs": ["config"],
-    "outputs": ["report"]
+    "inputs": [
+      "config"
+    ],
+    "outputs": [
+      "report"
+    ]
   },
   "tools": [
     {
@@ -36,7 +41,9 @@
     "type": "browser-login",
     "loginUrl": "https://www.reddit.com/login/",
     "successIndicator": "reddit_session",
-    "cookieDomains": [".reddit.com"],
+    "cookieDomains": [
+      ".reddit.com"
+    ],
     "configTemplate": {
       "camofox": {
         "port": 9377,
@@ -53,8 +60,14 @@
           "pics",
           "lifehacks"
         ],
-        "niche": ["smallbusiness", "Entrepreneur", "marketing"],
-        "banned": ["todayilearned"],
+        "niche": [
+          "smallbusiness",
+          "Entrepreneur",
+          "marketing"
+        ],
+        "banned": [
+          "todayilearned"
+        ],
         "limited": {
           "LifeProTips": "weekly"
         }
@@ -73,7 +86,13 @@
           "Great question",
           "This is so true"
         ],
-        "styles": ["personal_story", "question", "humor", "supplementary_info", "genuine_opinion"],
+        "styles": [
+          "personal_story",
+          "question",
+          "humor",
+          "supplementary_info",
+          "genuine_opinion"
+        ],
         "lengthDistribution": {
           "short": 0.3,
           "medium": 0.5,
@@ -86,7 +105,10 @@
         "upvotePhase": 120,
         "commentPhase": 480,
         "perComment": 180,
-        "waitBetweenComments": [90, 180]
+        "waitBetweenComments": [
+          90,
+          180
+        ]
       }
     }
   },

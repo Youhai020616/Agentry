@@ -34,6 +34,8 @@ export interface Employee {
   role: string;
   roleZh: string;
   avatar: string;
+  /** Absolute path to avatar image file (jpg/png) */
+  avatarImagePath?: string;
   /** Absolute path or URL to a .lottie animation file */
   lottieUrl?: string;
   team: string;

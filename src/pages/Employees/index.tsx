@@ -428,11 +428,15 @@ function CardScene({ employee }: { employee: Employee }) {
           ? 'radial-gradient(ellipse at center bottom, rgba(234,179,8,0.15) 0%, transparent 70%)'
           : 'none';
 
+  // Use avatar image if available, otherwise fall back to pixel character
+  const hasImage = !!employee.avatarImagePath;
+  const imageUrl = hasImage ? `local-asset://${employee.avatarImagePath}` : undefined;
+
   return (
     <div
       className="relative flex flex-col items-center justify-end overflow-hidden rounded-t-xl"
       style={{
-        height: 130,
+        height: 160,
         background: 'linear-gradient(180deg, hsl(220 15% 10%), hsl(220 12% 14%))',
       }}
     >
@@ -449,27 +453,38 @@ function CardScene({ employee }: { employee: Employee }) {
       {/* Status glow */}
       <div className="absolute inset-0" style={{ background: statusGlow }} />
 
-      {/* Floor */}
-      <div
-        className="absolute bottom-0 left-0 right-0"
-        style={{
-          height: 32,
-          background: 'linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.02) 100%)',
-        }}
-      />
-
-      {/* Scene: monitor → character → desk */}
-      <div className="relative flex flex-col items-center" style={{ marginBottom: 4 }}>
-        <div style={{ position: 'relative', zIndex: 1, marginBottom: -6 }}>
-          <MiniMonitor status={employee.status} />
-        </div>
-        <div style={{ position: 'relative', zIndex: 2, marginTop: -20 }}>
-          <PixelCharacter employee={employee} />
-        </div>
-        <div style={{ position: 'relative', zIndex: 3, marginTop: -16 }}>
-          <MiniDesk />
-        </div>
-      </div>
+      {hasImage ? (
+        /* Avatar image */
+        <img
+          src={imageUrl}
+          alt={employee.name}
+          className="absolute inset-0 w-full h-full object-cover object-top"
+          draggable={false}
+        />
+      ) : (
+        <>
+          {/* Floor */}
+          <div
+            className="absolute bottom-0 left-0 right-0"
+            style={{
+              height: 32,
+              background: 'linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.02) 100%)',
+            }}
+          />
+          {/* Scene: monitor → character → desk */}
+          <div className="relative flex flex-col items-center" style={{ marginBottom: 4 }}>
+            <div style={{ position: 'relative', zIndex: 1, marginBottom: -6 }}>
+              <MiniMonitor status={employee.status} />
+            </div>
+            <div style={{ position: 'relative', zIndex: 2, marginTop: -20 }}>
+              <PixelCharacter employee={employee} />
+            </div>
+            <div style={{ position: 'relative', zIndex: 3, marginTop: -16 }}>
+              <MiniDesk />
+            </div>
+          </div>
+        </>
+      )}
 
       <div className="absolute inset-0 bg-background/5 dark:bg-transparent pointer-events-none" />
     </div>

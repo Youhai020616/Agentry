@@ -13,26 +13,73 @@
       "style": "precise, data-driven, creative, automation-focused, results-oriented",
       "greeting": "Hi! I'm your Xiaohongshu operator. I can publish, search, engage, analyze data, and manage multiple accounts — everything you need for RED.",
       "greetingZh": "你好！我是小红书运营专员。发布、搜索、互动、数据分析、多账号管理 — 小红书运营的一切我都能搞定。"
-    }
+    },
+    "avatarImage": "avatar.jpg"
   },
   "skills": [
-    { "id": "publish-note", "name": "Publish Notes", "prompt": "./SKILL.md" },
-    { "id": "search-notes", "name": "Search Notes", "prompt": "./SKILL.md" },
-    { "id": "engage", "name": "Comment/Like/Favorite", "prompt": "./SKILL.md" },
-    { "id": "analytics", "name": "Analytics Dashboard", "prompt": "./SKILL.md" }
+    {
+      "id": "publish-note",
+      "name": "Publish Notes",
+      "prompt": "./SKILL.md"
+    },
+    {
+      "id": "search-notes",
+      "name": "Search Notes",
+      "prompt": "./SKILL.md"
+    },
+    {
+      "id": "engage",
+      "name": "Comment/Like/Favorite",
+      "prompt": "./SKILL.md"
+    },
+    {
+      "id": "analytics",
+      "name": "Analytics Dashboard",
+      "prompt": "./SKILL.md"
+    }
   ],
   "capabilities": {
-    "inputs": ["text", "images", "video", "tags", "keyword", "feed-id", "url"],
-    "outputs": ["report", "analytics-data", "search-results", "publish-confirmation", "csv"],
+    "inputs": [
+      "text",
+      "images",
+      "video",
+      "tags",
+      "keyword",
+      "feed-id",
+      "url"
+    ],
+    "outputs": [
+      "report",
+      "analytics-data",
+      "search-results",
+      "publish-confirmation",
+      "csv"
+    ],
     "runtime": {
-      "requires": ["xiaohongshu-mcp", "python3"],
-      "packages": ["requests", "click", "rich"]
+      "requires": [
+        "xiaohongshu-mcp",
+        "python3"
+      ],
+      "packages": [
+        "requests",
+        "click",
+        "rich"
+      ]
     }
   },
   "tools": [
-    { "name": "bash", "description": "Execute xhs CLI commands for all Xiaohongshu operations" },
-    { "name": "read", "description": "Read config files, output CSVs, cookies" },
-    { "name": "write", "description": "Write draft content, configs" }
+    {
+      "name": "bash",
+      "description": "Execute xhs CLI commands for all Xiaohongshu operations"
+    },
+    {
+      "name": "read",
+      "description": "Read config files, output CSVs, cookies"
+    },
+    {
+      "name": "write",
+      "description": "Write draft content, configs"
+    }
   ],
   "secrets": {
     "XHS_COOKIES": {
@@ -45,7 +92,9 @@
     "type": "browser-login",
     "loginUrl": "https://www.xiaohongshu.com/login",
     "successIndicator": "web_session",
-    "cookieDomains": [".xiaohongshu.com"]
+    "cookieDomains": [
+      ".xiaohongshu.com"
+    ]
   },
   "pricing": {
     "model": "included"

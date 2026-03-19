@@ -27,6 +27,8 @@ export interface ManifestEmployee {
   role: string;
   roleZh: string;
   avatar: string;
+  /** Optional avatar image file name (relative to skill dir, e.g. "avatar.jpg") */
+  avatarImage?: string;
   /** Optional Lottie animation file name (relative to skill dir, e.g. "avatar.lottie") */
   lottie?: string;
   team: string;

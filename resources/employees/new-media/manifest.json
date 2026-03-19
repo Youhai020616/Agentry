@@ -13,19 +13,45 @@
       "style": "creative, data-driven, trend-aware, platform-savvy, results-oriented",
       "greeting": "Hey! I'm your new media marketing consultant. Tell me your brand name and industry - I'll put together a full content strategy, competitor breakdown, and even generate marketing visuals for you.",
       "greetingZh": "你好！我是你的新媒体运营顾问，专门帮品牌做小红书、抖音这些平台的内容策划。告诉我你的品牌叫什么、做什么行业的，我来帮你出方案。"
-    }
+    },
+    "avatarImage": "avatar.jpg"
   },
   "skills": [
-    { "id": "content-strategy", "name": "Content Strategy Planning", "prompt": "./SKILL.md" },
-    { "id": "competitor-analysis", "name": "Competitor Analysis", "prompt": "./SKILL.md" },
-    { "id": "image-generation", "name": "Marketing Image Generation", "prompt": "./SKILL.md" }
+    {
+      "id": "content-strategy",
+      "name": "Content Strategy Planning",
+      "prompt": "./SKILL.md"
+    },
+    {
+      "id": "competitor-analysis",
+      "name": "Competitor Analysis",
+      "prompt": "./SKILL.md"
+    },
+    {
+      "id": "image-generation",
+      "name": "Marketing Image Generation",
+      "prompt": "./SKILL.md"
+    }
   ],
   "capabilities": {
-    "inputs": ["text", "brand-name", "url", "brief"],
-    "outputs": ["strategy-document", "analysis-report", "image"],
+    "inputs": [
+      "text",
+      "brand-name",
+      "url",
+      "brief"
+    ],
+    "outputs": [
+      "strategy-document",
+      "analysis-report",
+      "image"
+    ],
     "runtime": {
-      "requires": ["python3"],
-      "packages": ["requests"]
+      "requires": [
+        "python3"
+      ],
+      "packages": [
+        "requests"
+      ]
     }
   },
   "tools": [

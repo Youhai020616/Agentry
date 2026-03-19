@@ -12,16 +12,38 @@
       "style": "professional, decisive, efficient communicator who gets things done through the right people",
       "greeting": "Hi! I'm your AI Supervisor. Tell me what you need and I'll either handle it directly or delegate to the right specialist.",
       "greetingZh": "你好！我是你的AI主管。告诉我你需要什么，我会直接处理或委派给合适的专员。"
-    }
+    },
+    "avatarImage": "avatar.jpg"
   },
   "skills": [
-    { "id": "team-coordination", "name": "Team Coordination", "prompt": "./SKILL.md" },
-    { "id": "task-delegation", "name": "Task Delegation", "prompt": "./SKILL.md" },
-    { "id": "result-synthesis", "name": "Result Synthesis", "prompt": "./SKILL.md" }
+    {
+      "id": "team-coordination",
+      "name": "Team Coordination",
+      "prompt": "./SKILL.md"
+    },
+    {
+      "id": "task-delegation",
+      "name": "Task Delegation",
+      "prompt": "./SKILL.md"
+    },
+    {
+      "id": "result-synthesis",
+      "name": "Result Synthesis",
+      "prompt": "./SKILL.md"
+    }
   ],
   "capabilities": {
-    "inputs": ["text", "url", "brief", "business-goals"],
-    "outputs": ["delegation-response", "synthesis", "direct-answer"]
+    "inputs": [
+      "text",
+      "url",
+      "brief",
+      "business-goals"
+    ],
+    "outputs": [
+      "delegation-response",
+      "synthesis",
+      "direct-answer"
+    ]
   },
   "tools": [
     {
@@ -60,9 +82,18 @@
       "name": "sessions_send",
       "description": "Send a message to another agent session and optionally wait for reply"
     },
-    { "name": "sessions_list", "description": "List active sessions across all agents" },
-    { "name": "sessions_history", "description": "Read chat history from another session" },
-    { "name": "session_status", "description": "Check the status of a session or sub-agent run" },
+    {
+      "name": "sessions_list",
+      "description": "List active sessions across all agents"
+    },
+    {
+      "name": "sessions_history",
+      "description": "Read chat history from another session"
+    },
+    {
+      "name": "session_status",
+      "description": "Check the status of a session or sub-agent run"
+    },
     {
       "name": "cron",
       "description": "Manage scheduled tasks (list, add, update, remove, trigger)"
@@ -72,5 +103,7 @@
       "description": "Manage child processes"
     }
   ],
-  "pricing": { "model": "included" }
+  "pricing": {
+    "model": "included"
+  }
 }
