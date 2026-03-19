@@ -11,12 +11,8 @@ import {
   FolderKanban,
   Radio,
   Wrench,
-  Settings,
-  Globe,
-  ChevronLeft,
-  ChevronRight,
-  Terminal,
-  ExternalLink,
+  PanelLeft,
+  PanelLeftClose,
   GripVertical,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -24,6 +20,7 @@ import { useSettingsStore } from '@/stores/settings';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useTranslation } from 'react-i18next';
+import { SidebarUserMenu } from './SidebarUserMenu';
 
 // ── Constants ──────────────────────────────────────────────────
 
@@ -127,7 +124,6 @@ export function Sidebar() {
   const setSidebarCollapsed = useSettingsStore((state) => state.setSidebarCollapsed);
   const sidebarWidth = useSettingsStore((state) => state.sidebarWidth);
   const setSidebarWidth = useSettingsStore((state) => state.setSidebarWidth);
-  const devModeUnlocked = useSettingsStore((state) => state.devModeUnlocked);
 
   const [isDragging, setIsDragging] = useState(false);
   const startXRef = useRef(0);
@@ -192,41 +188,16 @@ export function Sidebar() {
     }
   }, [sidebarCollapsed, setSidebarCollapsed, setSidebarWidth]);
 
-  const openDevConsole = async () => {
-    try {
-      const result = (await window.electron.ipcRenderer.invoke('gateway:getControlUiUrl')) as {
-        success: boolean;
-        url?: string;
-        error?: string;
-      };
-      if (result.success && result.url) {
-        window.electron.openExternal(result.url);
-      } else {
-        console.error('Failed to get Dev Console URL:', result.error);
-      }
-    } catch (err) {
-      console.error('Error opening Dev Console:', err);
-    }
-  };
-
   const { t } = useTranslation();
 
-  // ── Primary navigation (always visible) ──
-  const primaryItems = [
+  // ── Navigation items ──
+  const navItems = [
     { to: '/', icon: <Crown className="h-5 w-5" />, label: t('nav.supervisor') },
     { to: '/employees', icon: <Users className="h-5 w-5" />, label: t('nav.employees') },
     { to: '/projects', icon: <FolderKanban className="h-5 w-5" />, label: t('nav.projects') },
     { to: '/channels', icon: <Radio className="h-5 w-5" />, label: t('nav.channels') },
-    { to: '/settings', icon: <Settings className="h-5 w-5" />, label: t('nav.settings') },
-  ];
-
-  // ── Secondary navigation (collapsed by default) ──
-  const secondaryItems = [
     { to: '/skills', icon: <Wrench className="h-5 w-5" />, label: t('nav.skills') },
-    { to: '/browser', icon: <Globe className="h-5 w-5" />, label: t('nav.browser') },
   ];
-
-  const [showSecondary, setShowSecondary] = useState(false);
 
   const currentWidth = sidebarCollapsed ? MIN_WIDTH : sidebarWidth;
   // Hide labels when sidebar is too narrow, even if not formally collapsed
@@ -241,64 +212,14 @@ export function Sidebar() {
       style={{ width: `${currentWidth}px` }}
     >
       <div className="flex flex-1 flex-col my-1.5 ml-1 mr-1 rounded-2xl bg-card/60 backdrop-blur-xl glass-border shadow-island overflow-hidden">
-        {/* Navigation */}
-        <nav className="flex-1 space-y-0.5 overflow-auto px-1.5 py-2">
-          {primaryItems.map((item) => (
-            <NavItem key={item.to} {...item} collapsed={hideLabels} />
-          ))}
-
-          {/* Secondary section toggle */}
-          {secondaryItems.length > 0 && (
-            <>
-              {!hideLabels && (
-                <button
-                  onClick={() => setShowSecondary((v) => !v)}
-                  className={cn(
-                    'flex w-full items-center gap-2.5 rounded-xl px-2 py-1 text-xs font-medium',
-                    'text-muted-foreground/60 hover:text-muted-foreground transition-colors'
-                  )}
-                >
-                  <ChevronRight
-                    className={cn(
-                      'h-3.5 w-3.5 transition-transform',
-                      showSecondary && 'rotate-90'
-                    )}
-                  />
-                  <span>
-                    {showSecondary ? t('sidebar.less', 'Less') : t('sidebar.more', 'More')}
-                  </span>
-                </button>
-              )}
-              {showSecondary &&
-                secondaryItems.map((item) => (
-                  <NavItem key={item.to} {...item} collapsed={hideLabels} />
-                ))}
-            </>
-          )}
-        </nav>
-
-        {/* Footer */}
-        <div className="px-1.5 py-2 space-y-2">
-          {devModeUnlocked && !hideLabels && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start rounded-xl"
-              onClick={openDevConsole}
-            >
-              <Terminal className="h-4 w-4 mr-2" />
-              {t('sidebar.devConsole')}
-              <ExternalLink className="h-3 w-3 ml-auto" />
-            </Button>
-          )}
-
+        {/* Header: Sidebar toggle */}
+        <div className={cn('flex shrink-0 items-center px-1.5 pt-2 pb-1', hideLabels ? 'justify-center' : 'justify-end')}>
           <Button
             variant="ghost"
             size="icon"
-            className="w-full rounded-xl"
+            className="h-7 w-7 rounded-lg text-muted-foreground/60 hover:text-foreground"
             onClick={() => {
               if (sidebarCollapsed) {
-                // Expanding: ensure width is enough to show labels
                 if (sidebarWidth < LABEL_VISIBLE_THRESHOLD) {
                   setSidebarWidth(DEFAULT_WIDTH);
                 }
@@ -307,11 +228,23 @@ export function Sidebar() {
             }}
           >
             {sidebarCollapsed ? (
-              <ChevronRight className="h-4 w-4" />
+              <PanelLeft className="h-4 w-4" />
             ) : (
-              <ChevronLeft className="h-4 w-4" />
+              <PanelLeftClose className="h-4 w-4" />
             )}
           </Button>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 space-y-0.5 overflow-auto px-1.5 pb-2">
+          {navItems.map((item) => (
+            <NavItem key={item.to} {...item} collapsed={hideLabels} />
+          ))}
+        </nav>
+
+        {/* User Menu */}
+        <div className="shrink-0 px-1.5 pb-2">
+          <SidebarUserMenu collapsed={hideLabels} />
         </div>
       </div>
 

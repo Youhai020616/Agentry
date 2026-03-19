@@ -24,25 +24,14 @@
   ],
   "capabilities": {
     "inputs": ["config"],
-    "outputs": ["report"],
-    "runtime": {
-      "requires": ["camofox"]
-    }
+    "outputs": ["report"]
   },
   "tools": [
     {
-      "name": "camofox",
-      "cli": "curl",
-      "requiredSecret": "CAMOFOX_API_KEY"
+      "name": "bash",
+      "description": "Execute stealth CLI commands for anti-detection Reddit browsing"
     }
   ],
-  "secrets": {
-    "CAMOFOX_API_KEY": {
-      "required": false,
-      "description": "Camofox browser API key (default: pocketai)",
-      "obtainUrl": "https://camofox.com"
-    }
-  },
   "onboarding": {
     "type": "browser-login",
     "loginUrl": "https://www.reddit.com/login/",

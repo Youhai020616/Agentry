@@ -155,6 +155,7 @@ export function Supervisor() {
       id: SUPERVISOR_ID,
       name: t('supervisor.title'),
       avatar: '\uD83D\uDC54',
+      lottieUrl: supervisorEmployee?.lottieUrl,
       status: supStatus,
     };
 
@@ -164,6 +165,7 @@ export function Supervisor() {
         id: e.id,
         name: e.name,
         avatar: e.avatar || '\uD83E\uDD16',
+        lottieUrl: e.lottieUrl,
         status: e.status === 'offline' ? 'offline' : e.status,
       }));
 

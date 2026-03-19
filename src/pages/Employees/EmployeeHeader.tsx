@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft, RotateCcw, Settings, Loader2, Globe, Power } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { PixelAvatar } from '@/components/employees/PixelAvatar';
+import { LottieAvatar } from '@/components/employees/LottieAvatar';
 import { EmployeeSecrets } from './EmployeeSecrets';
 import { useEmployeesStore } from '@/stores/employees';
 import type { Employee, EmployeeStatus } from '@/types/employee';
@@ -129,8 +129,10 @@ export function EmployeeHeader({ employee, onRestart, onDeactivate }: EmployeeHe
         </Button>
 
         {/* Avatar */}
-        <PixelAvatar
+        <LottieAvatar
+          lottieUrl={employee.lottieUrl}
           avatar={employee.avatar || employee.name.charAt(0).toUpperCase()}
+          name={employee.name}
           status={employee.status}
           size="lg"
         />

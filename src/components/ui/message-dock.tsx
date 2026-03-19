@@ -9,11 +9,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Power } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
+import { getAvatarGradient } from '@/lib/avatar-gradient';
+import { LottieAvatar } from '@/components/employees/LottieAvatar';
 
 export interface DockCharacter {
   id: string;
   name: string;
   avatar: string;
+  /** Optional Lottie animation file path or URL */
+  lottieUrl?: string;
   /** Status indicator color: green=idle, yellow=working, red=error, gray=offline */
   status?: 'idle' | 'working' | 'blocked' | 'error' | 'offline';
 }
@@ -149,7 +153,7 @@ export function MessageDock({
 
               {/* Avatar button */}
               <motion.button
-                whileHover={{ scale: 1.15 }}
+                whileHover={{ scale: char.lottieUrl ? 1.05 : 1.15 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => {
                   setContextMenuId(null);
@@ -162,20 +166,43 @@ export function MessageDock({
                 onBlur={() => setHoveredId(null)}
                 aria-label={`${char.name}${char.status ? ` (${char.status})` : ''}`}
                 className={cn(
-                  'relative flex h-10 w-10 items-center justify-center rounded-xl text-lg transition-colors',
-                  isSelected ? 'bg-primary/15 ring-2 ring-primary/40' : 'hover:bg-accent/60'
+                  'relative flex items-center justify-center transition-all',
+                  isSelected && !char.lottieUrl &&
+                    'ring-2 ring-primary/50 ring-offset-2 ring-offset-background/60',
+                  isSelected && char.lottieUrl &&
+                    'ring-2 ring-primary/50 ring-offset-1 ring-offset-background/60 rounded-xl'
                 )}
+                style={char.lottieUrl ? undefined : getAvatarGradient(char.name || char.id).style}
               >
-                <span className="select-none">{char.avatar}</span>
-
-                {/* Status dot */}
-                {char.status && (
-                  <span
-                    className={cn(
-                      'absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background/60',
-                      statusColors[char.status] ?? statusColors.offline
-                    )}
+                {char.lottieUrl ? (
+                  <LottieAvatar
+                    lottieUrl={char.lottieUrl}
+                    avatar={char.avatar}
+                    name={char.name}
+                    status={char.status}
+                    size="md"
+                    showStatusRing={false}
                   />
+                ) : (
+                  <>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl text-lg shadow-sm">
+                      <span
+                        className="select-none drop-shadow-sm"
+                        style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.15))' }}
+                      >
+                        {char.avatar}
+                      </span>
+                    </div>
+                    {/* Status dot */}
+                    {char.status && (
+                      <span
+                        className={cn(
+                          'absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background/60',
+                          statusColors[char.status] ?? statusColors.offline
+                        )}
+                      />
+                    )}
+                  </>
                 )}
               </motion.button>
             </div>

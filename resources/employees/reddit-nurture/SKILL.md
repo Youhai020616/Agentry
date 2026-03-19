@@ -1,30 +1,39 @@
 ---
 name: reddit-nurture
-description: Automated Reddit account nurturing via Camofox browser. Use when asked to nurture a Reddit account, farm karma, post comments, upvote, or maintain Reddit account activity. Supports daily cron automation with anti-detection, login recovery, cookie persistence, and configurable subreddit targeting.
+description: Automated Reddit account nurturing via stealth anti-detection browser. Use when asked to nurture a Reddit account, farm karma, post comments, upvote, or maintain Reddit account activity. Supports daily cron automation with anti-detection, login recovery, cookie persistence, and configurable subreddit targeting.
 ---
 
 # Reddit Account Nurture
 
-Automate daily Reddit account activity (upvotes + comments) via Camofox headless browser to build karma and account history organically.
-
-## Agentry Integration
-
-This skill is managed by Agentry. Cookies are **automatically imported** during employee activation.
-You do NOT need to manually run `camofox-cookies.sh import` — Agentry handles cookie management.
-If cookies expire during a session, fall back to the Login Recovery flow below.
+Automate daily Reddit account activity (upvotes + comments) via **stealth CLI** (Camoufox anti-detection browser) to build karma and account history organically.
 
 ## Prerequisites
 
-- **Camofox browser** running on localhost (default port 9377)
-- **Account cookies** automatically loaded by Agentry on activation (or imported via `scripts/camofox-cookies.sh`)
+- **stealth CLI** installed globally (`npm install -g stealth-cli`)
+- **Reddit account cookies** (imported via `stealth` profile or manual login)
+
+## stealth CLI Quick Reference
+
+```bash
+# 浏览 Reddit（反检测）
+stealth browse https://old.reddit.com -f json --profile reddit
+stealth browse https://old.reddit.com/r/AskReddit/hot -f snapshot --profile reddit
+
+# 交互模式（登录、点赞、评论）
+stealth interactive --url https://old.reddit.com --profile reddit
+# stealth> snapshot                    # 查看页面
+# stealth> hclick "button.upvote"      # 拟人点击（贝塞尔曲线）
+# stealth> htype "textarea" "comment"  # 拟人打字（随机速度）
+# stealth> click "button[type=submit]" # 提交
+# stealth> exit
+
+# 搜索 Reddit
+stealth search reddit "subreddit topic" -f json
+```
 
 ## Configuration
 
-Read `config.json` in the skill directory before each run. All account details, subreddit lists, and behavior settings come from there. See `config.example.json` for the full schema.
-
-Key config fields:
-- `account.username` / `account.password` — Reddit credentials
-- `account.camofoxUserId` — Camofox session isolation ID
+Read `config.json` in the skill directory before each run. Key fields:
 - `subreddits.highTraffic` — casual subs for karma farming
 - `subreddits.niche` — business/industry subs (optional)
 - `subreddits.banned` — never visit these
@@ -36,88 +45,92 @@ Key config fields:
 
 ### 1. Setup (max 2 min)
 
-1. Check Camofox health: `curl -s http://localhost:${config.camofoxPort}/health`
-2. If not running, start it: `cd ~/.openclaw/extensions/camofox-browser && CAMOFOX_API_KEY=${config.camofoxApiKey} node server.js &`
-3. Import cookies: `bash <skill_dir>/scripts/camofox-cookies.sh import ${config.account.camofoxUserId}`
-4. Create tab: `POST /tabs` with `{userId, sessionKey: "reddit", url: "https://old.reddit.com"}`
-5. Wait 5s, take snapshot, verify login
+```bash
+# Create a persistent profile for Reddit (first time only)
+stealth profile create reddit --preset us-desktop
+
+# Verify stealth is working
+stealth browse https://old.reddit.com -f json --profile reddit --session reddit-main
+```
+
+Check the output — if logged in, proceed. If not, go to Login Recovery.
 
 ### 2. Login Recovery (if needed)
 
-If snapshot shows "Log In" instead of username:
-1. Navigate to `https://old.reddit.com/login` (may redirect to new Reddit login)
-2. Enter username and password
-3. Submit and wait 5s
-4. Verify login by navigating to a subreddit page (not homepage — homepage may falsely show logged-out state)
-5. If login succeeds, immediately export cookies: `bash <skill_dir>/scripts/camofox-cookies.sh export ${config.account.camofoxUserId}`
-6. If login fails (CAPTCHA, locked, etc.), report error and stop
+```bash
+stealth interactive --url https://old.reddit.com/login --profile reddit --session reddit-main --humanize
+```
 
-**Important:** old.reddit.com homepage sometimes shows logged-out state even when session is valid. Always verify by checking a subreddit page or user profile page.
+In the REPL:
+1. `snapshot` — check login form
+2. `htype "input#loginUsername" <username>` — type username (human-like)
+3. `htype "input#loginPassword" <password>` — type password (human-like)
+4. `hclick "button[type=submit]"` — submit (human-like click)
+5. Wait 5 seconds, then `snapshot` — verify login
+6. `exit`
+
+After login, cookies are **automatically saved** to the profile. Subsequent runs will restore them.
 
 ### 3. Shadowban Check
 
-Navigate to `https://old.reddit.com/user/${username}` — if page 404s or shows "page not found", account may be shadowbanned. Report and stop.
+```bash
+stealth browse https://old.reddit.com/user/<username> -f json --profile reddit --session reddit-main
+```
 
-### 4. Upvote Phase (max `timing.upvotePhase` seconds)
+If page shows 404 or "page not found" → account may be shadowbanned. Report and stop.
 
-- Browse front page feed
-- Upvote `targets.upvotes` posts (4-6 default)
-- Mix of content types
+### 4. Upvote Phase (use interactive mode)
 
-### 5. Comment Phase (max `timing.commentPhase` seconds)
+```bash
+stealth interactive --url https://old.reddit.com --profile reddit --session reddit-main --humanize
+```
 
-Pick `targets.comments` subreddits (default 3), following this distribution:
-- 1-2 from `subreddits.highTraffic`
-- 0-1 from `subreddits.niche`
-- Never from `subreddits.banned`
-- Max once/week from `subreddits.limited`
+In REPL:
+1. `snapshot` — view front page posts
+2. For each post to upvote: `hclick ".arrow.up"` (use appropriate selector from snapshot)
+3. Add random delays between upvotes (90-180 seconds)
+4. Target: upvote `targets.upvotes` posts (default 4-6)
 
-For each subreddit:
-1. Navigate to `https://old.reddit.com/r/{sub}/hot`
-2. Pick one of the top 5 posts
-3. Find the comment textbox, type comment, click save
-4. Wait 90-180s (random) before next comment
+### 5. Comment Phase (use interactive mode)
+
+For each target subreddit:
+
+1. `goto https://old.reddit.com/r/<subreddit>/hot`
+2. `snapshot` — pick a top post
+3. `hclick` on the post to open it
+4. `snapshot` — find comment textbox
+5. `htype` comment text (human-like typing speed)
+6. `click` submit button
+7. `snapshot` — verify comment posted
+8. Wait 90-180 seconds (random) before next comment
 
 #### Comment Quality Rules
 
 - **No duplicate paragraphs** — verify before posting
-- **No banned phrases** (from `comments.bannedPhrases` in config)
 - **Each comment uses a different style**, rotating through:
-  1. Personal story/experience ("Last summer I...", "My neighbor once...")
-  2. Question/engagement ("Did you try...?", "Curious - how did you...?")
+  1. Personal story/experience
+  2. Question/engagement
   3. Humor — short 1-2 sentence witty remark
-  4. Supplementary info ("One thing worth adding...", "Fun fact:...")
-  5. Genuine opinion ("Honestly I think...", "Hot take but...")
-- **Length varies randomly:** short 1-2 sentences (30%), medium 3-5 sentences (50%), long 6+ sentences (20%)
-- **Emotional/story comments get the most karma** — prioritize these
+  4. Supplementary info
+  5. Genuine opinion
+- **Length varies randomly:** short (30%), medium (50%), long (20%)
 - **Never promote any product**
+- **Banned phrases** (never use): "This really resonates", "What blows my mind", "Been in a similar boat", "Solid tip", "Great question", "This is so true"
 
 ### 6. Cleanup
 
-1. Export cookies: `bash <skill_dir>/scripts/camofox-cookies.sh export ${config.account.camofoxUserId}`
-2. Delete all open tabs: `DELETE /tabs/:id?userId=${camofoxUserId}`
-3. Report summary
+Session cookies are automatically persisted in the stealth profile.
+Just exit the interactive session:
+```
+exit
+```
 
 ### 7. Failure Handling
 
 - Single operation stuck > 30s → skip
 - Comment submission fails → retry once, then skip
 - Total runtime exceeds `timing.totalBudget` → stop, report what was done
-
-## Camofox API Reference
-
-All requests to `http://localhost:${config.camofoxPort}`:
-
-| Action | Method | Endpoint | Body |
-|--------|--------|----------|------|
-| Create tab | POST | /tabs | `{userId, sessionKey, url}` |
-| Snapshot | GET | /tabs/:id/snapshot?userId=X | — |
-| Click | POST | /tabs/:id/click | `{userId, ref}` or `{userId, selector}` |
-| Type | POST | /tabs/:id/type | `{userId, ref/selector, text}` |
-| Navigate | POST | /tabs/:id/navigate | `{userId, url}` |
-| Scroll | POST | /tabs/:id/scroll | `{userId, direction, amount}` |
-| Press key | POST | /tabs/:id/press | `{userId, key}` |
-| Delete tab | DELETE | /tabs/:id?userId=X | — |
+- **"Google detected automation"** → Reddit doesn't use Google detection, but if blocked, wait 5 min and retry with `--humanize`
 
 ## Report Format
 
@@ -134,14 +147,21 @@ After completion, output:
 - 状态: ✅ 正常 / ❌ 异常 — {原因}
 ```
 
+## Anti-Detection Features
+
+stealth CLI (Camoufox) provides:
+- **C++ level fingerprint spoofing** — WebGL, Canvas, AudioContext, screen geometry all natively spoofed
+- **`navigator.webdriver` always `false`**
+- **Firefox TLS fingerprint** (not Chromium — harder to detect)
+- **`--humanize` flag** — random delays, bezier curve mouse movement, variable typing speed
+- **Profile persistence** — same fingerprint + cookies across sessions
+- **`hclick` / `htype`** — human-like interaction in REPL mode
+
 ## Cron Setup
 
-To run daily, create an OpenClaw cron job:
-
+Schedule daily via Agentry cron:
 ```
 Schedule: 0 8 * * * (daily at 8:00 AM)
-Session: isolated
-Payload: "执行 Reddit 养号任务，按 reddit-nurture skill 操作。config 路径：~/.openclaw/skills/reddit-nurture/config.json"
+Payload: "执行 Reddit 养号任务，按 reddit-nurture skill 操作。"
 Timeout: 900s
-Delivery: announce
 ```

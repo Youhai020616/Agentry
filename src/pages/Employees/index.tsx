@@ -22,6 +22,7 @@ import Office from '@/pages/Office';
 import { HireDialog } from './HireDialog';
 import { EmployeeSecrets } from './EmployeeSecrets';
 import { cn } from '@/lib/utils';
+import { getAvatarGradient } from '@/lib/avatar-gradient';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PageLoader } from '@/components/common/LoadingSpinner';
@@ -281,12 +282,17 @@ function PixelCharacter({ employee }: { employee: Employee }) {
         )}
       </svg>
 
-      {/* Emoji role badge */}
+      {/* Emoji role badge with gradient */}
       <div
-        className="absolute -right-1.5 -top-1 flex items-center justify-center rounded-full bg-card border border-border shadow-sm"
-        style={{ width: 20, height: 20, zIndex: 5 }}
+        className="absolute -right-1.5 -top-1 flex items-center justify-center rounded-full shadow-md border-2 border-background"
+        style={{ width: 22, height: 22, zIndex: 5, ...getAvatarGradient(employee.name).style }}
       >
-        <span className="text-[10px] select-none leading-none">{employee.avatar}</span>
+        <span
+          className="text-[10px] select-none leading-none"
+          style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))' }}
+        >
+          {employee.avatar}
+        </span>
       </div>
     </div>
   );

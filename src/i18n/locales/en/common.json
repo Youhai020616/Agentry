@@ -85,5 +85,17 @@
     "maximize": "Maximize",
     "restore": "Restore",
     "close": "Close"
+  },
+  "userMenu": {
+    "defaultName": "User",
+    "localAccount": "Local Account",
+    "theme": "Theme",
+    "theme_light": "Light",
+    "theme_dark": "Dark",
+    "theme_illustration": "Illustration",
+    "theme_system": "System",
+    "language": "Language",
+    "about": "About Agentry",
+    "signOut": "Sign Out"
   }
 }

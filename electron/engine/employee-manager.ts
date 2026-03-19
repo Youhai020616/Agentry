@@ -400,6 +400,21 @@ export class EmployeeManager extends EventEmitter {
         if (target.has(slug)) continue;
 
         const now = Date.now();
+        // Resolve lottie path: check manifest field, then fallback to avatar.lottie/.json in skill dir
+        let lottieUrl: string | undefined;
+        if (manifest.employee.lottie) {
+          lottieUrl = join(skillDir, manifest.employee.lottie);
+        } else {
+          // Try .lottie first, then .json
+          for (const ext of ['avatar.lottie', 'avatar.json']) {
+            const candidate = join(skillDir, ext);
+            if (existsSync(candidate)) {
+              lottieUrl = candidate;
+              break;
+            }
+          }
+        }
+
         const employee: Employee = {
           id: slug,
           slug,
@@ -409,6 +424,7 @@ export class EmployeeManager extends EventEmitter {
           role: manifest.employee.role,
           roleZh: manifest.employee.roleZh,
           avatar: manifest.employee.avatar,
+          lottieUrl,
           team: manifest.employee.team,
           status: 'offline',
           config: {},

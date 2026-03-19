@@ -17,7 +17,7 @@ for (const stream of [process.stdout, process.stderr]) {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { app, BrowserWindow, nativeImage, session, shell } from 'electron';
+import { app, BrowserWindow, nativeImage, net, protocol, session, shell } from 'electron';
 import { join } from 'path';
 import { GatewayManager } from '../gateway/manager';
 import { StarOfficeManager } from '../star-office/manager';
@@ -306,8 +306,22 @@ async function initialize(): Promise<void> {
   }
 }
 
+// Register custom protocol for local asset access (lottie files etc.)
+// Must be called before app.whenReady()
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'local-asset',
+    privileges: { bypassCSP: true, supportFetchAPI: true, stream: true },
+  },
+]);
+
 // Application lifecycle
 app.whenReady().then(async () => {
+  // Handle local-asset:// protocol — maps to local file paths
+  protocol.handle('local-asset', (request) => {
+    const filePath = decodeURIComponent(request.url.replace('local-asset://', ''));
+    return net.fetch(`file://${filePath}`);
+  });
   await initialize();
 
   // Register activate handler AFTER app is ready to prevent
