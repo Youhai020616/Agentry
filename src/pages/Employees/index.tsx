@@ -436,7 +436,7 @@ function CardScene({ employee }: { employee: Employee }) {
     <div
       className="relative flex flex-col items-center justify-end overflow-hidden rounded-t-xl"
       style={{
-        height: 190,
+        height: 150,
         background: 'linear-gradient(180deg, hsl(220 15% 10%), hsl(220 12% 14%))',
       }}
     >
@@ -458,7 +458,7 @@ function CardScene({ employee }: { employee: Employee }) {
         <img
           src={imageUrl}
           alt={employee.name}
-          className="absolute inset-0 w-full h-full object-cover object-top"
+          className="absolute inset-0 w-full h-full object-cover object-center"
           draggable={false}
         />
       ) : (
