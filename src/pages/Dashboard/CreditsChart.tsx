@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { TrendingDown, Users, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { LottieAvatar } from '@/components/employees/LottieAvatar';
+
 import { useCreditsStore } from '@/stores/credits';
 import { useEmployeesStore } from '@/stores/employees';
 import type { CreditTransactionType } from '@/types/credits';
@@ -137,7 +137,7 @@ function EmployeeBreakdown() {
   const employees = useEmployeesStore((s) => s.employees);
   const fetchByEmployee = useCreditsStore((s) => s.fetchByEmployee);
   const [employeeCredits, setEmployeeCredits] = useState<
-    { id: string; name: string; avatar: string; lottieUrl?: string; consumed: number }[]
+    { id: string; name: string; avatar: string; avatarImagePath?: string; consumed: number }[]
   >([]);
   const [loading, setLoading] = useState(false);
 
@@ -148,7 +148,7 @@ function EmployeeBreakdown() {
       if (employees.length === 0) return;
       setLoading(true);
 
-      const results: { id: string; name: string; avatar: string; lottieUrl?: string; consumed: number }[] = [];
+      const results: { id: string; name: string; avatar: string; avatarImagePath?: string; consumed: number }[] = [];
 
       for (const emp of employees) {
         const transactions = await fetchByEmployee(emp.id, 200);
@@ -160,7 +160,7 @@ function EmployeeBreakdown() {
           id: emp.id,
           name: emp.name,
           avatar: emp.avatar || emp.name.charAt(0).toUpperCase(),
-          lottieUrl: emp.lottieUrl,
+          avatarImagePath: emp.avatarImagePath,
           consumed,
         });
       }
@@ -209,7 +209,11 @@ function EmployeeBreakdown() {
           const widthPercent = totalConsumed > 0 ? (emp.consumed / totalConsumed) * 100 : 0;
           return (
             <div key={emp.id} className="flex items-center gap-3">
-              <LottieAvatar lottieUrl={emp.lottieUrl} avatar={emp.avatar} name={emp.name} size="sm" showStatusRing={false} />
+              {emp.avatarImagePath ? (
+                <div className="h-6 w-6 rounded-full overflow-hidden"><img src={`local-asset://${emp.avatarImagePath}`} alt={emp.name} className="h-full w-full object-cover" draggable={false} /></div>
+              ) : (
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs">{emp.avatar}</div>
+              )}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-medium truncate">{emp.name}</span>

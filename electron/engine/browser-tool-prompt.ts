@@ -27,10 +27,34 @@
 /**
  * Well-known built-in tool names provided by the Gateway.
  * When a manifest declares `tools: [{ name: "<tool>" }]` (no `cli` field),
- * the ToolRegistry recognizes it as a Gateway-native tool and injects
- * behavioral guidance (not API docs — the Gateway handles that).
+ * the ToolRegistry recognizes it as a Gateway-native tool.
+ *
+ * Tools fall into two sub-categories:
+ * 1. **Prompt-injected** — have behavioral guidance appended to system prompt
+ *    (browser, web_search, web_fetch)
+ * 2. **Silent** — recognized & registered but no extra prompt injection needed;
+ *    the Gateway handles their schemas natively
+ *    (bash, read, write, edit, exec, sessions_*, cron, process, etc.)
  */
-export const BUILTIN_TOOL_NAMES = ['browser', 'web_search', 'web_fetch'] as const;
+export const BUILTIN_TOOL_NAMES = [
+  // ── Prompt-injected tools (have generateBuiltinToolPrompt handlers) ──
+  'browser',
+  'web_search',
+  'web_fetch',
+  // ── Gateway-native tools (no extra prompt needed) ──
+  'bash',
+  'read',
+  'write',
+  'edit',
+  'exec',
+  'sessions_spawn',
+  'sessions_send',
+  'sessions_list',
+  'sessions_history',
+  'session_status',
+  'cron',
+  'process',
+] as const;
 export type BuiltinToolName = (typeof BUILTIN_TOOL_NAMES)[number];
 
 /**

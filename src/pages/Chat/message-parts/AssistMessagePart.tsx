@@ -12,6 +12,8 @@ import {
   type ReactNode,
 } from 'react';
 import { Copy, Check, RefreshCw, Sparkles, AlertTriangle, File } from 'lucide-react';
+import { useChatStore } from '@/stores/chat';
+import { useEmployeesStore } from '@/stores/employees';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useTranslation } from 'react-i18next';
@@ -226,12 +228,34 @@ export const AssistMessagePart = memo(
      
     const mdComponents = useMemo(() => makeStreamingComponents(isStreaming), [isStreaming]);
 
+    // Derive avatar image from current session's employee
+    const currentSessionKey = useChatStore.getState().currentSessionKey;
+    const employees = useEmployeesStore.getState().employees;
+    const slug = currentSessionKey?.startsWith('agent:')
+      ? currentSessionKey.split(':')[1]
+      : undefined;
+    const currentEmployee = slug
+      ? employees.find((e) => e.id === slug || e.slug === slug)
+      : undefined;
+    const avatarImagePath = currentEmployee?.avatarImagePath;
+
     return (
       <div className="flex gap-3 group flex-row">
         {/* Avatar */}
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full mt-1 bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
-          <Sparkles className="h-4 w-4" />
-        </div>
+        {avatarImagePath ? (
+          <div className="h-8 w-8 shrink-0 mt-1 rounded-full overflow-hidden">
+            <img
+              src={`local-asset://${avatarImagePath}`}
+              alt={currentEmployee?.name || 'AI'}
+              className="h-full w-full object-cover object-center"
+              draggable={false}
+            />
+          </div>
+        ) : (
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full mt-1 bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
+            <Sparkles className="h-4 w-4" />
+          </div>
+        )}
 
         {/* Content */}
         <div className="flex flex-col w-full max-w-[80%] space-y-2 items-start">

@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft, RotateCcw, Settings, Loader2, Globe, Power } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { LottieAvatar } from '@/components/employees/LottieAvatar';
+
 import { EmployeeSecrets } from './EmployeeSecrets';
 import { useEmployeesStore } from '@/stores/employees';
 import type { Employee, EmployeeStatus } from '@/types/employee';
@@ -129,13 +129,13 @@ export function EmployeeHeader({ employee, onRestart, onDeactivate }: EmployeeHe
         </Button>
 
         {/* Avatar */}
-        <LottieAvatar
-          lottieUrl={employee.lottieUrl}
-          avatar={employee.avatar || employee.name.charAt(0).toUpperCase()}
-          name={employee.name}
-          status={employee.status}
-          size="lg"
-        />
+        {employee.avatarImagePath ? (
+          <div className="h-10 w-10 rounded-full overflow-hidden shrink-0">
+            <img src={`local-asset://${employee.avatarImagePath}`} alt={employee.name} className="h-full w-full object-cover object-center" draggable={false} />
+          </div>
+        ) : (
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-lg shrink-0">{employee.avatar}</div>
+        )}
 
         {/* Name + Role */}
         <div className="min-w-0 flex-1">

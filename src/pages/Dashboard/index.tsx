@@ -20,7 +20,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { LottieAvatar } from '@/components/employees/LottieAvatar';
+
 import { useActivityStore } from '@/stores/activity';
 import type { ActivityEvent } from '@/stores/activity';
 import { useEmployeesStore } from '@/stores/employees';
@@ -166,15 +166,12 @@ function ActivityItem({ event }: { event: ActivityEvent }) {
     <div className="flex items-start gap-3 py-3">
       {/* Avatar or icon */}
       <div className="mt-0.5 shrink-0">
-        {employee ? (
-          <LottieAvatar
-            lottieUrl={employee.lottieUrl}
-            avatar={employee.avatar || employee.name.charAt(0).toUpperCase()}
-            name={employee.name}
-            status={employee.status}
-            size="sm"
-            showStatusRing={false}
-          />
+        {employee?.avatarImagePath ? (
+          <div className="h-8 w-8 rounded-full overflow-hidden">
+            <img src={`local-asset://${employee.avatarImagePath}`} alt={employee.name} className="h-full w-full object-cover object-center" draggable={false} />
+          </div>
+        ) : employee ? (
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm">{employee.avatar}</div>
         ) : (
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
             {getEventIcon(event)}
