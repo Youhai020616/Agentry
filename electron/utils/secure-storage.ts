@@ -23,22 +23,16 @@ const ENCRYPTED_PREFIX = 'enc:v1:';
 
 // ── Lazy-load electron-store (ESM module) ───────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let providerStore: any = null;
+import { getStore } from './store-factory';
 
 async function getProviderStore() {
-  if (!providerStore) {
-    const Store = (await import('electron-store')).default;
-    providerStore = new Store({
-      name: 'agentry-providers',
-      defaults: {
-        providers: {} as Record<string, ProviderConfig>,
-        apiKeys: {} as Record<string, string>,
-        defaultProvider: null as string | null,
-      },
-    });
-  }
-  return providerStore;
+  return getStore('agentry-providers', {
+    defaults: {
+      providers: {},
+      apiKeys: {},
+      defaultProvider: null,
+    },
+  });
 }
 
 // ── Encryption helpers ──────────────────────────────────────────────────────
@@ -301,7 +295,7 @@ export async function setDefaultProvider(providerId: string): Promise<void> {
  */
 export async function getDefaultProvider(): Promise<string | null> {
   const s = await getProviderStore();
-  return s.get('defaultProvider') || null;
+  return (s.get('defaultProvider') as string | null) || null;
 }
 
 /**

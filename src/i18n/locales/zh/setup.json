@@ -42,6 +42,7 @@
     "nodejs": "Node.js 运行时",
     "openclaw": "OpenClaw 包",
     "gateway": "网关服务",
+    "gatewayService": "网关服务",
     "startGateway": "启动网关",
     "status": {
       "checking": "检查中...",

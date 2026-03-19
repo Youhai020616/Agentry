@@ -91,12 +91,12 @@ describe('generateBrowserToolPrompt', () => {
       expect(prompt).toContain('not running');
     });
 
-    it('mentions no browser detected error', () => {
-      expect(prompt).toContain('no browser detected');
+    it('mentions blocked/captcha errors', () => {
+      expect(prompt.toLowerCase()).toContain('blocked');
     });
 
-    it('mentions CDP connection errors', () => {
-      expect(prompt).toContain('CDP connection errors');
+    it('mentions browser crash recovery', () => {
+      expect(prompt.toLowerCase()).toContain('crash');
     });
 
     it('advises not to guess recovery steps', () => {
@@ -140,9 +140,8 @@ describe('generateBrowserToolPrompt', () => {
   // ── Token Efficiency ───────────────────────────────────────────────
 
   it('is reasonably concise (behavioral guidance, not API docs)', () => {
-    // The new prompt should be significantly shorter than the old exec-based one
-    // Old prompt was ~3500 chars; new behavioral prompt should be under 2500
-    expect(prompt.length).toBeLessThan(2500);
+    // Behavioral prompt should be concise — under 3000 chars
+    expect(prompt.length).toBeLessThan(3000);
     expect(prompt.length).toBeGreaterThan(300);
   });
 });

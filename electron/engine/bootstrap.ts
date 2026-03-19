@@ -196,7 +196,7 @@ export async function bootstrapEngine(): Promise<EngineContext> {
     // Issue #7: Deliver pending messages when employees come online.
     // Fix L1: `deliverPendingMessages()` emits 'new-message' events on the
     // MessageBus. These are now bridged to the renderer via IPC in
-    // `ipc-handlers.ts` (registerSupervisorHandlers → getLazy wrapper),
+    // `ipc/supervisor.ts` (registerSupervisorHandlers → getLazy wrapper),
     // so there IS a real production consumer for these events.
     employeeManager.on('activated', (employeeId: string) => {
       if (messageBus.hasPendingMessages(employeeId)) {

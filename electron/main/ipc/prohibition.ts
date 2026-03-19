@@ -1,8 +1,9 @@
 /**
  * Prohibition IPC Handlers
+ *
+ * Migrated to ipcHandle() wrapper for automatic error handling + perf tracking.
  */
-import { ipcMain } from 'electron';
-import { logger } from '../../utils/logger';
+import { ipcHandle } from './helpers';
 import type { IpcContext } from './types';
 
 export function register({ engineRef, gatewayManager }: IpcContext): void {
@@ -11,91 +12,52 @@ export function register({ engineRef, gatewayManager }: IpcContext): void {
     return engineRef.current.getLazy(gatewayManager);
   };
 
-  ipcMain.handle('prohibition:list', async (_event, employeeId?: string) => {
-    try {
-      const lazy = await getLazy();
-      const prohibitions = employeeId
-        ? lazy.prohibitionEngine.list(employeeId)
-        : lazy.prohibitionEngine.listAll();
-      return { success: true, result: prohibitions };
-    } catch (error) {
-      logger.error('prohibition:list failed:', error);
-      return { success: false, error: String(error) };
-    }
+  ipcHandle('prohibition:list', async (employeeId?: string) => {
+    const lazy = await getLazy();
+    return employeeId
+      ? lazy.prohibitionEngine.list(employeeId)
+      : lazy.prohibitionEngine.listAll();
   });
 
-  ipcMain.handle(
+  ipcHandle(
     'prohibition:create',
-    async (
-      _event,
-      params: {
-        level: string;
-        rule: string;
-        description?: string;
-        employeeId?: string;
-      }
-    ) => {
-      try {
-        const lazy = await getLazy();
-        const id = lazy.prohibitionEngine.create(
-          params.level as 'hard' | 'soft',
-          params.rule,
-          params.description ?? '',
-          params.employeeId
-        );
-        return { success: true, result: id };
-      } catch (error) {
-        logger.error('prohibition:create failed:', error);
-        return { success: false, error: String(error) };
-      }
+    async (params: {
+      level: string;
+      rule: string;
+      description?: string;
+      employeeId?: string;
+    }) => {
+      const lazy = await getLazy();
+      return lazy.prohibitionEngine.create(
+        params.level as 'hard' | 'soft',
+        params.rule,
+        params.description ?? '',
+        params.employeeId
+      );
     }
   );
 
-  ipcMain.handle(
+  ipcHandle(
     'prohibition:update',
     async (
-      _event,
       id: string,
-      updates: {
-        level?: string;
-        rule?: string;
-        description?: string;
-        enabled?: boolean;
-      }
+      updates: { level?: string; rule?: string; description?: string; enabled?: boolean }
     ) => {
-      try {
-        const lazy = await getLazy();
-        lazy.prohibitionEngine.update(
-          id,
-          updates as Parameters<typeof lazy.prohibitionEngine.update>[1]
-        );
-        return { success: true };
-      } catch (error) {
-        logger.error('prohibition:update failed:', error);
-        return { success: false, error: String(error) };
-      }
+      const lazy = await getLazy();
+      lazy.prohibitionEngine.update(
+        id,
+        updates as Parameters<typeof lazy.prohibitionEngine.update>[1]
+      );
     }
   );
 
-  ipcMain.handle('prohibition:delete', async (_event, id: string) => {
-    try {
-      const lazy = await getLazy();
-      lazy.prohibitionEngine.delete(id);
-      return { success: true };
-    } catch (error) {
-      logger.error('prohibition:delete failed:', error);
-      return { success: false, error: String(error) };
-    }
+  ipcHandle('prohibition:delete', async (id: string) => {
+    const lazy = await getLazy();
+    lazy.prohibitionEngine.delete(id);
   });
 
-  ipcMain.handle('prohibition:toggle', async (_event, id: string, enabled: boolean) => {
-    try {
-      const lazy = await getLazy();
-      lazy.prohibitionEngine.update(id, { enabled });
-      return { success: true };
-    } catch (error) {
-      logger.error('prohibition:toggle failed:', error);
-      return { success: false, error: String(error) };
-    }
+  ipcHandle('prohibition:toggle', async (id: string, enabled: boolean) => {
+    const lazy = await getLazy();
+    lazy.prohibitionEngine.update(id, { enabled });
   });
 }

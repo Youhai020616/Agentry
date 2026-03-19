@@ -23,14 +23,24 @@ let gatewayInitPromise: Promise<void> | null = null;
 const recentEventKeys = new Set<string>();
 let dedupTimer: ReturnType<typeof setTimeout> | null = null;
 
-/** Simple string hash for dedup fingerprinting (not crypto-grade). */
-function simpleHash(str: string): string {
-  let hash = 0;
+/**
+ * cyrb53 — fast, low-collision 53-bit string hash.
+ * Replaces the old djb2-variant `simpleHash` which had high collision rates.
+ * See: https://github.com/bryc/code/blob/master/jshash/experimental/cyrb53.js
+ */
+function cyrb53(str: string, seed = 0): string {
+  let h1 = 0xdeadbeef ^ seed,
+    h2 = 0x41c6ce57 ^ seed;
   for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash + char) | 0;
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
   }
-  return hash.toString(36);
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+  h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+  h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
 }
 
 /** Extract text content from a message object, handling array content blocks. */
@@ -62,7 +72,7 @@ function isDuplicateEvent(event: Record<string, unknown>): boolean {
   const msg = event.message;
   const msgObj = msg && typeof msg === 'object' ? (msg as Record<string, unknown>) : {};
   const content = extractContentText(msgObj);
-  const contentHash = content ? simpleHash(content) : 'empty';
+  const contentHash = content ? cyrb53(content) : 'empty';
 
   // Include state so that the final event (which carries the same cumulative
   // content as the last delta but has state='final') is NOT deduped against it.
@@ -85,6 +95,15 @@ function isDuplicateEvent(event: Record<string, unknown>): boolean {
   }
   return false;
 }
+
+/**
+ * Pending lifecycle:end timers, keyed by runId.
+ * When a lifecycle:end arrives via Channel B, we wait up to LIFECYCLE_END_MAX_WAIT_MS
+ * for the real final event to arrive via Channel A. If Channel A delivers first,
+ * the timer is cancelled (no synthetic event needed).
+ */
+const pendingLifecycleEnd = new Map<string, ReturnType<typeof setTimeout>>();
+const LIFECYCLE_END_MAX_WAIT_MS = 800;
 
 interface GatewayHealth {
   ok: boolean;
@@ -168,38 +187,44 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
         if (stream === 'lifecycle' && phase === 'end') {
           const runId = p.runId ?? data.runId;
           const sessionKey = p.sessionKey ?? data.sessionKey;
+          const runIdStr = String(runId ?? '');
+
+          // If a real final event already arrived via Channel A, skip
+          if (recentEventKeys.has(`${runIdStr}:final:`)) {
+            console.debug(
+              `[gateway] lifecycle:end for runId="${runIdStr.slice(0, 12)}" — final already received, skipping`
+            );
+            return;
+          }
+
           console.info(
-            `[gateway] lifecycle:end received — runId="${String(runId ?? '').slice(0, 12)}" → delaying 350ms before synthesizing final event`
+            `[gateway] lifecycle:end received — runId="${runIdStr.slice(0, 12)}" → waiting up to ${LIFECYCLE_END_MAX_WAIT_MS}ms for real final event`
           );
-          // ── BUG FIX: lifecycle:end race condition ─────────────────
-          // The lifecycle:end notification arrives via the `gateway:notification`
-          // channel (channel B), while the last streaming deltas arrive via
-          // `gateway:chat-message` (channel A). These two IPC channels have no
-          // ordering guarantee, so lifecycle:end can arrive BEFORE the final
-          // delta(s). When that happens, handleChatEvent promotes the current
-          // (incomplete) streamingMessage as the final message and then
-          // markRunCompleted() blocks all subsequent deltas — causing truncation.
-          //
-          // Fix: delay the synthesized final event by 350ms to give straggling
-          // deltas time to arrive and update streamingMessage. If a real final
-          // event (with message body + stopReason) arrives via channel A during
-          // this window, it will resolve the run first and markRunCompleted();
-          // the delayed lifecycle:end event will then be harmlessly dropped by
-          // the recentCompletedRunIds guard in handleChatEvent.
-          setTimeout(() => {
-            import('./chat')
-              .then(({ useChatStore }) => {
-                useChatStore.getState().handleChatEvent({
-                  state: 'final',
-                  runId,
-                  sessionKey,
-                  // No message body — handleChatEvent will promote streamingMessage
+
+          // Cancel any existing timer for the same runId (shouldn't happen, but defensive)
+          const existingTimer = pendingLifecycleEnd.get(runIdStr);
+          if (existingTimer) clearTimeout(existingTimer);
+
+          // Wait up to LIFECYCLE_END_MAX_WAIT_MS for Channel A's final event.
+          // If it arrives first, the timer is cancelled in the chat-message handler below.
+          pendingLifecycleEnd.set(
+            runIdStr,
+            setTimeout(() => {
+              pendingLifecycleEnd.delete(runIdStr);
+              import('./chat')
+                .then(({ useChatStore }) => {
+                  useChatStore.getState().handleChatEvent({
+                    state: 'final',
+                    runId,
+                    sessionKey,
+                    // No message body — handleChatEvent will promote streamingMessage
+                  });
+                })
+                .catch((err) => {
+                  console.warn('Failed to forward lifecycle:end as final event:', err);
                 });
-              })
-              .catch((err) => {
-                console.warn('Failed to forward lifecycle:end as final event:', err);
-              });
-          }, 350);
+            }, LIFECYCLE_END_MAX_WAIT_MS)
+          );
           return;
         }
 
@@ -280,6 +305,22 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
             };
 
             if (isDuplicateEvent(syntheticEvent)) return;
+
+            // If this is a real final from Channel A, cancel pending lifecycle:end timer
+            if (isFinal) {
+              const finalRunId = String(
+                chatData.runId ?? payload.runId ?? msgObj.runId ?? ''
+              );
+              const pending = pendingLifecycleEnd.get(finalRunId);
+              if (pending) {
+                clearTimeout(pending);
+                pendingLifecycleEnd.delete(finalRunId);
+                console.debug(
+                  `[gateway] Real final received for runId="${finalRunId.slice(0, 12)}" — cancelled pending lifecycle:end timer`
+                );
+              }
+            }
+
             useChatStore.getState().handleChatEvent(syntheticEvent);
           })
           .catch((err) => {

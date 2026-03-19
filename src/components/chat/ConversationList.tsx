@@ -26,8 +26,8 @@ import {
   MoreHorizontal,
   MessageSquare,
   Clock,
-  ChevronLeft,
-  ChevronRight,
+  PanelRight,
+  PanelRightClose,
   GripVertical,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -616,10 +616,10 @@ export function ConversationList({
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 rounded-lg"
+            className="h-7 w-7 rounded-lg text-muted-foreground/60 hover:text-foreground"
             onClick={onToggleCollapse}
           >
-            <ChevronRight className="h-3.5 w-3.5" />
+            <PanelRight className="h-4 w-4" />
           </Button>
         )}
         {onNewConversation && (
@@ -633,9 +633,9 @@ export function ConversationList({
             <MessageSquarePlus className="h-3.5 w-3.5" />
           </Button>
         )}
-        <div className="flex-1" />
-        <div className="flex flex-col items-center gap-1">
-          {conversations.slice(0, 5).map((conv) => (
+        <div className="my-1 h-px w-5 bg-border/60" />
+        <div className="flex flex-col items-center gap-1 overflow-y-auto flex-1 no-scrollbar py-1">
+          {conversations.slice(0, 10).map((conv) => (
             <button
               key={conv.id}
               className={cn(
@@ -698,10 +698,10 @@ export function ConversationList({
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 rounded-md"
+              className="h-6 w-6 rounded-md text-muted-foreground/60 hover:text-foreground"
               onClick={onToggleCollapse}
             >
-              <ChevronLeft className="h-3 w-3" />
+              <PanelRightClose className="h-3.5 w-3.5" />
             </Button>
           )}
         </div>

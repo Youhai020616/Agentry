@@ -35,5 +35,18 @@
     "minutesAgo": "{{count}}m ago",
     "hoursAgo": "{{count}}h ago",
     "daysAgo": "{{count}}d ago"
+  },
+  "creditsChart": {
+    "title": "Credits Analytics",
+    "dailyUsage": "Daily Usage",
+    "days7": "7D",
+    "days14": "14D",
+    "days30": "30D",
+    "credits": "{{count}} credits",
+    "noData": "No data available",
+    "byEmployee": "By Employee",
+    "byType": "By Type",
+    "forecast": "Balance Forecast",
+    "daysRemaining": "days remaining at current pace"
   }
 }

@@ -8,7 +8,6 @@ export * from './browser';
 export * from './credits';
 export * from './employee';
 export * from './manifest';
-export * from './media-studio';
 export * from './memory';
 export * from './task';
 export * from './user';

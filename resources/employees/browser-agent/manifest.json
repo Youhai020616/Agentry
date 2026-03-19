@@ -38,7 +38,8 @@
   },
   "tools": [
     {
-      "name": "browser"
+      "name": "bash",
+      "description": "Execute stealth CLI commands for anti-detection web browsing"
     },
     {
       "name": "web_search"

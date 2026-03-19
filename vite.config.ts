@@ -6,6 +6,7 @@ import { resolve } from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  assetsInclude: ['**/*.lottie'],
   plugins: [
     react(),
     electron([
@@ -19,7 +20,7 @@ export default defineConfig({
           build: {
             outDir: 'dist-electron/main',
             rollupOptions: {
-              external: ['electron', 'electron-store', 'electron-updater', 'better-sqlite3', 'ws'],
+              external: ['electron', 'electron-store', 'electron-updater', 'better-sqlite3', 'ws', 'stealth-cli', 'camoufox-js', 'playwright-core'],
             },
           },
         },

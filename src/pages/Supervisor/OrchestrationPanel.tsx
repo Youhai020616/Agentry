@@ -5,9 +5,12 @@
  */
 import { useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FolderKanban, Users, Zap, Inbox } from 'lucide-react';
+import { Users, Zap, Inbox } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ActivityTimeline } from '@/pages/Dashboard';
+import { useActivityStore } from '@/stores/activity';
 import { useTasksStore } from '@/stores/tasks';
 import { useEmployeesStore } from '@/stores/employees';
 import { ProjectMiniCard } from './ProjectMiniCard';
@@ -103,12 +106,16 @@ export function OrchestrationPanel({ className }: OrchestrationPanelProps) {
   const fetchProjects = useTasksStore((s) => s.fetchProjects);
   const fetchTasks = useTasksStore((s) => s.fetchTasks);
   const initTasks = useTasksStore((s) => s.init);
+  const initActivity = useActivityStore((s) => s.init);
+  const fetchEvents = useActivityStore((s) => s.fetchEvents);
 
   useEffect(() => {
     initTasks();
     fetchProjects();
     fetchTasks();
-  }, [initTasks, fetchProjects, fetchTasks]);
+    initActivity();
+    fetchEvents();
+  }, [initTasks, fetchProjects, fetchTasks, initActivity, fetchEvents]);
 
   const sortedProjects = useMemo(() => {
     return [...projects].sort(
@@ -147,73 +154,78 @@ export function OrchestrationPanel({ className }: OrchestrationPanelProps) {
     >
       {/* Header */}
       <div className="shrink-0 px-4 py-3 border-b border-border/40">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <FolderKanban className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-semibold tracking-tight">{t('nav.projects')}</span>
-          </div>
-          {activeProjects.length > 0 && (
-            <span className="text-[10px] font-mono text-muted-foreground tabular-nums">
-              {activeProjects.length} {tp('orchestration.inProgress')}
-            </span>
-          )}
-        </div>
         <TeamStatusBar />
       </div>
 
-      {/* Project list */}
-      <div className="flex-1 overflow-y-auto px-3 py-3">
-        {projects.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div className="space-y-6">
-            {/* Active projects */}
-            {activeProjects.length > 0 && (
-              <motion.div
-                variants={containerVariants}
-                initial="hidden"
-                animate="show"
-                className="space-y-2"
-              >
-                <AnimatePresence mode="popLayout">
-                  {activeProjects.map((project) => (
-                    <motion.div key={project.id} variants={itemVariants} layout>
-                      <ProjectMiniCard
-                        project={project}
-                        tasks={tasksByProject.get(project.id) ?? []}
-                      />
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </motion.div>
-            )}
+      <Tabs defaultValue="projects" className="flex flex-col flex-1 min-h-0">
+        <div className="shrink-0 px-3 pt-2">
+          <TabsList className="w-full">
+            <TabsTrigger value="projects" className="flex-1 text-xs">
+              {t('nav.projects')}
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="flex-1 text-xs">
+              {t('nav.dashboard')}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-            {/* Completed projects (collapsed) */}
-            {completedProjects.length > 0 && (
-              <div>
-                <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2 px-1">
-                  {tp('status.completed')} ({completedProjects.length})
-                </p>
+        <TabsContent value="projects" className="flex-1 overflow-y-auto px-3 py-3 mt-0">
+          {projects.length === 0 ? (
+            <EmptyState />
+          ) : (
+            <div className="space-y-6">
+              {/* Active projects */}
+              {activeProjects.length > 0 && (
                 <motion.div
                   variants={containerVariants}
                   initial="hidden"
                   animate="show"
                   className="space-y-2"
                 >
-                  {completedProjects.slice(0, 3).map((project) => (
-                    <motion.div key={project.id} variants={itemVariants} layout>
-                      <ProjectMiniCard
-                        project={project}
-                        tasks={tasksByProject.get(project.id) ?? []}
-                      />
-                    </motion.div>
-                  ))}
+                  <AnimatePresence mode="popLayout">
+                    {activeProjects.map((project) => (
+                      <motion.div key={project.id} variants={itemVariants} layout>
+                        <ProjectMiniCard
+                          project={project}
+                          tasks={tasksByProject.get(project.id) ?? []}
+                        />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
                 </motion.div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+              )}
+
+              {/* Completed projects (collapsed) */}
+              {completedProjects.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2 px-1">
+                    {tp('status.completed')} ({completedProjects.length})
+                  </p>
+                  <motion.div
+                    variants={containerVariants}
+                    initial="hidden"
+                    animate="show"
+                    className="space-y-2"
+                  >
+                    {completedProjects.slice(0, 3).map((project) => (
+                      <motion.div key={project.id} variants={itemVariants} layout>
+                        <ProjectMiniCard
+                          project={project}
+                          tasks={tasksByProject.get(project.id) ?? []}
+                        />
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                </div>
+              )}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="activity" className="flex-1 overflow-y-auto px-3 py-3 mt-0">
+          <ActivityTimeline compact />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

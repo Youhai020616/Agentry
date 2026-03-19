@@ -16,7 +16,6 @@ import enMarketplace from './locales/en/marketplace.json';
 import enCredits from './locales/en/credits.json';
 import enBilling from './locales/en/billing.json';
 import enBrowser from './locales/en/browser.json';
-import enMediaStudio from './locales/en/media-studio.json';
 import enProjects from './locales/en/projects.json';
 import enOffice from './locales/en/office.json';
 
@@ -35,7 +34,6 @@ import zhMarketplace from './locales/zh/marketplace.json';
 import zhCredits from './locales/zh/credits.json';
 import zhBilling from './locales/zh/billing.json';
 import zhBrowser from './locales/zh/browser.json';
-import zhMediaStudio from './locales/zh/media-studio.json';
 import zhProjects from './locales/zh/projects.json';
 import zhOffice from './locales/zh/office.json';
 
@@ -54,7 +52,6 @@ import jaMarketplace from './locales/ja/marketplace.json';
 import jaCredits from './locales/ja/credits.json';
 import jaBilling from './locales/ja/billing.json';
 import jaBrowser from './locales/ja/browser.json';
-import jaMediaStudio from './locales/ja/media-studio.json';
 import jaProjects from './locales/ja/projects.json';
 import jaOffice from './locales/ja/office.json';
 
@@ -82,7 +79,6 @@ const resources = {
     credits: enCredits,
     billing: enBilling,
     browser: enBrowser,
-    'media-studio': enMediaStudio,
     projects: enProjects,
     office: enOffice,
   },
@@ -101,7 +97,6 @@ const resources = {
     credits: zhCredits,
     billing: zhBilling,
     browser: zhBrowser,
-    'media-studio': zhMediaStudio,
     projects: zhProjects,
     office: zhOffice,
   },
@@ -120,7 +115,6 @@ const resources = {
     credits: jaCredits,
     billing: jaBilling,
     browser: jaBrowser,
-    'media-studio': jaMediaStudio,
     projects: jaProjects,
     office: jaOffice,
   },
@@ -146,7 +140,6 @@ i18n.use(initReactI18next).init({
     'credits',
     'billing',
     'browser',
-    'media-studio',
     'projects',
     'office',
   ],

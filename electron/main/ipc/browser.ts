@@ -6,10 +6,10 @@ import { logger } from '../../utils/logger';
 import type { IpcContext } from './types';
 
 export function register({ mainWindow }: IpcContext): void {
-  // Lazy import to avoid pulling BrowserManager into the critical startup path
+  // Lazy import — uses stealth-cli (Camoufox) as the browser engine
   const getBrowser = async () => {
-    const { getBrowserManager } = await import('../../engine/browser-manager');
-    return getBrowserManager();
+    const { getStealthBrowserManager } = await import('../../engine/stealth-browser-manager');
+    return getStealthBrowserManager();
   };
 
   // Forward browser status changes to renderer

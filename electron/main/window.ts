@@ -3,6 +3,7 @@
  * Handles window state persistence and multi-window management
  */
 import { BrowserWindow, screen } from 'electron';
+import { getStore as getStoreFactory } from '../utils/store-factory';
 
 interface WindowState {
   x?: number;
@@ -12,25 +13,16 @@ interface WindowState {
   isMaximized: boolean;
 }
 
-// Lazy-load electron-store (ESM module)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let windowStateStore: any = null;
-
 async function getStore() {
-  if (!windowStateStore) {
-    const Store = (await import('electron-store')).default;
-    windowStateStore = new Store<{ windowState: WindowState }>({
-      name: 'window-state',
-      defaults: {
-        windowState: {
-          width: 1280,
-          height: 800,
-          isMaximized: false,
-        },
+  return getStoreFactory('window-state', {
+    defaults: {
+      windowState: {
+        width: 1280,
+        height: 800,
+        isMaximized: false,
       },
-    });
-  }
-  return windowStateStore;
+    },
+  });
 }
 
 /**
@@ -38,7 +30,7 @@ async function getStore() {
  */
 export async function getWindowState(): Promise<WindowState> {
   const store = await getStore();
-  const state = store.get('windowState');
+  const state = store.get('windowState') as WindowState;
   
   // Validate that the window is visible on a screen
   if (state.x !== undefined && state.y !== undefined) {

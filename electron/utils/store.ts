@@ -4,10 +4,7 @@
  */
 
 import { randomBytes } from 'crypto';
-
-// Lazy-load electron-store (ESM module)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let settingsStoreInstance: any = null;
+import { getStore } from './store-factory';
 
 /**
  * Generate a random token for gateway authentication
@@ -82,14 +79,7 @@ const defaults: AppSettings = {
  * Get the settings store instance (lazy initialization)
  */
 async function getSettingsStore() {
-  if (!settingsStoreInstance) {
-    const Store = (await import('electron-store')).default;
-    settingsStoreInstance = new Store<AppSettings>({
-      name: 'settings',
-      defaults,
-    });
-  }
-  return settingsStoreInstance;
+  return getStore('settings', { defaults: defaults as unknown as Record<string, unknown> });
 }
 
 /**
@@ -97,7 +87,7 @@ async function getSettingsStore() {
  */
 export async function getSetting<K extends keyof AppSettings>(key: K): Promise<AppSettings[K]> {
   const store = await getSettingsStore();
-  return store.get(key);
+  return store.get(key) as AppSettings[K];
 }
 
 /**
@@ -116,7 +106,7 @@ export async function setSetting<K extends keyof AppSettings>(
  */
 export async function getAllSettings(): Promise<AppSettings> {
   const store = await getSettingsStore();
-  return store.store;
+  return store.store as unknown as AppSettings;
 }
 
 /**
@@ -140,9 +130,11 @@ export async function exportSettings(): Promise<string> {
  */
 export async function importSettings(json: string): Promise<void> {
   try {
-    const settings = JSON.parse(json);
+    const settings = JSON.parse(json) as Record<string, unknown>;
     const store = await getSettingsStore();
-    store.set(settings);
+    for (const [key, value] of Object.entries(settings)) {
+      store.set(key, value);
+    }
   } catch {
     throw new Error('Invalid settings JSON');
   }

@@ -1,61 +1,183 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { Play, Square, RotateCw, ExternalLink, Monitor, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useStarOfficeStore } from '@/stores/star-office';
+import { useChatStore } from '@/stores/chat';
+import { useGatewayStore } from '@/stores/gateway';
 import { cn } from '@/lib/utils';
 
-/** Original Star Office design dimensions */
-const DESIGN_WIDTH = 1280;
-const DESIGN_HEIGHT = 1100; // 720 canvas + 300 bottom panels + 80 paddings/gaps
+const _DESIGN_WIDTH = 1280;
+const _DESIGN_HEIGHT = 820; // 720 canvas + 60 chat bar + 40 padding
+// Aspect ratio used for sizing, not for CSS transform
+const ASPECT_RATIO = _DESIGN_WIDTH / _DESIGN_HEIGHT;
+const SUPERVISOR_SESSION_KEY = 'agent:supervisor:main';
+const MAX_BUBBLE_TEXT = 500;
+const MAX_HISTORY = 30;
 
 export default function Office() {
   const { t } = useTranslation('office');
+  const navigate = useNavigate();
   const { status, init, start, stop, restart } = useStarOfficeStore();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
+  const [iframeSize, setIframeSize] = useState({ width: 0, height: 0 });
+  const iframeReadyRef = useRef(false);
+
+  // Chat store
+  const messages = useChatStore((s) => s.messages);
+  const sending = useChatStore((s) => s.sending);
+  const streamingText = useChatStore((s) => s.streamingText);
+  const sendMessage = useChatStore((s) => s.sendMessage);
+  const switchSession = useChatStore((s) => s.switchSession);
+  const loadSessions = useChatStore((s) => s.loadSessions);
+  const gatewayStatus = useGatewayStore((s) => s.status);
+  const isGatewayRunning = gatewayStatus.state === 'running';
+
+  // Ref to debounce state sync
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     init();
   }, [init]);
 
-  const updateScale = useCallback(() => {
+  // Auto-start Star Office when page loads
+  useEffect(() => {
+    if (status.state === 'stopped') {
+      void start();
+    }
+  }, [status.state, start]);
+
+  // ── Ensure Supervisor session is selected ──
+  useEffect(() => {
+    if (!isGatewayRunning) return;
+    void loadSessions().then(() => {
+      const current = useChatStore.getState().currentSessionKey;
+      if (current !== SUPERVISOR_SESSION_KEY) {
+        switchSession(SUPERVISOR_SESSION_KEY);
+      }
+    });
+  }, [isGatewayRunning, loadSessions, switchSession]);
+
+  // Calculate iframe size to fill container while maintaining aspect ratio
+  const updateSize = useCallback(() => {
     if (containerRef.current) {
       const cw = containerRef.current.clientWidth;
-      // Scale to fill container width; vertical overflow handled by scrolling
-      setScale(Math.min(1, cw / DESIGN_WIDTH));
+      const ch = containerRef.current.clientHeight;
+      if (cw / ch > ASPECT_RATIO) {
+        // Container is wider — constrain by height
+        setIframeSize({ width: Math.floor(ch * ASPECT_RATIO), height: ch });
+      } else {
+        // Container is taller — constrain by width
+        setIframeSize({ width: cw, height: Math.floor(cw / ASPECT_RATIO) });
+      }
     }
   }, []);
 
   useEffect(() => {
-    updateScale();
-    const observer = new ResizeObserver(updateScale);
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
     if (containerRef.current) {
       observer.observe(containerRef.current);
     }
     return () => observer.disconnect();
-  }, [updateScale]);
+  }, [updateSize]);
 
-  // Overlay handlers: wheel scrolls parent, click passes through to iframe
-  const handleOverlayWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    containerRef.current?.scrollBy({ top: e.deltaY });
+  // ── PostMessage helper ──
+  const postToIframe = useCallback((type: string, payload: unknown) => {
+    iframeRef.current?.contentWindow?.postMessage({ type, payload }, '*');
   }, []);
 
-  const handleOverlayMouseDown = useCallback(() => {
-    const overlay = overlayRef.current;
-    if (!overlay) return;
-    // Hide overlay so pointer events reach the iframe underneath
-    overlay.style.pointerEvents = 'none';
-    const restore = () => {
-      overlay.style.pointerEvents = 'auto';
-      window.removeEventListener('mouseup', restore);
+  // ── Extract plain text from message content ──
+  const extractText = useCallback((content: unknown): string => {
+    if (typeof content === 'string') return content;
+    if (Array.isArray(content)) {
+      return content
+        .filter((p: { type?: string }) => p.type === 'text')
+        .map((p: { text?: string }) => p.text || '')
+        .join('\n');
+    }
+    return '';
+  }, []);
+
+  // ── Declarative state sync: send FULL chat state to iframe ──
+  // This is the ONLY path for chat data → iframe. No individual message events.
+  const syncChatStateToIframe = useCallback(() => {
+    if (!iframeReadyRef.current) return;
+
+    const history = messages
+      .filter((m) => m.role === 'user' || m.role === 'assistant')
+      .slice(-MAX_HISTORY)
+      .map((m) => ({
+        role: m.role as string,
+        content: extractText(m.content).substring(0, MAX_BUBBLE_TEXT),
+        timestamp: m.timestamp || Date.now(),
+      }));
+
+    // If streaming, append a partial assistant message
+    const currentStreamText = useChatStore.getState().streamingText;
+    if (currentStreamText) {
+      history.push({
+        role: 'assistant',
+        content: currentStreamText.substring(0, MAX_BUBBLE_TEXT),
+        timestamp: Date.now(),
+      });
+    }
+
+    postToIframe('office:chat:state', {
+      messages: history,
+      sending: useChatStore.getState().sending,
+    });
+  }, [messages, postToIframe, extractText]);
+
+  // ── Sync on messages / streaming changes (debounced) ──
+  useEffect(() => {
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = setTimeout(syncChatStateToIframe, 80);
+    return () => {
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     };
-    window.addEventListener('mouseup', restore);
-  }, []);
+  }, [messages, streamingText, sending, syncChatStateToIframe]);
+
+  // ── Listen to iframe messages ──
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      const data = event.data;
+      if (!data || typeof data.type !== 'string') return;
+
+      switch (data.type) {
+        case 'office:chat:ready':
+          iframeReadyRef.current = true;
+          syncChatStateToIframe();
+          break;
+
+        case 'office:chat:send': {
+          const text = data.payload?.text;
+          if (text && !useChatStore.getState().sending) {
+            // Ensure we're on supervisor session before sending
+            const current = useChatStore.getState().currentSessionKey;
+            if (current !== SUPERVISOR_SESSION_KEY) {
+              switchSession(SUPERVISOR_SESSION_KEY);
+              // Wait a tick for session switch, then send
+              setTimeout(() => void sendMessage(text), 100);
+            } else {
+              void sendMessage(text);
+            }
+          }
+          break;
+        }
+
+        case 'office:chat:navigate':
+          navigate('/chat');
+          break;
+      }
+    };
+
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, [syncChatStateToIframe, switchSession, sendMessage, navigate]);
 
   const isRunning = status.state === 'running';
   const isStarting = status.state === 'starting';
@@ -78,6 +200,7 @@ export default function Office() {
         <h1 className="text-sm font-medium">{t('title')}</h1>
 
         <Badge variant={statusVariant} className="ml-1">
+          {isStarting && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
           {t(`status.${status.state}`)}
         </Badge>
 
@@ -87,13 +210,6 @@ export default function Office() {
           <Button size="sm" variant="default" onClick={start}>
             <Play className="mr-1.5 h-3.5 w-3.5" />
             {t('start')}
-          </Button>
-        )}
-
-        {isStarting && (
-          <Button size="sm" variant="secondary" disabled>
-            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-            {t('starting')}
           </Button>
         )}
 
@@ -126,37 +242,19 @@ export default function Office() {
       </div>
 
       {/* Content */}
-      <div ref={containerRef} className="flex-1 overflow-auto">
+      <div ref={containerRef} className="flex-1 overflow-hidden flex items-center justify-center">
         {isRunning && status.url ? (
-          <div
-            className="relative mx-auto"
+          <iframe
+            ref={iframeRef}
+            src={status.url}
+            className="border-0"
             style={{
-              width: Math.ceil(DESIGN_WIDTH * scale),
-              height: Math.ceil(DESIGN_HEIGHT * scale),
-              overflow: 'hidden',
+              width: iframeSize.width || '100%',
+              height: iframeSize.height || '100%',
             }}
-          >
-            {/* Transparent overlay: captures wheel → scrolls parent, passes clicks → iframe */}
-            <div
-              ref={overlayRef}
-              className="absolute inset-0 z-10"
-              onWheel={handleOverlayWheel}
-              onMouseDown={handleOverlayMouseDown}
-            />
-            <iframe
-              ref={iframeRef}
-              src={status.url}
-              className="border-0"
-              style={{
-                width: DESIGN_WIDTH,
-                height: DESIGN_HEIGHT,
-                transform: `scale(${scale})`,
-                transformOrigin: 'top left',
-              }}
-              title="Star Office UI"
-              sandbox="allow-scripts allow-same-origin allow-popups"
-            />
-          </div>
+            title={t('iframeTitle')}
+            sandbox="allow-scripts allow-same-origin allow-popups allow-modals allow-forms"
+          />
         ) : (
           <EmptyState state={status.state} error={status.error} onStart={start} t={t} />
         )}

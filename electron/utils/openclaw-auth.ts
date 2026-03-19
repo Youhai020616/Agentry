@@ -3,7 +3,7 @@
  * Writes API keys to ~/.openclaw/agents/main/agent/auth-profiles.json
  * so the OpenClaw Gateway can load them for AI provider calls.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { getProviderEnvVar, getProviderDefaultModel, getProviderConfig } from './provider-registry';
@@ -125,6 +125,38 @@ export function saveProviderKeyToOpenClaw(
   logger.info(
     `Saved API key for provider "${provider}" to OpenClaw auth-profiles (agent: ${agentId})`
   );
+
+  // Sync the key to ALL existing agent auth-profiles so that employee agents
+  // (supervisor, browser-agent, etc.) also pick up the new key.
+  // Each agent has its own auth-profiles.json under ~/.openclaw/agents/<id>/agent/.
+  if (agentId === 'main') {
+    try {
+      const agentsBase = join(homedir(), '.openclaw', 'agents');
+      if (existsSync(agentsBase)) {
+        for (const dir of readdirSync(agentsBase)) {
+          if (dir === 'main') continue;
+          const otherAuthPath = join(agentsBase, dir, 'agent', AUTH_PROFILE_FILENAME);
+          if (existsSync(otherAuthPath)) {
+            const otherStore = readAuthProfiles(dir);
+            if (otherStore.profiles[profileId]?.key !== apiKey) {
+              otherStore.profiles[profileId] = { type: 'api_key', provider, key: apiKey };
+              if (!otherStore.order) otherStore.order = {};
+              if (!otherStore.order[provider]) otherStore.order[provider] = [];
+              if (!otherStore.order[provider].includes(profileId)) {
+                otherStore.order[provider].push(profileId);
+              }
+              if (!otherStore.lastGood) otherStore.lastGood = {};
+              otherStore.lastGood[provider] = profileId;
+              writeAuthProfiles(otherStore, dir);
+              logger.debug(`Synced ${provider} key to agent: ${dir}`);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      logger.warn('Failed to sync provider key to other agents:', err);
+    }
+  }
 }
 
 /**

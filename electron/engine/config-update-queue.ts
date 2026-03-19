@@ -32,15 +32,34 @@ export class ConfigUpdateQueue {
    * If the function throws, the error is propagated to the caller but the queue
    * continues processing subsequent operations (the failed operation is skipped).
    */
-  async enqueue<T>(fn: () => Promise<T>): Promise<T> {
+  async enqueue<T>(fn: () => Promise<T>, retries = 2): Promise<T> {
     this.pending++;
     logger.debug(`[ConfigUpdateQueue] Enqueued operation (pending: ${this.pending})`);
+
+    const executeWithRetry = async (): Promise<T> => {
+      let lastError: unknown;
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          return await fn();
+        } catch (err) {
+          lastError = err;
+          if (attempt < retries) {
+            const delay = 100 * (attempt + 1);
+            logger.warn(
+              `[ConfigUpdateQueue] Attempt ${attempt + 1}/${retries + 1} failed, retrying in ${delay}ms...`
+            );
+            await new Promise((r) => setTimeout(r, delay));
+          }
+        }
+      }
+      throw lastError;
+    };
 
     const result = new Promise<T>((resolve, reject) => {
       this.queue = this.queue
         .then(async () => {
           try {
-            const value = await fn();
+            const value = await executeWithRetry();
             resolve(value);
           } catch (err) {
             reject(err);

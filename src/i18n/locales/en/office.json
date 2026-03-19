@@ -1,6 +1,7 @@
 {
   "title": "Pixel Office",
   "description": "Visualize your AI employees as pixel characters in a virtual office",
+  "iframeTitle": "Star Office UI",
   "start": "Start Office",
   "stop": "Stop Office",
   "restart": "Restart",

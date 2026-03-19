@@ -1,4 +1,8 @@
 {
+  "viewMode": {
+    "cards": "Card View",
+    "office": "Pixel Office"
+  },
   "hub": {
     "title": "My Employees",
     "subtitle": "Manage your AI workforce",

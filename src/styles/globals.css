@@ -991,36 +991,7 @@
   position: relative;
 }
 
-.chat-glass-wrapper::before {
-  content: '';
-  position: absolute;
-  top: -2px;
-  bottom: -2px;
-  left: 8px;
-  right: 8px;
-  background:
-    radial-gradient(ellipse at 15% 50%, rgba(139, 92, 246, 0.18) 0%, transparent 45%),
-    radial-gradient(ellipse at 85% 50%, rgba(59, 130, 246, 0.14) 0%, transparent 45%),
-    radial-gradient(ellipse at 50% 90%, rgba(236, 72, 153, 0.1) 0%, transparent 45%);
-  border-radius: 1rem;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.dark .chat-glass-wrapper::before {
-  background:
-    radial-gradient(ellipse at 15% 50%, rgba(139, 92, 246, 0.14) 0%, transparent 50%),
-    radial-gradient(ellipse at 85% 50%, rgba(59, 130, 246, 0.12) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 90%, rgba(236, 72, 153, 0.08) 0%, transparent 50%);
-}
-
-/* Illustration theme — warm watercolor gradient wrapper */
-.illustration .chat-glass-wrapper::before {
-  background:
-    radial-gradient(ellipse at 15% 50%, rgba(216, 122, 74, 0.16) 0%, transparent 48%),
-    radial-gradient(ellipse at 85% 50%, rgba(186, 146, 210, 0.14) 0%, transparent 48%),
-    radial-gradient(ellipse at 50% 90%, rgba(210, 236, 226, 0.12) 0%, transparent 48%);
-}
+/* No gradient pseudo-element — pure glass only */
 
 /* The frosted glass panel */
 .chat-glass-input {

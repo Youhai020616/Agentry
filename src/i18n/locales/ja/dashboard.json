@@ -35,5 +35,18 @@
     "minutesAgo": "{{count}}分前",
     "hoursAgo": "{{count}}時間前",
     "daysAgo": "{{count}}日前"
+  },
+  "creditsChart": {
+    "title": "クレジット分析",
+    "dailyUsage": "日別使用量",
+    "days7": "7日",
+    "days14": "14日",
+    "days30": "30日",
+    "credits": "{{count}} クレジット",
+    "noData": "データがありません",
+    "byEmployee": "従業員別",
+    "byType": "タイプ別",
+    "forecast": "残高予測",
+    "daysRemaining": "日（現在のペース）"
   }
 }

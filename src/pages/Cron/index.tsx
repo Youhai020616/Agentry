@@ -541,7 +541,7 @@ function CronJobCard({ job, onToggle, onEdit, onDelete, onTrigger }: CronJobCard
   );
 }
 
-export function Cron() {
+export function Cron({ embedded = false }: { embedded?: boolean }) {
   const { t } = useTranslation('cron');
   const {
     jobs,
@@ -621,12 +621,13 @@ export function Cron() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-pixel text-xl font-bold tracking-wide">{t('title')}</h1>
-          <p className="text-xs text-muted-foreground mt-1">{t('subtitle')}</p>
-        </div>
+      {/* Header — hidden when embedded in Settings */}
+      {!embedded && (
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-pixel text-xl font-bold tracking-wide">{t('title')}</h1>
+            <p className="text-xs text-muted-foreground mt-1">{t('subtitle')}</p>
+          </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={fetchJobs} disabled={!isGatewayRunning}>
             <RefreshCw className="h-4 w-4 mr-2" />
@@ -644,6 +645,7 @@ export function Cron() {
           </Button>
         </div>
       </div>
+      )}
 
       {/* Gateway Warning */}
       {!isGatewayRunning && (

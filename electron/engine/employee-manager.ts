@@ -400,6 +400,21 @@ export class EmployeeManager extends EventEmitter {
         if (target.has(slug)) continue;
 
         const now = Date.now();
+        // Resolve lottie path: check manifest field, then fallback to avatar.lottie/.json in skill dir
+        let lottieUrl: string | undefined;
+        if (manifest.employee.lottie) {
+          lottieUrl = join(skillDir, manifest.employee.lottie);
+        } else {
+          // Try .lottie first, then .json
+          for (const ext of ['avatar.lottie', 'avatar.json']) {
+            const candidate = join(skillDir, ext);
+            if (existsSync(candidate)) {
+              lottieUrl = candidate;
+              break;
+            }
+          }
+        }
+
         const employee: Employee = {
           id: slug,
           slug,
@@ -409,6 +424,7 @@ export class EmployeeManager extends EventEmitter {
           role: manifest.employee.role,
           roleZh: manifest.employee.roleZh,
           avatar: manifest.employee.avatar,
+          lottieUrl,
           team: manifest.employee.team,
           status: 'offline',
           config: {},
@@ -864,35 +880,13 @@ export class EmployeeManager extends EventEmitter {
 
   // ── Lazy-loaded electron-store instances ─────────────────────────
 
-  private _secretsStore: unknown = null;
-
-  private async getSecretsStore(): Promise<{
-    get: (key: string) => unknown;
-    set: (key: string, value: unknown) => void;
-  }> {
-    if (!this._secretsStore) {
-      const ElectronStore = (await import('electron-store')).default;
-      this._secretsStore = new ElectronStore({ name: 'employee-secrets' });
-    }
-    return this._secretsStore as {
-      get: (key: string) => unknown;
-      set: (key: string, value: unknown) => void;
-    };
+  private async getSecretsStore() {
+    const { getStore } = await import('../utils/store-factory');
+    return getStore('employee-secrets');
   }
 
-  private _onboardingStore: unknown = null;
-
-  private async getOnboardingStore(): Promise<{
-    get: (key: string) => unknown;
-    set: (key: string, value: unknown) => void;
-  }> {
-    if (!this._onboardingStore) {
-      const ElectronStore = (await import('electron-store')).default;
-      this._onboardingStore = new ElectronStore({ name: 'employee-onboarding' });
-    }
-    return this._onboardingStore as {
-      get: (key: string) => unknown;
-      set: (key: string, value: unknown) => void;
-    };
+  private async getOnboardingStore() {
+    const { getStore } = await import('../utils/store-factory');
+    return getStore('employee-onboarding');
   }
 }

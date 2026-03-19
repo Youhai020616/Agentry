@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 // Types
 interface GlassEffectProps {
@@ -156,7 +157,7 @@ const GlassFilter: React.FC = () => (
       <feDisplacementMap
         in="SourceGraphic"
         in2="softMap"
-        scale={200}
+        scale={30}
         xChannelSelector="R"
         yChannelSelector="G"
       />
@@ -166,6 +167,7 @@ const GlassFilter: React.FC = () => (
 
 // Main Demo Component
 const LiquidGlassDemo: React.FC = () => {
+  const { t } = useTranslation('chat');
   const dockIcons: DockIcon[] = [
     {
       src: 'https://parsefiles.back4app.com/JPaQcFfEEQ1ePBxbf6wvzkPMEqKYHhPYv8boI1Rc/a13d1acfd046f503f987c1c95af582c8_low_res_Claude.png',
@@ -208,7 +210,7 @@ const LiquidGlassDemo: React.FC = () => {
 
         <GlassButton>
           <div className="text-xl text-white">
-            <p>How can i help you today?</p>
+            <p>{t('welcome.helpPrompt')}</p>
           </div>
         </GlassButton>
       </div>

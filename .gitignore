@@ -36,6 +36,9 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
+# Local reference projects
+github/
+
 # Test coverage
 coverage/
 
@@ -84,3 +87,15 @@ github/
 # Python virtual environments
 .venv/
 *.pyc
+
+# Cloud uploads / AI generated images
+cloud/
+
+# Design assets (local only)
+design/
+
+# Playwright
+playwright-report/
+playwright.config.ts
+test-results/
+tests/e2e/

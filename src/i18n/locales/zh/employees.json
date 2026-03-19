@@ -1,4 +1,8 @@
 {
+  "viewMode": {
+    "cards": "卡片视图",
+    "office": "像素办公室"
+  },
   "hub": {
     "title": "我的员工",
     "subtitle": "管理你的 AI 团队",

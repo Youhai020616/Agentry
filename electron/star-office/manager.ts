@@ -121,6 +121,12 @@ export class StarOfficeManager extends EventEmitter {
   async stop(): Promise<void> {
     logger.info('[StarOffice] Stop requested');
     this.clearHealthCheck();
+    // Cancel any pending auto-restart
+    if (this.autoRestartTimer) {
+      clearTimeout(this.autoRestartTimer);
+      this.autoRestartTimer = null;
+    }
+    this.autoRestartAttempts = 0;
 
     if (this.process) {
       const child = this.process;
@@ -205,7 +211,9 @@ export class StarOfficeManager extends EventEmitter {
         this.emit('exit', code);
 
         if (this.status.state === 'running') {
-          this.setStatus({ state: 'stopped', pid: undefined, url: undefined });
+          this.setStatus({ state: 'error', pid: undefined, url: undefined, error: `Process exited unexpectedly (${msg})` });
+          // Auto-restart after unexpected crash (up to 3 attempts)
+          this.scheduleAutoRestart();
         }
       });
 
@@ -248,16 +256,27 @@ export class StarOfficeManager extends EventEmitter {
     throw new Error(`Star Office did not become ready within ${STARTUP_TIMEOUT / 1000}s`);
   }
 
+  private healthFailures = 0;
+  private static readonly HEALTH_FAILURE_THRESHOLD = 3;
+
   private startHealthCheck(): void {
     this.clearHealthCheck();
+    this.healthFailures = 0;
     this.healthCheckInterval = setInterval(async () => {
       if (this.status.state !== 'running') return;
       try {
         const ok = await this.client.health();
         if (!ok) {
-          logger.warn('[StarOffice] Health check failed');
-          this.setStatus({ state: 'error', error: 'Health check failed' });
-          this.emit('error', new Error('Health check failed'));
+          this.healthFailures++;
+          logger.warn(`[StarOffice] Health check failed (${this.healthFailures}/${StarOfficeManager.HEALTH_FAILURE_THRESHOLD})`);
+          if (this.healthFailures >= StarOfficeManager.HEALTH_FAILURE_THRESHOLD) {
+            this.clearHealthCheck();
+            this.setStatus({ state: 'error', error: 'Health check failed repeatedly', pid: undefined, url: undefined });
+            this.emit('error', new Error('Health check failed'));
+            this.scheduleAutoRestart();
+          }
+        } else {
+          this.healthFailures = 0; // Reset on success
         }
       } catch (error) {
         logger.error('[StarOffice] Health check error:', error);
@@ -270,6 +289,36 @@ export class StarOfficeManager extends EventEmitter {
       clearInterval(this.healthCheckInterval);
       this.healthCheckInterval = null;
     }
+  }
+
+  /** Auto-restart attempts counter and timer */
+  private autoRestartAttempts = 0;
+  private autoRestartTimer: NodeJS.Timeout | null = null;
+  private static readonly MAX_AUTO_RESTARTS = 3;
+  private static readonly AUTO_RESTART_DELAY = 3000;
+
+  private scheduleAutoRestart(): void {
+    if (this.autoRestartAttempts >= StarOfficeManager.MAX_AUTO_RESTARTS) {
+      logger.warn(`[StarOffice] Max auto-restart attempts (${StarOfficeManager.MAX_AUTO_RESTARTS}) reached, giving up`);
+      this.setStatus({ state: 'error', error: 'Process crashed repeatedly. Click Start to retry.' });
+      return;
+    }
+
+    if (this.autoRestartTimer) return;
+
+    this.autoRestartAttempts++;
+    logger.info(`[StarOffice] Scheduling auto-restart (attempt ${this.autoRestartAttempts}/${StarOfficeManager.MAX_AUTO_RESTARTS}) in ${StarOfficeManager.AUTO_RESTART_DELAY}ms`);
+
+    this.autoRestartTimer = setTimeout(async () => {
+      this.autoRestartTimer = null;
+      try {
+        await this.start();
+        this.autoRestartAttempts = 0; // Reset on success
+      } catch (error) {
+        logger.error('[StarOffice] Auto-restart failed:', error);
+        this.scheduleAutoRestart();
+      }
+    }, StarOfficeManager.AUTO_RESTART_DELAY);
   }
 
   private setStatus(update: Partial<StarOfficeManagerStatus>): void {

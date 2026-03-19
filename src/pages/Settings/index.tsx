@@ -4,10 +4,6 @@
  */
 import { useEffect, useState, useCallback } from 'react';
 import {
-  Sun,
-  Moon,
-  Monitor,
-  Palette,
   RefreshCw,
   Terminal,
   ExternalLink,
@@ -16,7 +12,7 @@ import {
   Copy,
   FileText,
   Users,
-  Clapperboard,
+  Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,9 +27,9 @@ import { useGatewayStore } from '@/stores/gateway';
 import { useUpdateStore } from '@/stores/update';
 import { ProvidersSettings } from '@/components/settings/ProvidersSettings';
 import { UpdateSettings } from '@/components/settings/UpdateSettings';
-import { MediaStudioSettings } from '@/components/settings/MediaStudioSettings';
+import { Cron } from '@/pages/Cron';
 import { useTranslation } from 'react-i18next';
-import { SUPPORTED_LANGUAGES } from '@/i18n';
+
 type ControlUiInfo = {
   url: string;
   token: string;
@@ -43,10 +39,6 @@ type ControlUiInfo = {
 export function Settings() {
   const { t } = useTranslation('settings');
   const {
-    theme,
-    setTheme,
-    language,
-    setLanguage,
     gatewayAutoStart,
     setGatewayAutoStart,
     autoCheckUpdate,
@@ -278,68 +270,6 @@ export function Settings() {
         <p className="text-xs text-muted-foreground mt-1">{t('subtitle')}</p>
       </div>
 
-      {/* Appearance */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('appearance.title')}</CardTitle>
-          <CardDescription>{t('appearance.description')}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>{t('appearance.theme')}</Label>
-            <div className="flex gap-2">
-              <Button
-                variant={theme === 'light' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setTheme('light')}
-              >
-                <Sun className="h-4 w-4 mr-2" />
-                {t('appearance.light')}
-              </Button>
-              <Button
-                variant={theme === 'dark' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setTheme('dark')}
-              >
-                <Moon className="h-4 w-4 mr-2" />
-                {t('appearance.dark')}
-              </Button>
-              <Button
-                variant={theme === 'illustration' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setTheme('illustration')}
-              >
-                <Palette className="h-4 w-4 mr-2" />
-                {t('appearance.illustration')}
-              </Button>
-              <Button
-                variant={theme === 'system' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setTheme('system')}
-              >
-                <Monitor className="h-4 w-4 mr-2" />
-                {t('appearance.system')}
-              </Button>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>{t('appearance.language')}</Label>
-            <div className="flex gap-2">
-              {SUPPORTED_LANGUAGES.map((lang) => (
-                <Button
-                  key={lang.code}
-                  variant={language === lang.code ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setLanguage(lang.code)}
-                >
-                  {lang.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* AI Providers */}
       <Card>
         <CardHeader>
@@ -354,19 +284,6 @@ export function Settings() {
         </CardContent>
       </Card>
 
-      {/* Media Studio */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clapperboard className="h-5 w-5" />
-            {t('mediaStudio.title')}
-          </CardTitle>
-          <CardDescription>{t('mediaStudio.description')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <MediaStudioSettings />
-        </CardContent>
-      </Card>
 
       {/* Gateway */}
       <Card>
@@ -470,6 +387,19 @@ export function Settings() {
               disabled={supervisorLoading}
             />
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Scheduled Tasks (Cron) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="h-5 w-5" />
+            {t('common:nav.cron')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Cron embedded />
         </CardContent>
       </Card>
 

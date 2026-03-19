@@ -258,21 +258,10 @@ export class UserManager {
   // ── Private helpers ──────────────────────────────────────────────────
 
   /**
-   * Lazy-load electron-store (ESM-only package)
+   * Lazy-load electron-store via centralized factory
    */
-  private _store: unknown = null;
-
-  private async getStore(): Promise<{
-    get: (key: string) => unknown;
-    set: (key: string, value: unknown) => void;
-  }> {
-    if (!this._store) {
-      const ElectronStore = (await import('electron-store')).default;
-      this._store = new ElectronStore({ name: 'user-manager' });
-    }
-    return this._store as {
-      get: (key: string) => unknown;
-      set: (key: string, value: unknown) => void;
-    };
+  private async getStore() {
+    const { getStore } = await import('../utils/store-factory');
+    return getStore('user-manager');
   }
 }

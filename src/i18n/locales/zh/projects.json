@@ -1,6 +1,10 @@
 {
   "title": "项目",
   "subtitle": "主管编排的所有团队协作项目",
+  "tabs": {
+    "projects": "项目",
+    "tasks": "任务"
+  },
   "filters": {
     "all": "全部",
     "executing": "执行中",

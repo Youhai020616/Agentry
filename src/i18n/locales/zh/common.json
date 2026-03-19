@@ -6,7 +6,9 @@
     "channels": "频道",
     "dashboard": "工作动态",
     "settings": "设置",
-    "devConsole": "开发者控制台"
+    "devConsole": "开发者控制台",
+    "more": "展开更多",
+    "less": "收起"
   },
   "actions": {
     "save": "保存",
@@ -55,7 +57,6 @@
     "supervisor": "主管",
     "projects": "项目",
     "browser": "浏览器",
-    "mediaStudio": "新媒体工作台",
     "office": "像素办公室"
   },
   "gateway": {
@@ -73,5 +74,28 @@
     "disabled": "主管模式已关闭",
     "enableFailed": "启用主管模式失败",
     "disableFailed": "关闭主管模式失败"
+  },
+  "error": {
+    "title": "出了点问题",
+    "description": "发生意外错误，请重试。",
+    "tryAgain": "重试"
+  },
+  "window": {
+    "minimize": "最小化",
+    "maximize": "最大化",
+    "restore": "还原",
+    "close": "关闭"
+  },
+  "userMenu": {
+    "defaultName": "用户",
+    "localAccount": "本地账户",
+    "theme": "主题",
+    "theme_light": "浅色",
+    "theme_dark": "深色",
+    "theme_illustration": "插画",
+    "theme_system": "跟随系统",
+    "language": "语言",
+    "about": "关于 Agentry",
+    "signOut": "退出登录"
   }
 }

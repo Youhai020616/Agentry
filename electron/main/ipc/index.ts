@@ -8,7 +8,6 @@
 import type { BrowserWindow } from 'electron';
 import type { GatewayManager } from '../../gateway/manager';
 import type { ClawHubService } from '../../gateway/clawhub';
-import { EmployeeManager } from '../../engine/employee-manager';
 import { logger } from '../../utils/logger';
 import type { IpcContext, EngineRef } from './types';
 
@@ -49,7 +48,6 @@ import { register as supervisor } from './supervisor';
 import { register as conversation } from './conversation';
 import { register as chatMessage } from './chat-message';
 import { register as browser } from './browser';
-import { register as studio } from './studio';
 import { register as starOffice } from './star-office';
 
 /**
@@ -98,7 +96,6 @@ const allModules = [
   conversation,
   chatMessage,
   browser,
-  studio,
   starOffice,
 ];
 
@@ -113,47 +110,38 @@ export function registerIpcHandlers(
   engineRef: EngineRef,
   starOfficeManager?: import('../../star-office/manager').StarOfficeManager
 ): void {
-  // Resolve EmployeeManager: prefer engine context, fallback to standalone.
-  // BUG FIX: registerIpcHandlers is called BEFORE bootstrapEngine completes,
-  // so engineRef.current is always null here. We create a standalone fallback,
-  // but also set up a lazy proxy: once engine bootstraps, all subsequent
-  // IPC calls use the engine's EmployeeManager (which has the compiler wired
-  // with the full team roster for Supervisor's {{TEAM_ROSTER}} variable).
-  let employeeManager: EmployeeManager;
-  if (engineRef.current?.employeeManager) {
-    employeeManager = engineRef.current.employeeManager;
-  } else {
-    logger.warn('Engine context not yet available, initializing standalone EmployeeManager');
-    employeeManager = new EmployeeManager();
-    void employeeManager.init();
-  }
+  // No standalone EmployeeManager fallback — single source of truth from Engine.
+  // IPC handlers that need employeeManager read from engineRef.current lazily.
+  // Before engine bootstraps, employee:list returns [] and other ops throw a
+  // clear "Engine not initialized" error.
 
-  // Forward employee status changes to renderer
-  employeeManager.on('status', (employeeId: string, status: string) => {
-    if (!mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('employee:status-changed', { employeeId, status });
-    }
-  });
-
-  // Build shared context with a getter that upgrades to engine's EmployeeManager
-  // once bootstrap completes. This ensures activate() uses the fully-wired
-  // compiler (with ToolRegistry, MemoryEngine, and team roster support).
+  // Build shared context — employeeManager getter defers to engine.
+  // Status forwarding to renderer is set up in main/index.ts after bootstrap.
   const ctx: IpcContext = {
     gatewayManager,
     clawHubService,
     mainWindow,
     engineRef,
-    get employeeManager(): EmployeeManager {
-      // After engine bootstraps, prefer engine's EmployeeManager
-      return engineRef.current?.employeeManager ?? employeeManager;
+    get employeeManager() {
+      if (!engineRef.current?.employeeManager) {
+        throw new Error('Engine not yet initialized — employee operations unavailable');
+      }
+      return engineRef.current.employeeManager;
     },
     starOfficeManager,
   };
 
-  // Register all modules
+  // Register all modules — catch per-module errors so one failure doesn't
+  // prevent subsequent modules from registering their handlers.
+  let registered = 0;
   for (const register of allModules) {
-    register(ctx);
+    try {
+      register(ctx);
+      registered++;
+    } catch (error) {
+      logger.error('IPC handler module registration failed:', error);
+    }
   }
 
-  logger.info(`Registered ${allModules.length} IPC handler modules`);
+  logger.info(`Registered ${registered}/${allModules.length} IPC handler modules`);
 }

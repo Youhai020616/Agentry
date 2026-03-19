@@ -55,20 +55,10 @@ function transformCronJob(job: GatewayCronJob) {
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let cronEmployeeStoreInstance: any = null;
+import { getStore } from '../../utils/store-factory';
 
-async function getCronEmployeeStore(): Promise<{
-  get: (key: string) => string | undefined;
-  set: (key: string, value: string | undefined) => void;
-  delete: (key: string) => void;
-  store: Record<string, string>;
-}> {
-  if (!cronEmployeeStoreInstance) {
-    const Store = (await import('electron-store')).default;
-    cronEmployeeStoreInstance = new Store({ name: 'cron-employee-assignments', defaults: {} });
-  }
-  return cronEmployeeStoreInstance;
+async function getCronEmployeeStore() {
+  return getStore('cron-employee-assignments', { defaults: {} });
 }
 
 export function register({ gatewayManager, engineRef }: IpcContext): void {

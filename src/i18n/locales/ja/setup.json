@@ -42,6 +42,7 @@
     "nodejs": "Node.js ランタイム",
     "openclaw": "OpenClaw パッケージ",
     "gateway": "ゲートウェイサービス",
+    "gatewayService": "ゲートウェイサービス",
     "startGateway": "ゲートウェイを起動",
     "status": {
       "checking": "確認中...",

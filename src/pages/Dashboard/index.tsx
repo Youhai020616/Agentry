@@ -20,7 +20,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { PixelAvatar } from '@/components/employees/PixelAvatar';
+import { LottieAvatar } from '@/components/employees/LottieAvatar';
 import { useActivityStore } from '@/stores/activity';
 import type { ActivityEvent } from '@/stores/activity';
 import { useEmployeesStore } from '@/stores/employees';
@@ -167,8 +167,10 @@ function ActivityItem({ event }: { event: ActivityEvent }) {
       {/* Avatar or icon */}
       <div className="mt-0.5 shrink-0">
         {employee ? (
-          <PixelAvatar
+          <LottieAvatar
+            lottieUrl={employee.lottieUrl}
             avatar={employee.avatar || employee.name.charAt(0).toUpperCase()}
+            name={employee.name}
             status={employee.status}
             size="sm"
             showStatusRing={false}
@@ -201,7 +203,7 @@ function ActivityItem({ event }: { event: ActivityEvent }) {
 
 // ── Activity Timeline ─────────────────────────────────────────────
 
-function ActivityTimeline() {
+export function ActivityTimeline({ compact: _compact = false }: { compact?: boolean }) {
   const { t } = useTranslation('dashboard');
   const { events, loading, hasMore, loadMore } = useActivityStore();
 
