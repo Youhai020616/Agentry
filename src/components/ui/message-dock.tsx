@@ -16,6 +16,8 @@ export interface DockCharacter {
   id: string;
   name: string;
   avatar: string;
+  /** Optional avatar image path (absolute, loaded via local-asset://) */
+  avatarImagePath?: string;
   /** Optional Lottie animation file path or URL */
   lottieUrl?: string;
   /** Status indicator color: green=idle, yellow=working, red=error, gray=offline */
@@ -174,7 +176,16 @@ export function MessageDock({
                 )}
                 style={char.lottieUrl ? undefined : getAvatarGradient(char.name || char.id).style}
               >
-                {char.lottieUrl ? (
+                {char.avatarImagePath ? (
+                  <div className="relative h-10 w-10 rounded-xl overflow-hidden shadow-sm">
+                    <img
+                      src={`local-asset://${char.avatarImagePath}`}
+                      alt={char.name}
+                      className="h-full w-full object-cover object-center"
+                      draggable={false}
+                    />
+                  </div>
+                ) : char.lottieUrl ? (
                   <LottieAvatar
                     lottieUrl={char.lottieUrl}
                     avatar={char.avatar}
