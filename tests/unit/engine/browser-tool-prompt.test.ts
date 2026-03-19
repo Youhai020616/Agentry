@@ -155,13 +155,25 @@ describe('generateBuiltinToolPrompt', () => {
   it('returns empty string for unknown tool name', () => {
     expect(generateBuiltinToolPrompt('unknown-tool')).toBe('');
     expect(generateBuiltinToolPrompt('')).toBe('');
-    expect(generateBuiltinToolPrompt('exec')).toBe('');
   });
 
-  it('returns non-empty string only for recognized built-in tools', () => {
-    for (const name of BUILTIN_TOOL_NAMES) {
-      expect(generateBuiltinToolPrompt(name).length).toBeGreaterThan(0);
-    }
+  it('returns non-empty prompt for tools with behavioral guidance', () => {
+    // These tools have dedicated prompt generators
+    expect(generateBuiltinToolPrompt('browser').length).toBeGreaterThan(0);
+    expect(generateBuiltinToolPrompt('web_search').length).toBeGreaterThan(0);
+    expect(generateBuiltinToolPrompt('web_fetch').length).toBeGreaterThan(0);
+  });
+
+  it('returns empty string for silent Gateway-native tools (no prompt needed)', () => {
+    // These are recognized as built-in but have no extra prompt injection
+    expect(generateBuiltinToolPrompt('bash')).toBe('');
+    expect(generateBuiltinToolPrompt('read')).toBe('');
+    expect(generateBuiltinToolPrompt('write')).toBe('');
+    expect(generateBuiltinToolPrompt('edit')).toBe('');
+    expect(generateBuiltinToolPrompt('exec')).toBe('');
+    expect(generateBuiltinToolPrompt('sessions_spawn')).toBe('');
+    expect(generateBuiltinToolPrompt('cron')).toBe('');
+    expect(generateBuiltinToolPrompt('process')).toBe('');
   });
 });
 
@@ -170,12 +182,25 @@ describe('isBuiltinTool', () => {
     expect(isBuiltinTool('browser')).toBe(true);
   });
 
+  it('returns true for all Gateway-native tools', () => {
+    expect(isBuiltinTool('web_search')).toBe(true);
+    expect(isBuiltinTool('web_fetch')).toBe(true);
+    expect(isBuiltinTool('bash')).toBe(true);
+    expect(isBuiltinTool('read')).toBe(true);
+    expect(isBuiltinTool('write')).toBe(true);
+    expect(isBuiltinTool('edit')).toBe(true);
+    expect(isBuiltinTool('exec')).toBe(true);
+    expect(isBuiltinTool('sessions_spawn')).toBe(true);
+    expect(isBuiltinTool('cron')).toBe(true);
+    expect(isBuiltinTool('process')).toBe(true);
+  });
+
   it('returns false for non-builtin tool names', () => {
-    expect(isBuiltinTool('web-search')).toBe(false);
-    expect(isBuiltinTool('exec')).toBe(false);
+    expect(isBuiltinTool('web-search')).toBe(false); // hyphen, not underscore
     expect(isBuiltinTool('python')).toBe(false);
     expect(isBuiltinTool('')).toBe(false);
     expect(isBuiltinTool('Browser')).toBe(false); // case-sensitive
+    expect(isBuiltinTool('unknown-tool')).toBe(false);
   });
 });
 
