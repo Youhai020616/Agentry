@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 interface WelcomeScreenProps {
   employeeName?: string;
   employeeAvatar?: string;
+  employeeAvatarImage?: string;
 }
 
 function getGreetingKey(): string {
@@ -26,7 +27,7 @@ function getGreetingKey(): string {
   return 'goodEvening';
 }
 
-export function WelcomeScreen({ employeeName, employeeAvatar }: WelcomeScreenProps) {
+export function WelcomeScreen({ employeeName, employeeAvatar, employeeAvatarImage }: WelcomeScreenProps) {
   const { t } = useTranslation('chat');
   const isEmployee = !!employeeName;
 
@@ -99,9 +100,20 @@ export function WelcomeScreen({ employeeName, employeeAvatar }: WelcomeScreenPro
         transition={{ duration: 0.5, delay: 0.1, ease: 'easeOut' }}
       >
         {isEmployee ? (
-          <div className="w-16 h-16 rounded-2xl bg-card glass-border shadow-island flex items-center justify-center mb-6 text-4xl">
-            {employeeAvatar || '🤖'}
-          </div>
+          employeeAvatarImage ? (
+            <div className="w-16 h-16 rounded-2xl bg-card glass-border shadow-island overflow-hidden mb-6">
+              <img
+                src={`local-asset://${employeeAvatarImage}`}
+                alt={employeeName}
+                className="h-full w-full object-cover object-center"
+                draggable={false}
+              />
+            </div>
+          ) : (
+            <div className="w-16 h-16 rounded-2xl bg-card glass-border shadow-island flex items-center justify-center mb-6 text-4xl">
+              {employeeAvatar || '🤖'}
+            </div>
+          )
         ) : (
           <div className="w-16 h-16 rounded-2xl bg-card glass-border shadow-island flex items-center justify-center mb-6">
             <Bot className="h-8 w-8 text-primary" />

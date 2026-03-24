@@ -1,9 +1,9 @@
 /**
  * Chat Toolbar
- * Session selector, new session, refresh, and thinking toggle.
+ * Session selector, new session, and refresh.
  * Rendered in the Header when on the Chat page.
  */
-import { RefreshCw, Brain, ChevronDown, Plus } from 'lucide-react';
+import { RefreshCw, ChevronDown, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useChatStore } from '@/stores/chat';
@@ -25,8 +25,6 @@ export function ChatToolbar({ hideSessionSelector, hideSessionControls }: ChatTo
   const newSession = useChatStore((s) => s.newSession);
   const refresh = useChatStore((s) => s.refresh);
   const loading = useChatStore((s) => s.loading);
-  const showThinking = useChatStore((s) => s.showThinking);
-  const toggleThinking = useChatStore((s) => s.toggleThinking);
   const { t } = useTranslation('chat');
 
   const handleSessionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -67,7 +65,7 @@ export function ChatToolbar({ hideSessionSelector, hideSessionControls }: ChatTo
             <Plus className="h-4 w-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>
+        <TooltipContent side="bottom">
           <p>{t('toolbar.newSession')}</p>
         </TooltipContent>
       </Tooltip>
@@ -85,30 +83,11 @@ export function ChatToolbar({ hideSessionSelector, hideSessionControls }: ChatTo
             <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>
+        <TooltipContent side="bottom">
           <p>{t('toolbar.refresh')}</p>
         </TooltipContent>
       </Tooltip>
 
-      {/* Thinking Toggle */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn('h-8 w-8', showThinking && 'bg-primary/10 text-primary')}
-            onClick={toggleThinking}
-          >
-            <Brain className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent className="flex items-center gap-2">
-          <span>{showThinking ? t('toolbar.hideThinking') : t('toolbar.showThinking')}</span>
-          <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-            <span className="text-xs">{navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}</span>E
-          </kbd>
-        </TooltipContent>
-      </Tooltip>
     </div>
   );
 }

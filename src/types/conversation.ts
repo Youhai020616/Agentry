@@ -34,8 +34,11 @@ export interface Conversation {
   /** Employee name snapshot (for display even if employee is deleted) */
   employeeName?: string;
 
-  /** Employee avatar snapshot */
+  /** Employee avatar snapshot (emoji) */
   employeeAvatar?: string;
+
+  /** Employee avatar image path (for rendering actual image) */
+  employeeAvatarImage?: string;
 
   /** Timestamp when conversation was created (ms since epoch) */
   createdAt: number;
@@ -76,8 +79,11 @@ export interface CreateConversationInput {
   /** Employee name snapshot */
   employeeName?: string;
 
-  /** Employee avatar snapshot */
+  /** Employee avatar snapshot (emoji) */
   employeeAvatar?: string;
+
+  /** Employee avatar image path */
+  employeeAvatarImage?: string;
 }
 
 /**

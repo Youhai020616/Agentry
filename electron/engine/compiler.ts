@@ -225,10 +225,11 @@ export class SkillCompiler {
       return '(No employees available for delegation)';
     }
 
+    // NOTE: Do NOT include employee status (idle/offline) in the roster.
+    // sessions_spawn auto-activates offline employees — showing "status=offline"
+    // causes the LLM to incorrectly skip delegation.
     return employees
-      .map(
-        (e) => `- **${e.role}** (${e.roleZh}): slug=\`${e.id}\`, team=${e.team}, status=${e.status}`
-      )
+      .map((e) => `- **${e.role}** (${e.roleZh}): slug=\`${e.id}\`, team=${e.team}`)
       .join('\n');
   }
 

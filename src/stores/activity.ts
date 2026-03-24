@@ -172,8 +172,30 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       });
     });
 
-    // Note: Legacy supervisor:delegation-* events have been removed (Phase 5).
-    // Delegation is now handled natively by the Supervisor agent via `sessions_spawn`.
-    // Sub-agent results are announced back through the Gateway — no engine-side routing needed.
+    // Project lifecycle
+    window.electron.ipcRenderer.on('project:changed', (...args: unknown[]) => {
+      const project = args[0] as {
+        id?: string;
+        goal?: string;
+        status?: string;
+        createdAt?: number;
+        completedAt?: number;
+      };
+      if (!project?.id) return;
+
+      let action = 'created';
+      if (project.status === 'executing') action = 'started';
+      else if (project.status === 'completed') action = 'completed';
+      else if (project.status === 'reviewing') action = 'reviewing';
+
+      prependEvent({
+        id: `project-${action}-${project.id}-${Date.now()}`,
+        type: 'delegation',
+        action,
+        title: project.goal ?? 'Project',
+        timestamp: project.completedAt ?? project.createdAt ?? Date.now(),
+        meta: { projectId: project.id, status: project.status },
+      });
+    });
   },
 }));

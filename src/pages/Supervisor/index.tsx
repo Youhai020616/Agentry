@@ -10,7 +10,7 @@
  */
 import { useEffect, useMemo, useCallback, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Crown, AlertCircle, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { Crown, AlertCircle, PanelRightClose, PanelRightOpen, GripVertical } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/lib/utils';
@@ -22,8 +22,53 @@ import { useGatewayStore } from '@/stores/gateway';
 import { MessageDock, type DockCharacter } from '@/components/ui/message-dock';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { Button } from '@/components/ui/button';
+import { useSettingsStore } from '@/stores/settings';
 import { OrchestrationPanel } from './OrchestrationPanel';
 import { LightRays } from '@/components/chat/LightRays';
+
+// ── Right Panel Resize Constants ────────────────────────────────
+const PANEL_MIN_WIDTH = 240;
+const PANEL_MAX_WIDTH = 480;
+const PANEL_DEFAULT_WIDTH = 320;
+const PANEL_COLLAPSE_THRESHOLD = 180;
+
+// ── Right Panel Resize Handle ───────────────────────────────────
+function PanelResizeHandle({
+  isDragging,
+  onMouseDown,
+  onDoubleClick,
+}: {
+  isDragging: boolean;
+  onMouseDown: (e: React.MouseEvent) => void;
+  onDoubleClick: () => void;
+}) {
+  return (
+    <div
+      className={cn(
+        'absolute left-0 top-2 bottom-2 z-10 flex w-[6px] cursor-col-resize items-center justify-center',
+        'transition-colors duration-150 rounded-full',
+        'group/handle',
+        isDragging ? 'bg-primary/20' : 'hover:bg-primary/10'
+      )}
+      onMouseDown={onMouseDown}
+      onDoubleClick={onDoubleClick}
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize panel"
+    >
+      <div
+        className={cn(
+          'flex h-8 w-[4px] items-center justify-center rounded-full transition-opacity duration-150',
+          isDragging
+            ? 'opacity-100 bg-primary/30'
+            : 'opacity-0 group-hover/handle:opacity-100 bg-muted-foreground/20'
+        )}
+      >
+        <GripVertical className="h-3 w-3 text-muted-foreground/60" />
+      </div>
+    </div>
+  );
+}
 
 /** Default supervisor slug — matches resources/employees/supervisor/ */
 const SUPERVISOR_SLUG = 'supervisor';
@@ -51,6 +96,65 @@ export function Supervisor() {
   const [selectedId, setSelectedId] = useState<string>(SUPERVISOR_ID);
   const [activating, setActivating] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
+
+  // ── Right panel resize ──
+  const panelWidth = useSettingsStore((s) => s.orchestrationPanelWidth);
+  const setPanelWidth = useSettingsStore((s) => s.setOrchestrationPanelWidth);
+  const [isDraggingPanel, setIsDraggingPanel] = useState(false);
+  const panelStartXRef = useRef(0);
+  const panelStartWidthRef = useRef(0);
+
+  const handlePanelMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      panelStartXRef.current = e.clientX;
+      panelStartWidthRef.current = panelWidth;
+      setIsDraggingPanel(true);
+    },
+    [panelWidth]
+  );
+
+  useEffect(() => {
+    if (!isDraggingPanel) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      e.preventDefault();
+      // Right panel: dragging left = wider, dragging right = narrower
+      const delta = panelStartXRef.current - e.clientX;
+      const newWidth = panelStartWidthRef.current + delta;
+
+      if (newWidth < PANEL_COLLAPSE_THRESHOLD) {
+        setIsDraggingPanel(false);
+        setPanelOpen(false);
+        return;
+      }
+
+      const clamped = Math.max(PANEL_MIN_WIDTH, Math.min(PANEL_MAX_WIDTH, newWidth));
+      setPanelWidth(clamped);
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingPanel(false);
+    };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDraggingPanel, setPanelWidth]);
+
+  const handlePanelDoubleClick = useCallback(() => {
+    setPanelWidth(PANEL_DEFAULT_WIDTH);
+  }, [setPanelWidth]);
 
   // Guard to prevent double-activation of supervisor
   const supervisorActivating = useRef(false);
@@ -142,6 +246,20 @@ export function Supervisor() {
     }
   }, [isGatewayRunning]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-open orchestration panel when a project is created (sessions_spawn detected)
+  useEffect(() => {
+    const handler = (...args: unknown[]) => {
+      const p = args[0] as { id?: string; status?: string };
+      if (p?.id && !panelOpen) {
+        setPanelOpen(true);
+      }
+    };
+    window.electron.ipcRenderer.on('project:changed', handler);
+    return () => {
+      window.electron.ipcRenderer.off('project:changed', handler);
+    };
+  }, [panelOpen]);
+
   // Build dock characters: Supervisor first, then employees
   const dockCharacters: DockCharacter[] = useMemo(() => {
     // Derive supervisor dock status from the actual employee record
@@ -153,8 +271,8 @@ export function Supervisor() {
 
     const supervisor: DockCharacter = {
       id: SUPERVISOR_ID,
-      name: t('supervisor.title'),
-      avatar: '\uD83D\uDC54',
+      name: supervisorEmployee?.name || t('supervisor.title'),
+      avatar: supervisorEmployee?.avatar || '\uD83D\uDC54',
       avatarImagePath: supervisorEmployee?.avatarImagePath,
       status: supStatus,
     };
@@ -265,12 +383,36 @@ export function Supervisor() {
         <div className="flex items-center gap-2">
           {selectedId === SUPERVISOR_ID ? (
             <>
-              <Crown className="h-5 w-5 text-primary" />
-              <h1 className="text-xl font-bold tracking-wide">{t('supervisor.title')}</h1>
+              {supervisorEmployee?.avatarImagePath ? (
+                <div className="h-7 w-7 rounded-full overflow-hidden shrink-0">
+                  <img
+                    src={`local-asset://${supervisorEmployee.avatarImagePath}`}
+                    alt={supervisorEmployee.name || t('supervisor.title')}
+                    className="h-full w-full object-cover object-center"
+                    draggable={false}
+                  />
+                </div>
+              ) : (
+                <Crown className="h-5 w-5 text-primary" />
+              )}
+              <h1 className="text-xl font-bold tracking-wide">
+                {supervisorEmployee?.name || t('supervisor.title')}
+              </h1>
             </>
           ) : selectedEmployee ? (
             <>
-              <span className="text-xl">{selectedEmployee.avatar || '\uD83E\uDD16'}</span>
+              {selectedEmployee.avatarImagePath ? (
+                <div className="h-7 w-7 rounded-full overflow-hidden shrink-0">
+                  <img
+                    src={`local-asset://${selectedEmployee.avatarImagePath}`}
+                    alt={selectedEmployee.name}
+                    className="h-full w-full object-cover object-center"
+                    draggable={false}
+                  />
+                </div>
+              ) : (
+                <span className="text-xl">{selectedEmployee.avatar || '\uD83E\uDD16'}</span>
+              )}
               <h1 className="text-xl font-bold tracking-wide">{selectedEmployee.name}</h1>
               <span className="text-xs text-muted-foreground">{selectedEmployee.role}</span>
             </>
@@ -306,25 +448,43 @@ export function Supervisor() {
             hideToolbar
             hideBackground
             employeeName={
-              selectedId === SUPERVISOR_ID ? t('supervisor.title') : selectedEmployee?.name
+              selectedId === SUPERVISOR_ID
+                ? (supervisorEmployee?.name || t('supervisor.title'))
+                : selectedEmployee?.name
             }
             employeeAvatar={
-              selectedId === SUPERVISOR_ID ? '\uD83D\uDC54' : selectedEmployee?.avatar
+              selectedId === SUPERVISOR_ID
+                ? (supervisorEmployee?.avatar || '\uD83D\uDC54')
+                : selectedEmployee?.avatar
+            }
+            employeeAvatarImage={
+              selectedId === SUPERVISOR_ID
+                ? supervisorEmployee?.avatarImagePath
+                : selectedEmployee?.avatarImagePath
             }
           />
         </div>
 
-        {/* Orchestration Panel (right) — hidden on small screens */}
+        {/* Orchestration Panel (right) — hidden on small screens, resizable */}
         <AnimatePresence initial={false}>
           {panelOpen && (
             <motion.div
               initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 320, opacity: 1 }}
+              animate={{ width: panelWidth, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className="hidden md:block shrink-0 overflow-hidden"
+              transition={
+                isDraggingPanel
+                  ? { duration: 0 }
+                  : { type: 'spring', stiffness: 300, damping: 30 }
+              }
+              className="hidden md:block shrink-0 overflow-hidden relative"
             >
-              <OrchestrationPanel className="w-[320px] h-full" />
+              <PanelResizeHandle
+                isDragging={isDraggingPanel}
+                onMouseDown={handlePanelMouseDown}
+                onDoubleClick={handlePanelDoubleClick}
+              />
+              <OrchestrationPanel className="w-full h-full" />
             </motion.div>
           )}
         </AnimatePresence>

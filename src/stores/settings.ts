@@ -29,6 +29,7 @@ interface SettingsState {
   // UI State
   sidebarCollapsed: boolean;
   sidebarWidth: number;
+  orchestrationPanelWidth: number;
   devModeUnlocked: boolean;
 
   // Setup
@@ -49,6 +50,7 @@ interface SettingsState {
   setAutoDownloadUpdate: (value: boolean) => void;
   setSidebarCollapsed: (value: boolean) => void;
   setSidebarWidth: (value: number) => void;
+  setOrchestrationPanelWidth: (value: number) => void;
   setDevModeUnlocked: (value: boolean) => void;
   setByokEnabled: (value: boolean) => void;
   markSetupComplete: () => void;
@@ -72,6 +74,7 @@ const defaultSettings = {
   autoDownloadUpdate: false,
   sidebarCollapsed: false,
   sidebarWidth: 176,
+  orchestrationPanelWidth: 320,
   devModeUnlocked: false,
   setupComplete: false,
   byokEnabled: false,
@@ -96,6 +99,7 @@ export const useSettingsStore = create<SettingsState>()(
       setAutoDownloadUpdate: (autoDownloadUpdate) => set({ autoDownloadUpdate }),
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
       setSidebarWidth: (sidebarWidth) => set({ sidebarWidth }),
+      setOrchestrationPanelWidth: (orchestrationPanelWidth) => set({ orchestrationPanelWidth }),
       setDevModeUnlocked: (devModeUnlocked) => set({ devModeUnlocked }),
       setByokEnabled: (byokEnabled) => set({ byokEnabled }),
       markSetupComplete: () => set({ setupComplete: true }),

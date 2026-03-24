@@ -190,6 +190,7 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     if (get().initialized) return;
     set({ initialized: true });
 
+    // Real-time task updates
     window.electron.ipcRenderer.on('task:changed', (...args: unknown[]) => {
       const t = args[0] as Task;
       if (!t?.id) return;
@@ -199,6 +200,21 @@ export const useTasksStore = create<TasksState>((set, get) => ({
           return { tasks: state.tasks.map((existing) => (existing.id === t.id ? t : existing)) };
         }
         return { tasks: [...state.tasks, t] };
+      });
+    });
+
+    // Real-time project updates
+    window.electron.ipcRenderer.on('project:changed', (...args: unknown[]) => {
+      const p = args[0] as Project;
+      if (!p?.id) return;
+      set((state) => {
+        const exists = state.projects.some((existing) => existing.id === p.id);
+        if (exists) {
+          return {
+            projects: state.projects.map((existing) => (existing.id === p.id ? p : existing)),
+          };
+        }
+        return { projects: [...state.projects, p] };
       });
     });
   },
