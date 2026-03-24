@@ -372,7 +372,7 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
 
   return (
     <div
-      className="px-4 pt-2 pb-3"
+      className="px-4 pt-2 pb-6"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}

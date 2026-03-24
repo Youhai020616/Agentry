@@ -299,6 +299,7 @@ export function EmployeeChat() {
           externalSession
           employeeName={employee.name}
           employeeAvatar={employee.avatar}
+          employeeAvatarImage={employee.avatarImagePath}
           employeeId={employee.id}
         />
       </div>

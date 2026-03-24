@@ -5,42 +5,13 @@ import { ipcMain } from 'electron';
 import { logger } from '../../utils/logger';
 import type { IpcContext } from './types';
 
-export function register({ engineRef, gatewayManager, mainWindow }: IpcContext): void {
-  // Fix L2: event forwarding is deferred until the first real getLazy() call
-  // from an IPC handler, instead of being eagerly triggered at registration time.
-  let eventForwardingInitialized = false;
+export function register({ engineRef, gatewayManager }: IpcContext): void {
+  // Event forwarding (task:changed, project:changed, message:new → renderer) is now
+  // set up eagerly in electron/main/index.ts after Gateway starts. No duplication here.
 
   const getLazy = async () => {
     if (!engineRef.current) throw new Error('Engine not initialized');
-    const lazy = await engineRef.current.getLazy(gatewayManager);
-
-    // Wire up event forwarding exactly once on first successful lazy init
-    if (!eventForwardingInitialized) {
-      eventForwardingInitialized = true;
-
-      lazy.taskQueue.on('task-changed', (task: unknown) => {
-        if (!mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('task:changed', task);
-        }
-      });
-      lazy.taskQueue.on('project-changed', (project: unknown) => {
-        if (!mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('project:changed', project);
-        }
-      });
-
-      // Fix L1: bridge MessageBus 'new-message' events to the renderer so that
-      // deliverPendingMessages() actually reaches a real consumer.
-      lazy.messageBus.on('new-message', (message: unknown) => {
-        if (!mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('message:new', message);
-        }
-      });
-
-      logger.info('Event forwarding to renderer initialized (task/project/message)');
-    }
-
-    return lazy;
+    return engineRef.current.getLazy(gatewayManager);
   };
 
   // supervisor:enable — Activate the Supervisor employee
@@ -182,9 +153,4 @@ export function register({ engineRef, gatewayManager, mainWindow }: IpcContext):
     }
   });
 
-  // ── Issue #8: Forward task-changed / project-changed / new-message events ──
-  // Fix L2: event forwarding is deferred — it's wired up inside the getLazy()
-  // wrapper above on first successful call, not eagerly at registration time.
-  // Fix L1: MessageBus 'new-message' events are also bridged to the renderer
-  // so that deliverPendingMessages() reaches a real consumer.
 }

@@ -278,6 +278,31 @@ async function initialize(): Promise<void> {
     mainWindow?.webContents.send('gateway:error', String(error));
   }
 
+  // Eagerly initialize Phase 1 engine components (SpawnTracker, TaskQueue, etc.)
+  // and set up event forwarding to the renderer. This MUST run after Gateway starts
+  // so that SpawnTracker can listen for sessions_spawn notifications.
+  if (engineContext && mainWindow) {
+    const win = mainWindow;
+    engineContext
+      .getLazy(gatewayManager)
+      .then((lazy) => {
+        // Forward task/project change events from TaskQueue to renderer
+        lazy.taskQueue.on('task-changed', (task: unknown) => {
+          if (!win.isDestroyed()) win.webContents.send('task:changed', task);
+        });
+        lazy.taskQueue.on('project-changed', (project: unknown) => {
+          if (!win.isDestroyed()) win.webContents.send('project:changed', project);
+        });
+        lazy.messageBus.on('new-message', (message: unknown) => {
+          if (!win.isDestroyed()) win.webContents.send('message:new', message);
+        });
+        logger.info('Phase 1 eager init complete — SpawnTracker active, event forwarding ready');
+      })
+      .catch((err) => {
+        logger.warn('Phase 1 eager init failed (non-fatal):', err);
+      });
+  }
+
   // Bind employee status changes to system tray and forward to renderer
   if (engineContext) {
     const engine = engineContext;

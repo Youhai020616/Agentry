@@ -103,6 +103,7 @@ async function persistCreate(conversation: Conversation): Promise<void> {
       employeeId: conversation.employeeId,
       employeeName: conversation.employeeName,
       employeeAvatar: conversation.employeeAvatar,
+      employeeAvatarImage: conversation.employeeAvatarImage,
     });
   } catch (err) {
     console.warn('[conversations] Failed to persist create:', err);
@@ -279,7 +280,8 @@ interface ConversationsState {
     employeeId: string,
     employeeName: string,
     employeeAvatar: string | undefined,
-    sessionKey: string
+    sessionKey: string,
+    employeeAvatarImage?: string
   ) => Promise<Conversation>;
 
   /**
@@ -326,6 +328,7 @@ export const useConversationsStore = create<ConversationsState>((set, get) => ({
       employeeId: input.employeeId,
       employeeName: input.employeeName,
       employeeAvatar: input.employeeAvatar,
+      employeeAvatarImage: input.employeeAvatarImage,
       createdAt: now,
       updatedAt: now,
       messageCount: 0,
@@ -479,7 +482,8 @@ export const useConversationsStore = create<ConversationsState>((set, get) => ({
     employeeId: string,
     employeeName: string,
     employeeAvatar: string | undefined,
-    sessionKey: string
+    sessionKey: string,
+    employeeAvatarImage?: string
   ) => {
     // Check if a conversation already exists for this session key
     const all = await readAllConversations();
@@ -497,6 +501,7 @@ export const useConversationsStore = create<ConversationsState>((set, get) => ({
       employeeId,
       employeeName,
       employeeAvatar,
+      employeeAvatarImage,
     });
   },
 

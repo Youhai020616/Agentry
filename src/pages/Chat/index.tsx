@@ -44,6 +44,8 @@ interface ChatProps {
   employeeName?: string;
   /** Employee avatar emoji — shown in welcome screen when in employee chat mode */
   employeeAvatar?: string;
+  /** Employee avatar image path — shown in welcome screen when available */
+  employeeAvatarImage?: string;
   /** Employee ID — used to filter conversation history */
   employeeId?: string;
   /** Hide the conversation history sidebar */
@@ -58,6 +60,7 @@ export function Chat({
   externalSession,
   employeeName,
   employeeAvatar,
+  employeeAvatarImage,
   employeeId,
   hideHistory = false,
   hideToolbar = false,
@@ -157,7 +160,7 @@ export function Chat({
     (async () => {
       try {
         if (employeeId && employeeName) {
-          await getOrCreateForEmployee(employeeId, employeeName, employeeAvatar, currentSessionKey);
+          await getOrCreateForEmployee(employeeId, employeeName, employeeAvatar, currentSessionKey, employeeAvatarImage);
         } else {
           await getOrCreateForSupervisor(currentSessionKey);
         }
@@ -171,17 +174,40 @@ export function Chat({
     employeeId,
     employeeName,
     employeeAvatar,
+    employeeAvatarImage,
     findBySessionKey,
     getOrCreateForEmployee,
     getOrCreateForSupervisor,
     setActiveConversation,
   ]);
 
-  // Auto-scroll on new messages or streaming
+  // Track session switches to use instant scroll instead of smooth
+  const sessionSwitchedAtRef = useRef(0);
+  const prevSessionKeyRef = useRef(currentSessionKey);
   useEffect(() => {
-    // Use rAF to ensure DOM has painted new messages before scrolling
+    if (currentSessionKey !== prevSessionKeyRef.current) {
+      prevSessionKeyRef.current = currentSessionKey;
+      // Mark: "a session switch just happened" — keep this flag for 500ms
+      // so that when loadHistory() fills messages, the scroll effect uses instant
+      sessionSwitchedAtRef.current = Date.now();
+    }
+  }, [currentSessionKey]);
+
+  // Auto-scroll: instant after session switch, smooth for new messages
+  useEffect(() => {
+    const recentSwitch = Date.now() - sessionSwitchedAtRef.current < 500;
+
     requestAnimationFrame(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      if (recentSwitch) {
+        // Session just switched — jump to bottom instantly (no animation)
+        messagesContainerRef.current?.scrollTo({
+          top: messagesContainerRef.current.scrollHeight,
+          behavior: 'instant' as ScrollBehavior,
+        });
+      } else {
+        // Same session, new message — smooth scroll
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
     });
   }, [messages, streamingMessage, sending]);
 
@@ -335,7 +361,7 @@ export function Chat({
 
     try {
       if (employeeId && employeeName) {
-        await getOrCreateForEmployee(employeeId, employeeName, employeeAvatar, newSessionKey);
+        await getOrCreateForEmployee(employeeId, employeeName, employeeAvatar, newSessionKey, employeeAvatarImage);
       } else {
         await getOrCreateForSupervisor(newSessionKey);
       }
@@ -353,6 +379,7 @@ export function Chat({
     employeeId,
     employeeName,
     employeeAvatar,
+    employeeAvatarImage,
     getOrCreateForEmployee,
     getOrCreateForSupervisor,
     loadConversations,
@@ -455,7 +482,7 @@ export function Chat({
                   <LoadingSpinner size="lg" />
                 </div>
               ) : messages.length === 0 && !sending ? (
-                <WelcomeScreen employeeName={employeeName} employeeAvatar={employeeAvatar} />
+                <WelcomeScreen employeeName={employeeName} employeeAvatar={employeeAvatar} employeeAvatarImage={employeeAvatarImage} />
               ) : (
                 <>
                   {messages.map((msg, idx) => (

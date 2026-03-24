@@ -47,6 +47,7 @@ export interface LazyEngineContext {
   messageStore: import('./message-store').MessageStore;
   taskExecutor: import('./task-executor').TaskExecutor;
   browserEventDetector: import('./browser-event-detector').BrowserEventDetector;
+  spawnTracker: import('./spawn-tracker').SpawnTracker;
 }
 
 /**
@@ -209,6 +210,10 @@ export async function bootstrapEngine(): Promise<EngineContext> {
     const browserEventDetector = new BrowserEventDetector(gateway);
     browserEventDetector.init();
 
+    const { SpawnTracker } = await import('./spawn-tracker');
+    const spawnTracker = new SpawnTracker(gateway, taskQueue, employeeManager);
+    spawnTracker.init();
+
     _lazy = {
       taskQueue,
       messageBus,
@@ -219,6 +224,7 @@ export async function bootstrapEngine(): Promise<EngineContext> {
       messageStore,
       taskExecutor,
       browserEventDetector,
+      spawnTracker,
     };
 
     logger.info('Phase 1 engine components initialized');

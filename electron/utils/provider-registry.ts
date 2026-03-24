@@ -153,6 +153,26 @@ const REGISTRY: Record<string, ProviderBackendMeta> = {
       ],
     },
   },
+  deerapi: {
+    envVar: 'OPENAI_API_KEY',
+    defaultModel: 'deerapi:claude-sonnet-4-20250514',
+    providerConfig: {
+      baseUrl: 'https://api.deerapi.com/v1',
+      api: 'openai-completions',
+      apiKeyEnv: 'OPENAI_API_KEY',
+      models: [
+        {
+          id: 'claude-sonnet-4-20250514',
+          name: 'Claude Sonnet 4',
+          reasoning: false,
+          input: ['text', 'image'],
+          cost: { input: 3, output: 15, cacheRead: 0, cacheWrite: 0 },
+          contextWindow: 200000,
+          maxTokens: 16384,
+        },
+      ],
+    },
+  },
   // Additional providers with env var mappings but no default model
   groq: { envVar: 'GROQ_API_KEY' },
   deepgram: { envVar: 'DEEPGRAM_API_KEY' },

@@ -20,6 +20,7 @@ interface ConversationRecord {
   employeeId?: string;
   employeeName?: string;
   employeeAvatar?: string;
+  employeeAvatarImage?: string;
   createdAt: number;
   updatedAt: number;
   lastMessagePreview?: string;
@@ -133,6 +134,7 @@ export function register(_ctx: IpcContext): void {
         employeeId?: string;
         employeeName?: string;
         employeeAvatar?: string;
+        employeeAvatarImage?: string;
       }
     ) => {
       try {
@@ -148,6 +150,7 @@ export function register(_ctx: IpcContext): void {
           employeeId: input.employeeId,
           employeeName: input.employeeName,
           employeeAvatar: input.employeeAvatar,
+          employeeAvatarImage: input.employeeAvatarImage,
           createdAt: now,
           updatedAt: now,
           messageCount: 0,

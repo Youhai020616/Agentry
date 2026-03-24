@@ -31,6 +31,13 @@ import {
   GripVertical,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useConversationsStore } from '@/stores/conversations';
 import type { Conversation, ConversationId } from '@/types/conversation';
@@ -255,108 +262,7 @@ function ResizeHandle({
   );
 }
 
-/** Context menu for a conversation item */
-function ConversationContextMenu({
-  conversation,
-  onRename,
-  onTogglePin,
-  onArchive,
-  onDelete,
-  onClose,
-}: {
-  conversation: Conversation;
-  onRename: () => void;
-  onTogglePin: () => void;
-  onArchive: () => void;
-  onDelete: () => void;
-  onClose: () => void;
-}) {
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [onClose]);
-
-  return (
-    <div
-      ref={menuRef}
-      className={cn(
-        'absolute right-0 top-full z-50 mt-1',
-        'min-w-[160px] rounded-lg border border-border/60 bg-popover/80 backdrop-blur-xl p-1 shadow-lg'
-      )}
-    >
-      <button
-        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-accent"
-        onClick={(e) => {
-          e.stopPropagation();
-          onRename();
-          onClose();
-        }}
-      >
-        <Pencil className="h-3 w-3" />
-        Rename
-      </button>
-      <button
-        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-accent"
-        onClick={(e) => {
-          e.stopPropagation();
-          onTogglePin();
-          onClose();
-        }}
-      >
-        {conversation.pinned ? (
-          <>
-            <PinOff className="h-3 w-3" />
-            Unpin
-          </>
-        ) : (
-          <>
-            <Pin className="h-3 w-3" />
-            Pin
-          </>
-        )}
-      </button>
-      <button
-        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-accent"
-        onClick={(e) => {
-          e.stopPropagation();
-          onArchive();
-          onClose();
-        }}
-      >
-        {conversation.archived ? (
-          <>
-            <ArchiveRestore className="h-3 w-3" />
-            Unarchive
-          </>
-        ) : (
-          <>
-            <Archive className="h-3 w-3" />
-            Archive
-          </>
-        )}
-      </button>
-      <div className="my-1 h-px bg-border" />
-      <button
-        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-destructive hover:bg-destructive/10"
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete();
-          onClose();
-        }}
-      >
-        <Trash2 className="h-3 w-3" />
-        Delete
-      </button>
-    </div>
-  );
-}
+/* Context menu removed — replaced by Radix DropdownMenu in ConversationItem (Portal-based, avoids overflow clipping) */
 
 /** Single conversation item */
 const ConversationItem = memo(function ConversationItem({
@@ -376,7 +282,6 @@ const ConversationItem = memo(function ConversationItem({
   onArchive: (id: ConversationId) => void;
   onDelete: (id: ConversationId) => void;
 }) {
-  const [showMenu, setShowMenu] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(conversation.title);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -417,13 +322,22 @@ const ConversationItem = memo(function ConversationItem({
       )}
       onClick={onSelect}
     >
-      {/* Icon */}
-      <MessageSquare
-        className={cn(
-          'mt-0.5 h-3.5 w-3.5 shrink-0',
-          isActive ? 'text-primary' : 'text-muted-foreground'
-        )}
-      />
+      {/* Icon / Avatar */}
+      {conversation.employeeAvatarImage ? (
+        <img
+          src={`local-asset://${conversation.employeeAvatarImage}`}
+          alt={conversation.employeeName || ''}
+          className="mt-0.5 h-4 w-4 shrink-0 rounded-sm object-cover"
+          draggable={false}
+        />
+      ) : (
+        <MessageSquare
+          className={cn(
+            'mt-0.5 h-3.5 w-3.5 shrink-0',
+            isActive ? 'text-primary' : 'text-muted-foreground'
+          )}
+        />
+      )}
 
       {/* Content */}
       <div className="flex-1 min-w-0">
@@ -485,36 +399,80 @@ const ConversationItem = memo(function ConversationItem({
         )}
       </div>
 
-      {/* Context menu trigger */}
+      {/* Context menu trigger — Radix Portal avoids overflow clipping */}
       {!isEditing && (
-        <div className="relative">
-          <button
-            className={cn(
-              'shrink-0 rounded p-0.5 opacity-0 transition-opacity duration-150',
-              'group-hover:opacity-100 hover:bg-accent',
-              showMenu && 'opacity-100'
-            )}
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowMenu(!showMenu);
-            }}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className={cn(
+                'shrink-0 rounded p-0.5 opacity-0 transition-opacity duration-150',
+                'group-hover:opacity-100 hover:bg-accent',
+                'data-[state=open]:opacity-100'
+              )}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            side="bottom"
+            align="end"
+            sideOffset={4}
+            className="min-w-[160px] rounded-lg border-border/60 bg-popover/80 backdrop-blur-xl"
+            onClick={(e) => e.stopPropagation()}
           >
-            <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-          </button>
-          {showMenu && (
-            <ConversationContextMenu
-              conversation={conversation}
-              onRename={() => {
+            <DropdownMenuItem
+              className="gap-2 text-xs"
+              onClick={() => {
                 setEditTitle(conversation.title);
                 setIsEditing(true);
               }}
-              onTogglePin={() => onTogglePin(conversation.id)}
-              onArchive={() => onArchive(conversation.id)}
-              onDelete={() => onDelete(conversation.id)}
-              onClose={() => setShowMenu(false)}
-            />
-          )}
-        </div>
+            >
+              <Pencil className="h-3 w-3" />
+              Rename
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="gap-2 text-xs"
+              onClick={() => onTogglePin(conversation.id)}
+            >
+              {conversation.pinned ? (
+                <>
+                  <PinOff className="h-3 w-3" />
+                  Unpin
+                </>
+              ) : (
+                <>
+                  <Pin className="h-3 w-3" />
+                  Pin
+                </>
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="gap-2 text-xs"
+              onClick={() => onArchive(conversation.id)}
+            >
+              {conversation.archived ? (
+                <>
+                  <ArchiveRestore className="h-3 w-3" />
+                  Unarchive
+                </>
+              ) : (
+                <>
+                  <Archive className="h-3 w-3" />
+                  Archive
+                </>
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="gap-2 text-xs text-destructive focus:text-destructive"
+              onClick={() => onDelete(conversation.id)}
+            >
+              <Trash2 className="h-3 w-3" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
     </div>
   );
@@ -648,7 +606,16 @@ export function ConversationList({
               onClick={() => onSelect?.(conv)}
               title={conv.title}
             >
-              {conv.employeeAvatar || '💬'}
+              {conv.employeeAvatarImage ? (
+                <img
+                  src={`local-asset://${conv.employeeAvatarImage}`}
+                  alt={conv.employeeName || ''}
+                  className="h-full w-full rounded-lg object-cover"
+                  draggable={false}
+                />
+              ) : (
+                conv.employeeAvatar || '💬'
+              )}
             </button>
           ))}
         </div>
