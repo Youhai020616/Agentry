@@ -13,6 +13,7 @@ export const PROVIDER_TYPES = [
   'moonshot',
   'siliconflow',
   'dashscope',
+  'zhipu',
   'ollama',
   'custom',
 ] as const;
@@ -121,6 +122,19 @@ export const PROVIDER_TYPE_INFO: ProviderTypeInfo[] = [
     defaultModelId: 'qwen3-coder-plus',
     showModelId: true,
     modelIdPlaceholder: 'qwen-coder-plus / qwen-plus / qwen-max',
+  },
+  {
+    id: 'zhipu',
+    name: 'Zhipu AI (CN)',
+    icon: '🧠',
+    placeholder: 'xxxxxxxx.xxxxxxxx',
+    model: 'GLM',
+    requiresApiKey: true,
+    defaultBaseUrl: 'https://open.bigmodel.cn/api/coding/paas/v4',
+    defaultModelId: 'glm-5-turbo',
+    showBaseUrl: true,
+    showModelId: true,
+    modelIdPlaceholder: 'glm-5-turbo / glm-4.7 / glm-4.6',
   },
   {
     id: 'ollama',

@@ -13,6 +13,7 @@ export const BUILTIN_PROVIDER_TYPES = [
   'moonshot',
   'siliconflow',
   'dashscope',
+  'zhipu',
   'ollama',
 ] as const;
 export type BuiltinProviderType = (typeof BUILTIN_PROVIDER_TYPES)[number];
@@ -141,10 +142,39 @@ const REGISTRY: Record<string, ProviderBackendMeta> = {
           contextWindow: 131072,
           maxTokens: 16384,
         },
+      ],
+    },
+  },
+  zhipu: {
+    envVar: 'ZHIPU_API_KEY',
+    defaultModel: 'zhipu/glm-5-turbo',
+    providerConfig: {
+      baseUrl: 'https://open.bigmodel.cn/api/coding/paas/v4',
+      api: 'openai-completions',
+      apiKeyEnv: 'ZHIPU_API_KEY',
+      models: [
         {
-          id: 'glm-5',
-          name: 'GLM-5 (Zhipu)',
+          id: 'glm-5-turbo',
+          name: 'GLM-5-Turbo',
           reasoning: true,
+          input: ['text'],
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          contextWindow: 131072,
+          maxTokens: 16384,
+        },
+        {
+          id: 'glm-4.7',
+          name: 'GLM-4.7',
+          reasoning: true,
+          input: ['text'],
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          contextWindow: 131072,
+          maxTokens: 16384,
+        },
+        {
+          id: 'glm-4.6',
+          name: 'GLM-4.6',
+          reasoning: false,
           input: ['text'],
           cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
           contextWindow: 131072,

@@ -5,6 +5,7 @@ import openrouter from './openrouter.svg';
 import moonshot from './moonshot.svg';
 import siliconflow from './siliconflow.svg';
 import dashscope from './dashscope.svg';
+import zhipu from './zhipu.svg';
 import ollama from './ollama.svg';
 import custom from './custom.svg';
 
@@ -16,6 +17,7 @@ export const providerIcons: Record<string, string> = {
   moonshot,
   siliconflow,
   dashscope,
+  zhipu,
   ollama,
   custom,
 };
