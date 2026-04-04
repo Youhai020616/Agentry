@@ -33,7 +33,14 @@
     "namePlaceholder": "例：SEO エキスパート",
     "skillLabel": "ベーススキル",
     "confirm": "雇用",
-    "cancel": "キャンセル"
+    "cancel": "キャンセル",
+    "empty": "利用可能なスキルパッケージがありません。",
+    "hired": "雇用済み",
+    "missingSecrets": "API キーの設定が必要です",
+    "source": {
+      "builtin": "内蔵",
+      "marketplace": "マーケット"
+    }
   },
   "header": {
     "restart": "従業員を再起動",

@@ -1,27 +1,26 @@
 /**
  * HireDialog
  * Shows available skill packages for hiring as AI employees.
- * Renders as an overlay dialog with a list of built-in skills.
- * If the skill has an onboarding config, the OnboardingWizard is shown after hiring.
+ * Renders as an overlay dialog with a list of all discovered skill packs
+ * (builtin + marketplace). Uses `skill:listAll` for a unified data source
+ * shared with the Skills page.
  *
- * "Hiring" = the skill is already on disk (built-in or marketplace-installed).
- * Scan discovers it automatically; this dialog just shows which ones exist
- * and triggers activation + optional onboarding.
+ * Packs with status 'active' are filtered out (already activated).
+ * Packs with status 'hired' show a "Hired" badge (discovered but offline).
+ * Packs with status 'installed' show a "Hire" button.
+ *
+ * If the skill has an onboarding config, the OnboardingWizard is shown after hiring.
  */
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, UserPlus, Check, Loader2 } from 'lucide-react';
+import { X, UserPlus, Check, Loader2, AlertTriangle, Store, Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { useEmployeesStore } from '@/stores/employees';
 import { OnboardingWizard } from './OnboardingWizard';
-import type { SkillManifest } from '@/types/manifest';
-
-interface BuiltinSkill extends SkillManifest {
-  _skillDir: string;
-}
+import type { SkillPackInfo } from '@shared/types/manifest';
 
 interface HireDialogProps {
   onClose: () => void;
@@ -29,30 +28,27 @@ interface HireDialogProps {
 
 export function HireDialog({ onClose }: HireDialogProps) {
   const { t } = useTranslation('employees');
-  const employees = useEmployeesStore((s) => s.employees);
   const scanEmployees = useEmployeesStore((s) => s.scanEmployees);
   const fetchEmployees = useEmployeesStore((s) => s.fetchEmployees);
 
-  const [skills, setSkills] = useState<BuiltinSkill[]>([]);
+  const [packs, setPacks] = useState<SkillPackInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [hiring, setHiring] = useState<string | null>(null);
   const [onboardingState, setOnboardingState] = useState<{
-    skill: BuiltinSkill;
-    employeeId: string;
+    pack: SkillPackInfo;
   } | null>(null);
 
-  const hiredSlugs = new Set(employees.map((e) => e.slug));
-
-  // Load available built-in skills
+  // Load all available skill packs
   useEffect(() => {
     async function load() {
       try {
-        const result = (await window.electron.ipcRenderer.invoke('skill:listBuiltin')) as {
+        const result = (await window.electron.ipcRenderer.invoke('skill:listAll')) as {
           success: boolean;
-          result?: BuiltinSkill[];
+          result?: SkillPackInfo[];
         };
         if (result.success && result.result) {
-          setSkills(result.result);
+          // Filter out active packs — they're already fully activated
+          setPacks(result.result.filter((p) => p.status !== 'active'));
         }
       } catch {
         // Silently fail — will show empty state
@@ -63,16 +59,16 @@ export function HireDialog({ onClose }: HireDialogProps) {
     load();
   }, []);
 
-  const handleHire = async (skill: BuiltinSkill) => {
-    setHiring(skill.name);
+  const handleHire = async (pack: SkillPackInfo) => {
+    setHiring(pack.slug);
     try {
       // Scan to discover this skill as an employee
       await scanEmployees();
       await fetchEmployees();
 
       // If this skill requires onboarding, show the wizard
-      if (skill.onboarding) {
-        setOnboardingState({ skill, employeeId: skill.name });
+      if (pack.manifest.onboarding) {
+        setOnboardingState({ pack });
         return; // Don't close — show onboarding
       }
     } finally {
@@ -107,10 +103,16 @@ export function HireDialog({ onClose }: HireDialogProps) {
 
   // Show onboarding wizard if active
   if (onboardingState) {
+    // OnboardingWizard expects `SkillManifest & { _skillDir: string }`
+    const wizardManifest = {
+      ...onboardingState.pack.manifest,
+      _skillDir: onboardingState.pack.skillDir,
+    };
+
     return (
       <OnboardingWizard
-        manifest={onboardingState.skill}
-        employeeId={onboardingState.employeeId}
+        manifest={wizardManifest}
+        employeeId={onboardingState.pack.slug}
         onComplete={handleOnboardingComplete}
         onCancel={handleOnboardingCancel}
       />
@@ -141,18 +143,16 @@ export function HireDialog({ onClose }: HireDialogProps) {
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : skills.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-12">
-              No skill packages available.
-            </p>
+          ) : packs.length === 0 ? (
+            <p className="text-center text-sm text-muted-foreground py-12">{t('create.empty')}</p>
           ) : (
-            skills.map((skill) => {
-              const isHired = hiredSlugs.has(skill.name);
-              const isHiring = hiring === skill.name;
+            packs.map((pack) => {
+              const isHired = pack.status === 'hired';
+              const isHiring = hiring === pack.slug;
 
               return (
                 <Card
-                  key={skill.name}
+                  key={pack.slug}
                   className={cn(
                     'rounded-xl glass-border',
                     isHired ? 'opacity-60' : 'hover:bg-accent/50 transition-colors'
@@ -161,33 +161,51 @@ export function HireDialog({ onClose }: HireDialogProps) {
                   <CardContent className="flex items-center gap-4 p-4">
                     {/* Avatar */}
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-lg">
-                      {skill.employee.avatar}
+                      {pack.manifest.employee.avatar}
                     </div>
 
                     {/* Info */}
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold">{skill.employee.roleZh}</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold">
+                          {pack.manifest.employee.roleZh}
+                        </span>
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                          {skill.employee.team}
+                          {pack.manifest.employee.team}
+                        </Badge>
+                        {/* Source badge */}
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 gap-0.5">
+                          {pack.source === 'marketplace' ? (
+                            <Store className="h-2.5 w-2.5" />
+                          ) : (
+                            <Package className="h-2.5 w-2.5" />
+                          )}
+                          {t(`create.source.${pack.source}`)}
                         </Badge>
                       </div>
                       <p className="text-xs text-muted-foreground truncate">
-                        {skill.employee.role} — {skill.description}
+                        {pack.manifest.employee.role} — {pack.manifest.description}
                       </p>
+                      {/* Missing secrets warning */}
+                      {pack.missingSecrets && (
+                        <div className="flex items-center gap-1 mt-1 text-[11px] text-amber-500">
+                          <AlertTriangle className="h-3 w-3 shrink-0" />
+                          <span>{t('create.missingSecrets')}</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Action */}
                     {isHired ? (
                       <Badge variant="secondary" className="shrink-0 gap-1">
                         <Check className="h-3 w-3" />
-                        {t('card.activate', 'Hired')}
+                        {t('create.hired')}
                       </Badge>
                     ) : (
                       <Button
                         size="sm"
                         disabled={isHiring}
-                        onClick={() => handleHire(skill)}
+                        onClick={() => handleHire(pack)}
                         className="shrink-0 gap-1.5"
                       >
                         {isHiring ? (

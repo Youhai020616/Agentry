@@ -36,7 +36,19 @@
       "execution": "エグゼキューション",
       "hybrid": "ハイブリッド"
     },
-    "team": "チーム"
+    "team": "チーム",
+    "hire": "雇用",
+    "chat": "チャット",
+    "activate": "有効化",
+    "deactivate": "無効化",
+    "configure": "設定",
+    "goToTeam": "チームを表示"
+  },
+  "status": {
+    "active": "稼働中",
+    "hired": "待機中",
+    "installed": "利用可能",
+    "missingSecrets": "設定が必要"
   },
   "empty": {
     "title": "従業員が見つかりません",

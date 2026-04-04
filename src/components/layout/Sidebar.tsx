@@ -10,7 +10,7 @@ import {
   Crown,
   FolderKanban,
   Radio,
-  Wrench,
+  Store,
   PanelLeft,
   PanelLeftClose,
   GripVertical,
@@ -65,8 +65,10 @@ function NavItem({ to, icon, label, badge, collapsed }: NavItemProps) {
               variant="secondary"
               className={cn(
                 'ml-auto text-[10px] px-1 py-0 h-4 leading-none',
-                badge === 'Beta' && 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-                badge === 'New' && 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                badge === 'Beta' &&
+                  'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+                badge === 'New' &&
+                  'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
               )}
             >
               {badge}
@@ -196,7 +198,7 @@ export function Sidebar() {
     { to: '/employees', icon: <Users className="h-5 w-5" />, label: t('nav.employees') },
     { to: '/projects', icon: <FolderKanban className="h-5 w-5" />, label: t('nav.projects') },
     { to: '/channels', icon: <Radio className="h-5 w-5" />, label: t('nav.channels') },
-    { to: '/skills', icon: <Wrench className="h-5 w-5" />, label: t('nav.skills') },
+    { to: '/skills', icon: <Store className="h-5 w-5" />, label: t('nav.skills') },
   ];
 
   const currentWidth = sidebarCollapsed ? MIN_WIDTH : sidebarWidth;
@@ -213,7 +215,12 @@ export function Sidebar() {
     >
       <div className="flex flex-1 flex-col my-1.5 ml-1 mr-1 rounded-2xl bg-card/60 backdrop-blur-xl glass-border shadow-island overflow-hidden">
         {/* Header: Sidebar toggle */}
-        <div className={cn('flex shrink-0 items-center px-1.5 pt-2 pb-1', hideLabels ? 'justify-center' : 'justify-end')}>
+        <div
+          className={cn(
+            'flex shrink-0 items-center px-1.5 pt-2 pb-1',
+            hideLabels ? 'justify-center' : 'justify-end'
+          )}
+        >
           <Button
             variant="ghost"
             size="icon"

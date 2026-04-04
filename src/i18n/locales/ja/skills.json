@@ -57,14 +57,33 @@
     "failedOpenFolder": "スキルフォルダを開けませんでした",
     "failedInstall": "インストールに失敗しました",
     "failedUninstall": "アンインストールに失敗しました",
-    "failedFolderNotFound": "スキルフォルダがまだ存在しません。先にスキルをインストールしてください。"
+    "failedFolderNotFound": "スキルフォルダがまだ存在しません。先にスキルをインストールしてください。",
+    "hired": "従業員を有効化しました",
+    "deactivated": "従業員を無効化しました",
+    "hireError": "従業員の有効化に失敗しました",
+    "deactivateError": "従業員の無効化に失敗しました",
+    "goToTeam": "チームへ →"
   },
   "marketplace": {
     "title": "マーケットプレイス",
     "securityNote": "インストール前にスキルカードをクリックして、ClawHubでドキュメントとセキュリティ情報を確認してください。",
     "searching": "ClawHubを検索中...",
     "noResults": "検索に一致するスキルが見つかりません。",
+    "tryDifferent": "別の検索語を試すか、インストール済みのスキルを閲覧してください。",
     "emptyPrompt": "新しいスキルを検索して機能を拡張しましょう。",
-    "searchError": "ClawHub検索に失敗しました。接続またはインストールを確認してください。"
+    "searchError": "ClawHub検索に失敗しました。接続またはインストールを確認してください。",
+    "comingSoon": {
+      "title": "マーケットプレイス近日公開",
+      "description": "コミュニティで作成されたAI従業員スキルパックを発見、共有、インストールできるコミュニティマーケットプレイスを構築中です。",
+      "feature1Title": "コミュニティスキル",
+      "feature1Desc": "世界中の開発者が作成したスキルパックを発見",
+      "feature2Title": "ワンクリックインストール",
+      "feature2Desc": "マーケットプレイスから即座にインストールして有効化",
+      "feature3Title": "共有と実績",
+      "feature3Desc": "自分のスキルパックを公開して評価を築く",
+      "createTitle": "独自のスキルパックを作成",
+      "createDesc": "スキャフォールドツールでカスタムAI従業員を構築",
+      "learnMore": "詳細を見る"
+    }
   }
 }

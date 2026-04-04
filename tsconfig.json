@@ -25,8 +25,12 @@
     "paths": {
       "@/*": ["src/*"],
       "@electron/*": ["electron/*"],
-      "@shared/*": ["shared/*"]
-    }
+      "@shared/*": ["shared/*"],
+    },
+
+    /* Test globals */
+    "types": ["vitest/globals"],
   },
-  "include": ["src"]
+  "include": ["src", "tests", "shared"],
+  "references": [{ "path": "./tsconfig.node.json" }],
 }

@@ -57,7 +57,12 @@
     "failedOpenFolder": "Failed to open skills folder",
     "failedInstall": "Failed to install",
     "failedUninstall": "Failed to uninstall",
-    "failedFolderNotFound": "Skills folder does not exist yet. Install a skill first."
+    "failedFolderNotFound": "Skills folder does not exist yet. Install a skill first.",
+    "hired": "Employee activated successfully",
+    "deactivated": "Employee deactivated successfully",
+    "goToTeam": "Go to Team →",
+    "hireError": "Failed to activate employee",
+    "deactivateError": "Failed to deactivate employee"
   },
   "marketplace": {
     "title": "Marketplace",
@@ -65,6 +70,20 @@
     "searching": "Searching ClawHub...",
     "noResults": "No skills found matching your search.",
     "emptyPrompt": "Search for new skills to expand your capabilities.",
-    "searchError": "ClawHub search failed. Check your connection or installation."
+    "searchError": "ClawHub search failed. Check your connection or installation.",
+    "tryDifferent": "Try a different search term or browse the installed skills.",
+    "comingSoon": {
+      "title": "Marketplace Coming Soon",
+      "description": "We're building a community marketplace where you can discover, share, and install AI employee skill packs created by the community.",
+      "feature1Title": "Community Skills",
+      "feature1Desc": "Discover skill packs created by developers worldwide",
+      "feature2Title": "One-Click Install",
+      "feature2Desc": "Install and activate employees instantly from the marketplace",
+      "feature3Title": "Share & Earn",
+      "feature3Desc": "Publish your own skill packs and build your reputation",
+      "createTitle": "Create Your Own Skill Pack",
+      "createDesc": "Build custom AI employees with our scaffold tool",
+      "learnMore": "Learn More"
+    }
   }
 }

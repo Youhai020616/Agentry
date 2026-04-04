@@ -3,6 +3,8 @@
  * Browse, search, filter, and manage AI skills / employees
  */
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import type { ExternalToast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
@@ -10,8 +12,6 @@ import {
   Lock,
   Package,
   X,
-  CheckCircle2,
-  XCircle,
   AlertCircle,
   ShieldCheck,
   ChevronRight,
@@ -31,11 +31,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSkillsStore } from '@/stores/skills';
-import { useGatewayStore } from '@/stores/gateway';
+import { useEmployeesStore } from '@/stores/employees';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { toast } from 'sonner';
 import type { Skill, MarketplaceSkill } from '@/types/skill';
@@ -58,10 +57,9 @@ type TeamFilter = 'all' | string;
 interface SkillDetailDialogProps {
   skill: Skill;
   onClose: () => void;
-  onToggle: (enabled: boolean) => void;
 }
 
-function SkillDetailDialog({ skill, onClose, onToggle }: SkillDetailDialogProps) {
+function SkillDetailDialog({ skill, onClose }: SkillDetailDialogProps) {
   const { t } = useTranslation('skills');
   const { fetchSkills } = useSkillsStore();
   const [activeTab, setActiveTab] = useState('info');
@@ -373,29 +371,6 @@ function SkillDetailDialog({ skill, onClose, onToggle }: SkillDetailDialogProps)
               </TabsContent>
             </div>
           </div>
-
-          <div className="flex items-center justify-between p-4 border-t bg-muted/10">
-            <div className="flex items-center gap-2">
-              {skill.enabled ? (
-                <>
-                  <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  <span className="text-green-600 dark:text-green-400">{t('detail.enabled')}</span>
-                </>
-              ) : (
-                <>
-                  <XCircle className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-muted-foreground">{t('detail.disabled')}</span>
-                </>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={skill.enabled}
-                onCheckedChange={() => onToggle(!skill.enabled)}
-                disabled={skill.isCore}
-              />
-            </div>
-          </div>
         </Tabs>
       </Card>
     </div>
@@ -590,11 +565,10 @@ function deriveSkillMeta(skill: Skill): {
 export function Skills() {
   const {
     skills,
+    skillPacks,
     loading,
     error,
     fetchSkills,
-    enableSkill,
-    disableSkill,
     searchResults,
     searchSkills,
     installSkill,
@@ -605,7 +579,8 @@ export function Skills() {
   } = useSkillsStore();
   const { t } = useTranslation('skills');
   const { t: tm } = useTranslation('marketplace');
-  const gatewayStatus = useGatewayStore((state) => state.status);
+  const navigate = useNavigate();
+  const { activateEmployee, scanEmployees } = useEmployeesStore();
 
   // Local UI state
   const [searchQuery, setSearchQuery] = useState('');
@@ -617,31 +592,12 @@ export function Skills() {
   const [pricingFilter, setPricingFilter] = useState<PricingFilter>('all');
   const [teamFilter, setTeamFilter] = useState<TeamFilter>('all');
   const marketplaceDiscoveryAttemptedRef = useRef(false);
+  const [hiring, setHiring] = useState<Record<string, boolean>>({});
 
-  const isGatewayRunning = gatewayStatus.state === 'running';
-  const [showGatewayWarning, setShowGatewayWarning] = useState(false);
-
-  // Debounce the gateway warning
+  // Fetch skills on mount (no gateway guard — data comes from skill:listAll)
   useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (!isGatewayRunning) {
-      timer = setTimeout(() => {
-        setShowGatewayWarning(true);
-      }, 1500);
-    } else {
-      timer = setTimeout(() => {
-        setShowGatewayWarning(false);
-      }, 0);
-    }
-    return () => clearTimeout(timer);
-  }, [isGatewayRunning]);
-
-  // Fetch skills on mount
-  useEffect(() => {
-    if (isGatewayRunning) {
-      fetchSkills();
-    }
-  }, [fetchSkills, isGatewayRunning]);
+    fetchSkills();
+  }, [fetchSkills]);
 
   // Derive unique teams from loaded skills for filter pills
   const availableTeams = useMemo(() => {
@@ -700,24 +656,6 @@ export function Skills() {
     [skills]
   );
 
-  // Handle toggle
-  const handleToggle = useCallback(
-    async (skillId: string, enable: boolean) => {
-      try {
-        if (enable) {
-          await enableSkill(skillId);
-          toast.success(t('toast.enabled'));
-        } else {
-          await disableSkill(skillId);
-          toast.success(t('toast.disabled'));
-        }
-      } catch (err) {
-        toast.error(String(err));
-      }
-    },
-    [enableSkill, disableSkill, t]
-  );
-
   const hasInstalledSkills = skills.some((s) => !s.isBundled);
 
   const handleOpenSkillsFolder = useCallback(async () => {
@@ -773,13 +711,12 @@ export function Skills() {
     async (slug: string) => {
       try {
         await installSkill(slug);
-        await enableSkill(slug);
         toast.success(t('toast.installed'));
       } catch (err) {
         toast.error(t('toast.failedInstall') + ': ' + String(err));
       }
     },
-    [installSkill, enableSkill, t]
+    [installSkill, t]
   );
 
   // Initial marketplace load (Discovery)
@@ -804,6 +741,38 @@ export function Skills() {
     },
     [uninstallSkill, t]
   );
+
+  // Handle hire (activate a skill pack as employee)
+  const handleHire = useCallback(
+    async (slug: string) => {
+      setHiring((prev) => ({ ...prev, [slug]: true }));
+      try {
+        await scanEmployees();
+        await activateEmployee(slug);
+        await fetchSkills();
+        toast.success(t('toast.hired'), {
+          action: {
+            label: t('toast.goToTeam'),
+            onClick: () => navigate('/employees'),
+          },
+        } as ExternalToast);
+      } catch (err) {
+        toast.error(t('toast.hireError') + ': ' + String(err));
+      } finally {
+        setHiring((prev) => {
+          const next = { ...prev };
+          delete next[slug];
+          return next;
+        });
+      }
+    },
+    [scanEmployees, activateEmployee, fetchSkills, navigate, t]
+  );
+
+  // Navigate to the Employees page (for active packs)
+  const handleGoToTeam = useCallback(() => {
+    navigate('/employees');
+  }, [navigate]);
 
   // Check if any filters are active
   const hasActiveFilters = typeFilter !== 'all' || pricingFilter !== 'all' || teamFilter !== 'all';
@@ -832,7 +801,7 @@ export function Skills() {
           <p className="text-xs text-muted-foreground mt-1">{tm('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={fetchSkills} disabled={!isGatewayRunning}>
+          <Button variant="outline" onClick={fetchSkills}>
             <RefreshCw className="h-4 w-4 mr-2" />
             {t('refresh')}
           </Button>
@@ -844,16 +813,6 @@ export function Skills() {
           )}
         </div>
       </div>
-
-      {/* Gateway Warning */}
-      {showGatewayWarning && (
-        <Card className="border-yellow-500/30 bg-yellow-50 dark:bg-yellow-900/10 rounded-xl">
-          <CardContent className="py-4 flex items-center gap-3">
-            <AlertCircle className="h-5 w-5 text-yellow-600" />
-            <span className="text-yellow-700 dark:text-yellow-400">{t('gatewayWarning')}</span>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -1009,6 +968,7 @@ export function Skills() {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               {filteredSkills.map((skill) => {
                 const meta = deriveSkillMeta(skill);
+                const packInfo = skillPacks.find((p) => p.slug === skill.id);
                 return (
                   <SkillCard
                     key={skill.id}
@@ -1017,13 +977,18 @@ export function Skills() {
                     team={meta.team}
                     pricingTier={meta.pricingTier}
                     rating={meta.rating}
+                    packStatus={packInfo?.status}
+                    missingSecrets={packInfo?.missingSecrets}
                     onViewDetails={() => setSelectedSkill(skill)}
+                    onHire={() => handleHire(skill.id)}
+                    onGoToTeam={handleGoToTeam}
                     onUninstall={
                       !skill.isBundled && !skill.isCore
                         ? () => handleUninstall(skill.id)
                         : undefined
                     }
                     isInstalling={!!installing[skill.id]}
+                    isHiring={!!hiring[skill.id]}
                   />
                 );
               })}
@@ -1130,20 +1095,109 @@ export function Skills() {
                   );
                 })}
               </div>
-            ) : (
+            ) : searching ? (
               <Card className="rounded-2xl glass-border shadow-island">
                 <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Package className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">{t('marketplace.title')}</h3>
+                  <Package className="h-12 w-12 text-muted-foreground mb-4 animate-pulse" />
+                  <p className="text-muted-foreground">{t('marketplace.searching')}</p>
+                </CardContent>
+              </Card>
+            ) : marketplaceQuery ? (
+              <Card className="rounded-2xl glass-border shadow-island">
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Search className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">{t('marketplace.noResults')}</h3>
                   <p className="text-muted-foreground text-center max-w-sm">
-                    {searching
-                      ? t('marketplace.searching')
-                      : marketplaceQuery
-                        ? t('marketplace.noResults')
-                        : t('marketplace.emptyPrompt')}
+                    {t('marketplace.tryDifferent')}
                   </p>
                 </CardContent>
               </Card>
+            ) : (
+              <div className="space-y-6">
+                {/* Hero Banner */}
+                <Card className="overflow-hidden rounded-2xl glass-border shadow-island">
+                  <div className="relative bg-gradient-to-br from-primary/10 via-primary/5 to-transparent px-8 py-12">
+                    <div className="relative z-10 flex flex-col items-center text-center">
+                      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-3xl">
+                        🏪
+                      </div>
+                      <h2 className="text-2xl font-bold mb-2">
+                        {t('marketplace.comingSoon.title')}
+                      </h2>
+                      <p className="text-muted-foreground max-w-md">
+                        {t('marketplace.comingSoon.description')}
+                      </p>
+                    </div>
+                    {/* Decorative dots */}
+                    <div className="absolute inset-0 overflow-hidden opacity-20">
+                      <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-primary/20 blur-3xl" />
+                      <div className="absolute -left-8 -bottom-8 h-32 w-32 rounded-full bg-primary/10 blur-3xl" />
+                    </div>
+                  </div>
+                </Card>
+
+                {/* What's Coming */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {[
+                    {
+                      icon: '🤖',
+                      titleKey: 'marketplace.comingSoon.feature1Title',
+                      descKey: 'marketplace.comingSoon.feature1Desc',
+                    },
+                    {
+                      icon: '🔧',
+                      titleKey: 'marketplace.comingSoon.feature2Title',
+                      descKey: 'marketplace.comingSoon.feature2Desc',
+                    },
+                    {
+                      icon: '🌐',
+                      titleKey: 'marketplace.comingSoon.feature3Title',
+                      descKey: 'marketplace.comingSoon.feature3Desc',
+                    },
+                  ].map((feature) => (
+                    <Card key={feature.titleKey} className="rounded-xl glass-border">
+                      <CardContent className="p-4 flex flex-col items-center text-center gap-2">
+                        <span className="text-2xl">{feature.icon}</span>
+                        <h3 className="text-sm font-semibold">{t(feature.titleKey)}</h3>
+                        <p className="text-xs text-muted-foreground">{t(feature.descKey)}</p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Create Your Own CTA */}
+                <Card className="rounded-xl glass-border">
+                  <CardContent className="py-4 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-lg">
+                        📦
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-semibold">
+                          {t('marketplace.comingSoon.createTitle')}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          {t('marketplace.comingSoon.createDesc')}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => {
+                        window.electron.ipcRenderer.invoke(
+                          'shell:openExternal',
+                          'https://github.com/nicepkg/agentry#-创建自定义员工'
+                        );
+                      }}
+                    >
+                      {t('marketplace.comingSoon.learnMore')}
+                      <ChevronRight className="h-3 w-3 ml-1" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
             )}
           </div>
         </TabsContent>
@@ -1151,14 +1205,7 @@ export function Skills() {
 
       {/* Skill Detail Dialog */}
       {selectedSkill && (
-        <SkillDetailDialog
-          skill={selectedSkill}
-          onClose={() => setSelectedSkill(null)}
-          onToggle={(enabled) => {
-            handleToggle(selectedSkill.id, enabled);
-            setSelectedSkill({ ...selectedSkill, enabled });
-          }}
-        />
+        <SkillDetailDialog skill={selectedSkill} onClose={() => setSelectedSkill(null)} />
       )}
     </div>
   );

@@ -33,7 +33,14 @@
     "namePlaceholder": "e.g., SEO Expert",
     "skillLabel": "Based on Skill",
     "confirm": "Hire",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "empty": "No skill packages available.",
+    "hired": "Hired",
+    "missingSecrets": "Missing required API keys",
+    "source": {
+      "builtin": "Built-in",
+      "marketplace": "Marketplace"
+    }
   },
   "header": {
     "restart": "Restart Employee",

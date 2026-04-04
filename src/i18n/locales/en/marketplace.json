@@ -36,11 +36,23 @@
       "execution": "Execution",
       "hybrid": "Hybrid"
     },
-    "team": "Team"
+    "team": "Team",
+    "hire": "Hire",
+    "chat": "Chat",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "configure": "Configure",
+    "goToTeam": "Go to Team"
   },
   "empty": {
     "title": "No employees found",
     "description": "Try adjusting your search or filters"
+  },
+  "status": {
+    "active": "Active",
+    "hired": "Standby",
+    "installed": "Available",
+    "missingSecrets": "Needs Config"
   },
   "detail": {
     "title": "Employee Details",

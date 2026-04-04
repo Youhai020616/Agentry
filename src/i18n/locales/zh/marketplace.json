@@ -31,6 +31,12 @@
     "installed": "已雇佣",
     "details": "查看详情",
     "by": "作者 {{author}}",
+    "hire": "雇佣",
+    "chat": "对话",
+    "activate": "激活",
+    "deactivate": "停用",
+    "configure": "配置",
+    "goToTeam": "查看团队",
     "type": {
       "knowledge": "知识型",
       "execution": "执行型",
@@ -41,6 +47,12 @@
   "empty": {
     "title": "未找到员工",
     "description": "请尝试调整搜索条件或筛选器"
+  },
+  "status": {
+    "active": "在岗",
+    "hired": "待命",
+    "installed": "可用",
+    "missingSecrets": "需要配置"
   },
   "detail": {
     "title": "员工详情",

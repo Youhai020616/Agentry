@@ -57,7 +57,12 @@
     "failedOpenFolder": "无法打开技能文件夹",
     "failedInstall": "安装失败",
     "failedUninstall": "卸载失败",
-    "failedFolderNotFound": "技能文件夹尚不存在，请先安装一个技能。"
+    "failedFolderNotFound": "技能文件夹尚不存在，请先安装一个技能。",
+    "hired": "员工已成功激活",
+    "deactivated": "员工已成功停用",
+    "hireError": "激活员工失败",
+    "deactivateError": "停用员工失败",
+    "goToTeam": "前往团队 →"
   },
   "marketplace": {
     "title": "市场",
@@ -65,6 +70,20 @@
     "searching": "正在搜索 ClawHub...",
     "noResults": "未找到匹配的技能。",
     "emptyPrompt": "搜索新技能以扩展您的能力。",
-    "searchError": "ClawHub 搜索失败。请检查您的连接或安装。"
+    "searchError": "ClawHub 搜索失败。请检查您的连接或安装。",
+    "tryDifferent": "请尝试不同的搜索词，或浏览已安装的技能。",
+    "comingSoon": {
+      "title": "技能市场即将上线",
+      "description": "我们正在打造一个社区市场，让你可以发现、分享和安装由社区开发者创建的 AI 员工技能包。",
+      "feature1Title": "社区技能",
+      "feature1Desc": "发现全球开发者创建的技能包",
+      "feature2Title": "一键安装",
+      "feature2Desc": "从市场即时安装并激活 AI 员工",
+      "feature3Title": "分享与展示",
+      "feature3Desc": "发布你自己的技能包，建立你的声誉",
+      "createTitle": "创建你自己的技能包",
+      "createDesc": "使用脚手架工具构建自定义 AI 员工",
+      "learnMore": "了解更多"
+    }
   }
 }

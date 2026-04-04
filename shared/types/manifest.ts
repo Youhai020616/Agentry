@@ -136,3 +136,39 @@ export interface SkillManifest {
   pricing?: ManifestPricing;
   onboarding?: ManifestOnboarding;
 }
+
+// ── Skill Pack Info (used by Skills page) ──────────────────────────
+
+/**
+ * Activation status of a Skill Pack relative to the Employee system.
+ * - installed: exists on disk but not yet discovered/activated by EmployeeManager
+ * - hired:     discovered by EmployeeManager, status = offline (not yet activated)
+ * - active:    discovered and activated (status = idle | working | blocked | error)
+ */
+export type SkillPackStatus = 'installed' | 'hired' | 'active';
+
+/**
+ * Where a Skill Pack was installed from.
+ */
+export type SkillPackSource = 'builtin' | 'marketplace';
+
+/**
+ * Unified Skill Pack info returned by `skill:listAll`.
+ * Combines manifest metadata with installation source and employee activation state.
+ */
+export interface SkillPackInfo {
+  /** Skill slug from manifest.name — unique identifier */
+  slug: string;
+  /** Full parsed manifest */
+  manifest: SkillManifest;
+  /** Where this pack came from */
+  source: SkillPackSource;
+  /** Absolute path to the skill directory on disk */
+  skillDir: string;
+  /** Current activation status relative to Employee system */
+  status: SkillPackStatus;
+  /** Employee runtime status when status is 'active' (e.g. 'idle', 'working') */
+  employeeStatus?: string;
+  /** Whether the pack has required secrets that are not yet configured */
+  missingSecrets?: boolean;
+}

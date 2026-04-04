@@ -170,6 +170,7 @@ const INVOKE_CHANNELS = [
   'message:history',
   // Built-in skills
   'skill:listBuiltin',
+  'skill:listAll',
   // Onboarding (Browser Login)
   'onboarding:browserLogin',
   'onboarding:cancelLogin',
