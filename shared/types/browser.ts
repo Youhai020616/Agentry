@@ -1,7 +1,7 @@
 /**
  * Browser Automation Types
  * Shared type definitions for the OpenClaw browser tool integration.
- * Used by both Main process (electron/engine/browser-manager.ts) and
+ * Used by both Main process (electron/engine/stealth-browser-manager.ts) and
  * Renderer process (src/stores/browser.ts, src/pages/Browser/).
  */
 

@@ -70,6 +70,10 @@ export function isBuiltinTool(name: string): name is BuiltinToolName {
  * Generate a behavioral guidance prompt section for employees that have
  * access to the Gateway's native `browser` tool.
  *
+ * The browser tool is powered by OpenClaw-managed Chrome/Chromium via CDP
+ * (Chrome DevTools Protocol) + Playwright. Each employee gets an isolated
+ * browser profile with its own cookies, localStorage, and user-data directory.
+ *
  * This is appended to the employee's system prompt via the ToolRegistry →
  * Compiler pipeline. It does NOT list commands or parameters (the Gateway
  * tool schema already does that). Instead it teaches the LLM *how to think*
@@ -82,15 +86,14 @@ export function generateBrowserToolPrompt(): string {
 
 ## 🌐 Browser Tool — Behavioral Guide
 
-You have access to a native \`browser\` tool powered by **Camoufox** (anti-detection Firefox). It bypasses Cloudflare, Google, and most bot detection systems via C++ level fingerprint spoofing. The tool supports opening URLs, taking snapshots, clicking elements, typing text, scrolling, and screenshots. Call the \`browser\` tool directly — do NOT wrap it in \`exec\`.
+You have access to a native \`browser\` tool powered by **OpenClaw-managed Chrome** (via CDP — Chrome DevTools Protocol). The Gateway automatically launches and manages a dedicated Chrome instance for you. The tool supports opening URLs, taking snapshots, clicking elements, typing text, scrolling, and screenshots. Call the \`browser\` tool directly — do NOT wrap it in \`exec\`.
 
-### Anti-Detection Features
+### Browser Features
 
-- Fingerprints (WebGL, Canvas, AudioContext, screen geometry) are spoofed at the C++ level — no JavaScript shims
-- \`navigator.webdriver\` is always \`false\`
-- TLS fingerprint is Firefox-native (not Chromium)
-- Human behavior simulation is enabled by default (random delays, natural mouse movement)
-- Each employee has a persistent browser profile with unique identity and saved cookies
+- Each employee has an **isolated browser profile** with its own cookies, localStorage, and browsing history
+- The browser runs in managed mode — you do NOT need to install or configure anything
+- Supports both headless (default for automation) and headed modes
+- Full Playwright snapshot support for structured page inspection (numbered element refs)
 
 ### Workflow Pattern
 
@@ -109,7 +112,7 @@ Repeat steps 2–4 as needed. Always snapshot before interacting — you need fr
 - **One action at a time** — Execute one browser action, check the result, then decide next step.
 - **Snapshot after navigation** — Whenever a page changes, snapshot immediately.
 - **Scroll for more content** — If information isn't visible, scroll down and snapshot again.
-- **Don't rush** — The browser simulates human behavior. Allow time between actions.
+- **Don't rush** — Allow time between actions for pages to load fully.
 
 ### Error Handling
 
