@@ -37,6 +37,9 @@ export class EmployeeManager extends EventEmitter {
   private compiler: SkillCompiler;
   private toolRegistry: ToolRegistry | null = null;
 
+  /** Employees auto-activated by supervisor — will be auto-deactivated when their tasks finish */
+  private autoActivatedEmployees = new Set<string>();
+
   constructor() {
     super();
     this.parser = new ManifestParser();
@@ -207,6 +210,11 @@ export class EmployeeManager extends EventEmitter {
     // Emit activated event for pending message delivery (Issue #7)
     this.emit('activated', id);
 
+    // When supervisor activates, auto-activate all team members so sessions_spawn works
+    if (id === 'supervisor') {
+      this.autoActivateTeam();
+    }
+
     logger.info(`Employee activated: ${id}, session=${sessionKey}`);
     return employee;
   }
@@ -222,13 +230,17 @@ export class EmployeeManager extends EventEmitter {
     employee.systemPrompt = undefined;
     this.setStatus(employee, 'offline');
 
+    // Clean up auto-activated tracking
+    this.autoActivatedEmployees.delete(id);
+
     // Update agentToAgent allow list (employee is now offline, so excluded)
     await this.syncAgentToAgentConfig();
 
-    // Clear channel→agent bindings when supervisor goes offline so channel
-    // messages are no longer routed to a non-existent agent.
+    // When supervisor goes offline, auto-deactivate all team members it activated
+    // and clear channel bindings
     if (id === 'supervisor') {
       await this.clearChannelBindings();
+      this.autoDeactivateTeam();
     }
 
     logger.info(`Employee deactivated: ${id}`);
@@ -363,6 +375,73 @@ export class EmployeeManager extends EventEmitter {
   markError(id: string): void {
     const employee = this.requireEmployee(id);
     this.setStatus(employee, 'error');
+  }
+
+  // ── Supervisor auto-activation ──────────────────────────────────
+
+  /**
+   * Check whether an employee was auto-activated by the supervisor.
+   * Used by SpawnTracker to decide whether to auto-deactivate after task completion.
+   */
+  isAutoActivated(id: string): boolean {
+    return this.autoActivatedEmployees.has(id);
+  }
+
+  /**
+   * Auto-activate all offline team members when supervisor comes online.
+   * This ensures all agents are registered in openclaw.json so that
+   * sessions_spawn can route to them. Fire-and-forget — never blocks.
+   */
+  private autoActivateTeam(): void {
+    const offline = this.list().filter((e) => e.id !== 'supervisor' && e.status === 'offline');
+    if (offline.length === 0) {
+      logger.debug('[EmployeeManager] No offline employees to auto-activate');
+      return;
+    }
+
+    logger.info(
+      `[EmployeeManager] Auto-activating ${offline.length} team member(s) for supervisor: ${offline.map((e) => e.id).join(', ')}`
+    );
+
+    // Activate sequentially to avoid openclaw.json write contention
+    void (async () => {
+      for (const emp of offline) {
+        try {
+          await this.activate(emp.id);
+          this.autoActivatedEmployees.add(emp.id);
+          logger.info(`[EmployeeManager] Auto-activated ${emp.id} for supervisor`);
+        } catch (err) {
+          logger.warn(`[EmployeeManager] Failed to auto-activate ${emp.id}: ${err}`);
+        }
+      }
+      logger.info(
+        `[EmployeeManager] Team auto-activation complete (${this.autoActivatedEmployees.size} active)`
+      );
+    })();
+  }
+
+  /**
+   * Auto-deactivate all employees that were auto-activated by the supervisor.
+   * Called when supervisor goes offline. Fire-and-forget — never blocks.
+   */
+  private autoDeactivateTeam(): void {
+    const toDeactivate = Array.from(this.autoActivatedEmployees);
+    if (toDeactivate.length === 0) return;
+
+    logger.info(
+      `[EmployeeManager] Auto-deactivating ${toDeactivate.length} team member(s): ${toDeactivate.join(', ')}`
+    );
+
+    void (async () => {
+      for (const id of toDeactivate) {
+        try {
+          await this.deactivate(id);
+          logger.info(`[EmployeeManager] Auto-deactivated ${id}`);
+        } catch (err) {
+          logger.warn(`[EmployeeManager] Failed to auto-deactivate ${id}: ${err}`);
+        }
+      }
+    })();
   }
 
   // ── Private helpers ──────────────────────────────────────────────

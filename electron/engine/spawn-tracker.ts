@@ -143,11 +143,7 @@ export class SpawnTracker extends EventEmitter {
    */
   private childSessions = new Map<string, TrackedSpawn>();
 
-  constructor(
-    gateway: GatewayManager,
-    taskQueue: TaskQueue,
-    employeeManager: EmployeeManager
-  ) {
+  constructor(gateway: GatewayManager, taskQueue: TaskQueue, employeeManager: EmployeeManager) {
     super();
     this.gateway = gateway;
     this.taskQueue = taskQueue;
@@ -221,7 +217,8 @@ export class SpawnTracker extends EventEmitter {
     const task = (args.task ?? args.message ?? '') as string;
     const agentId = (args.agentId ?? args.agent_id ?? args.agent ?? '') as string;
     const label = (args.label ?? '') as string;
-    const toolCallId = resolveToolCallId(p) ?? `spawn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const toolCallId =
+      resolveToolCallId(p) ?? `spawn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     if (!agentId) {
       logger.warn('[SpawnTracker] sessions_spawn without agentId, skipping');
@@ -301,9 +298,9 @@ export class SpawnTracker extends EventEmitter {
     // sessions_spawn completes immediately with { status: "accepted", runId, childSessionKey }
     // Extract childSessionKey to track the sub-agent's lifecycle.
     const result = (p.result ?? p.output ?? p.response) as Record<string, unknown> | undefined;
-    const childSessionKey = (
-      result?.childSessionKey ?? result?.child_session_key ?? result?.sessionKey
-    ) as string | undefined;
+    const childSessionKey = (result?.childSessionKey ??
+      result?.child_session_key ??
+      result?.sessionKey) as string | undefined;
 
     if (childSessionKey) {
       tracked.childSessionKey = childSessionKey;
@@ -386,9 +383,45 @@ export class SpawnTracker extends EventEmitter {
         agentId: tracked.agentId,
         durationMs,
       });
+
+      // Auto-deactivate employee if it was auto-activated and has no more tasks
+      this.maybeDeactivateEmployee(tracked.agentId);
     } catch (err) {
       logger.error(`[SpawnTracker] Failed to complete task ${tracked.taskId}: ${err}`);
     }
+  }
+
+  // ── Auto-deactivation ─────────────────────────────────────────
+
+  /**
+   * Deactivate an employee if:
+   * 1. It was auto-activated by the supervisor (not manually activated by user)
+   * 2. It has no more in-progress tasks across all projects
+   * Fire-and-forget — never blocks the completion flow.
+   */
+  private maybeDeactivateEmployee(agentId: string): void {
+    if (!this.employeeManager.isAutoActivated(agentId)) return;
+
+    // Check for any remaining in-progress tasks owned by this employee
+    const allTasks = this.taskQueue.list();
+    const busy = allTasks.some((t: Task) => t.owner === agentId && t.status === 'in_progress');
+    if (busy) {
+      logger.debug(
+        `[SpawnTracker] ${agentId} still has in-progress tasks, skipping auto-deactivate`
+      );
+      return;
+    }
+
+    logger.info(`[SpawnTracker] Auto-deactivating ${agentId} — no more in-progress tasks`);
+
+    void (async () => {
+      try {
+        await this.employeeManager.deactivate(agentId);
+        logger.info(`[SpawnTracker] Auto-deactivated ${agentId}`);
+      } catch (err) {
+        logger.warn(`[SpawnTracker] Failed to auto-deactivate ${agentId}: ${err}`);
+      }
+    })();
   }
 
   // ── Project management ────────────────────────────────────────
@@ -406,9 +439,10 @@ export class SpawnTracker extends EventEmitter {
     }
 
     // Create a new project
-    const goal = firstTaskDesc.length > 100
-      ? firstTaskDesc.slice(0, 100) + '...'
-      : firstTaskDesc || 'Supervisor task';
+    const goal =
+      firstTaskDesc.length > 100
+        ? firstTaskDesc.slice(0, 100) + '...'
+        : firstTaskDesc || 'Supervisor task';
 
     const project = this.taskQueue.createProject({
       goal,
@@ -441,9 +475,7 @@ export class SpawnTracker extends EventEmitter {
 
     // Find in-progress tasks for this agent in this project
     const tasks = this.taskQueue.list(projectId);
-    const inProgress = tasks.filter(
-      (t: Task) => t.owner === agentId && t.status === 'in_progress'
-    );
+    const inProgress = tasks.filter((t: Task) => t.owner === agentId && t.status === 'in_progress');
 
     for (const task of inProgress) {
       try {
