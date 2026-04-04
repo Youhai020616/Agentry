@@ -160,7 +160,13 @@ export function Chat({
     (async () => {
       try {
         if (employeeId && employeeName) {
-          await getOrCreateForEmployee(employeeId, employeeName, employeeAvatar, currentSessionKey, employeeAvatarImage);
+          await getOrCreateForEmployee(
+            employeeId,
+            employeeName,
+            employeeAvatar,
+            currentSessionKey,
+            employeeAvatarImage
+          );
         } else {
           await getOrCreateForSupervisor(currentSessionKey);
         }
@@ -361,7 +367,13 @@ export function Chat({
 
     try {
       if (employeeId && employeeName) {
-        await getOrCreateForEmployee(employeeId, employeeName, employeeAvatar, newSessionKey, employeeAvatarImage);
+        await getOrCreateForEmployee(
+          employeeId,
+          employeeName,
+          employeeAvatar,
+          newSessionKey,
+          employeeAvatarImage
+        );
       } else {
         await getOrCreateForSupervisor(newSessionKey);
       }
@@ -474,7 +486,7 @@ export function Chat({
           <div
             ref={messagesContainerRef}
             onScroll={handleScroll}
-            className="absolute inset-0 overflow-y-auto no-scrollbar px-4 py-4"
+            className="absolute inset-0 overflow-y-auto no-scrollbar px-4 pt-4 pb-10"
           >
             <div className="relative max-w-4xl mx-auto space-y-4">
               {loading ? (
@@ -482,7 +494,11 @@ export function Chat({
                   <LoadingSpinner size="lg" />
                 </div>
               ) : messages.length === 0 && !sending ? (
-                <WelcomeScreen employeeName={employeeName} employeeAvatar={employeeAvatar} employeeAvatarImage={employeeAvatarImage} />
+                <WelcomeScreen
+                  employeeName={employeeName}
+                  employeeAvatar={employeeAvatar}
+                  employeeAvatarImage={employeeAvatarImage}
+                />
               ) : (
                 <>
                   {messages.map((msg, idx) => (
