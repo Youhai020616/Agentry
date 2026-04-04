@@ -32,5 +32,5 @@
     "types": ["vitest/globals"],
   },
   "include": ["src", "tests", "shared"],
-  "references": [{ "path": "./tsconfig.node.json" }],
+  "exclude": ["tests/e2e", "tests/integration"],
 }

@@ -35,12 +35,12 @@ function createMockDb() {
 describe('MessageBus', () => {
   let bus: MessageBus;
   let db: ReturnType<typeof createMockDb>;
-  let getActiveEmployeeIds: ReturnType<typeof vi.fn>;
+  let getActiveEmployeeIds: ReturnType<typeof vi.fn<() => string[]>>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     db = createMockDb();
-    getActiveEmployeeIds = vi.fn().mockReturnValue([]);
+    getActiveEmployeeIds = vi.fn<() => string[]>().mockReturnValue([]);
     bus = new MessageBus(db as any, getActiveEmployeeIds);
   });
 
@@ -85,7 +85,7 @@ describe('MessageBus', () => {
       // db.prepare should have been called for the INSERT statement
       expect(db.prepare).toHaveBeenCalled();
       const insertCall = db.prepare.mock.calls.find(
-        (call: any[]) => typeof call[0] === 'string' && call[0].includes('INSERT INTO messages'),
+        (call: any[]) => typeof call[0] === 'string' && call[0].includes('INSERT INTO messages')
       );
       expect(insertCall).toBeDefined();
 
@@ -166,7 +166,7 @@ describe('MessageBus', () => {
       bus.getInbox('emp-1');
 
       expect(db.prepare).toHaveBeenCalledWith(
-        'SELECT * FROM messages WHERE recipient = ? AND read = 0 ORDER BY timestamp ASC',
+        'SELECT * FROM messages WHERE recipient = ? AND read = 0 ORDER BY timestamp ASC'
       );
     });
 
@@ -187,7 +187,7 @@ describe('MessageBus', () => {
       bus.getHistory('emp-1', 50);
 
       expect(db.prepare).toHaveBeenCalledWith(
-        'SELECT * FROM messages WHERE recipient = ? OR "from" = ? ORDER BY timestamp DESC LIMIT ?',
+        'SELECT * FROM messages WHERE recipient = ? OR "from" = ? ORDER BY timestamp DESC LIMIT ?'
       );
     });
   });
@@ -198,9 +198,7 @@ describe('MessageBus', () => {
     it('should update read flag for a single message', () => {
       bus.markRead('msg-123');
 
-      expect(db.prepare).toHaveBeenCalledWith(
-        'UPDATE messages SET read = 1 WHERE id = ?',
-      );
+      expect(db.prepare).toHaveBeenCalledWith('UPDATE messages SET read = 1 WHERE id = ?');
 
       // The run function should be called with the message id
       const stmt = db.prepare.mock.results[0].value;
@@ -224,7 +222,7 @@ describe('MessageBus', () => {
       bus.markAllRead('emp-1');
 
       expect(db.prepare).toHaveBeenCalledWith(
-        'UPDATE messages SET read = 1 WHERE recipient = ? AND read = 0',
+        'UPDATE messages SET read = 1 WHERE recipient = ? AND read = 0'
       );
 
       const stmt = db.prepare.mock.results[0].value;
@@ -278,7 +276,7 @@ describe('MessageBus', () => {
       bus.getUnreadCount('emp-1');
 
       expect(db.prepare).toHaveBeenCalledWith(
-        'SELECT COUNT(*) AS count FROM messages WHERE recipient = ? AND read = 0',
+        'SELECT COUNT(*) AS count FROM messages WHERE recipient = ? AND read = 0'
       );
     });
   });

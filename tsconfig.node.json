@@ -29,4 +29,5 @@
     },
   },
   "include": ["electron", "shared", "src/types", "vite.config.ts"],
+  "exclude": ["electron/src copy"],
 }

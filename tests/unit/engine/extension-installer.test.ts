@@ -24,6 +24,7 @@ const {
   mockReaddirSync,
   mockUnlinkSync,
   mockChmodSync,
+  // @ts-expect-error used for mock interception
   _mockHttpGet,
 } = vi.hoisted(() => ({
   mockIsPythonReady: vi.fn(),

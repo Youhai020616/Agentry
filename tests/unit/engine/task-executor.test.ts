@@ -30,9 +30,7 @@ function createMockTaskQueue() {
     removeListener: emitter.removeListener.bind(emitter),
     get: vi.fn((id: string) => tasks.get(id) ?? null),
     list: vi.fn((projectId?: string) => {
-      return Array.from(tasks.values()).filter(
-        (t) => !projectId || t.projectId === projectId
-      );
+      return Array.from(tasks.values()).filter((t) => !projectId || t.projectId === projectId);
     }),
     create: vi.fn((input: Record<string, unknown>) => {
       const task = {
@@ -300,7 +298,7 @@ describe('TaskExecutor', () => {
 
       await executor.executeTask('task-2', 'emp-1', { includeProjectContext: true });
 
-      const sentMessage = gateway.rpc.mock.calls[0][1] as Record<string, unknown>;
+      const sentMessage = (gateway.rpc.mock.calls[0] as unknown[])[1] as Record<string, unknown>;
       expect(sentMessage.message).toContain('Related Task Outputs');
     });
   });
