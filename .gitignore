@@ -81,8 +81,7 @@ star-office-ui/
 # Legacy code copies (reference only, not part of project)
 electron/src copy/
 
-# Submodules managed externally
-resources/star-office
+
 
 # Local docs (not tracked in repo)
 docs/
